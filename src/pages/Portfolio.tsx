@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 
 interface PortfolioItem {
   id: string;
@@ -100,6 +101,7 @@ export default function Portfolio() {
     setNewAccount({ investmentType: 'Renta fija', category: 'Sofipo', customCategory: '', accountName: '', deposited: '', realValue: '' });
     setIsCustomCategory(false);
     setAccountStatus('new');
+    toast.success('Cuenta registrada correctamente');
   };
 
   // FUNCIÓN MATEMÁTICA PARA CALCULAR LA SEMANA (Lunes a Domingo)
@@ -155,6 +157,7 @@ export default function Portfolio() {
     setWeeklyHistory([weekToAdd, ...weeklyHistory]);
     setIsNewWeekModalOpen(false);
     setNewMovement({ date: '', type: 'Depósito', amount: '' });
+    toast.success('Movimiento guardado con éxito');
   };
 
   return (

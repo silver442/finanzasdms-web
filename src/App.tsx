@@ -1,14 +1,18 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import ProtectedRoute from './components/ProtectedRoute'; 
 import CreditCards from './pages/CreditCards';
 import CreditCardDetail from './pages/CreditCardDetail';
 import Portfolio from './pages/Portfolio';
+import Crypto from './pages/Crypto';
+import Loans from './pages/Loans';
 
 function App() {
   return (
     <BrowserRouter>
+      <Toaster richColors theme="dark" position="top-right" />
       <Routes>
         {/* Rutas Públicas */}
         <Route path="/login" element={<Login />} />
@@ -22,13 +26,10 @@ function App() {
           <Route path="/credit-cards/:id" element={<CreditCardDetail />} />
           <Route 
             path="/loans" 
-            element={<div className="p-8 text-emerald-400 text-2xl font-bold">🏦 Módulo de Préstamos (En construcción)</div>} 
-          />
+            element={<Loans/>} />
           <Route path="/portfolio" element={<Portfolio />} />
-          <Route 
-            path="/crypto" 
-            element={<div className="p-8 text-emerald-400 text-2xl font-bold">🪙 Módulo de Cripto (En construcción)</div>} 
-          />
+          
+          <Route path="/crypto" element={<Crypto />} />
         </Route>
         
         {/* Ruta comodín para URLs que de verdad no existen */}
