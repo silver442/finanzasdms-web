@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, CreditCard, Landmark, PieChart, Bitcoin, LogOut, ShieldCheck, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, CreditCard, Landmark, PieChart, Bitcoin, LogOut, ShieldCheck, ClipboardList, Briefcase, DatabaseZap, ClipboardCheck } from 'lucide-react';
 
 function getUserRole(): string {
   try {
@@ -20,6 +20,10 @@ const menuItems = [
 
 const adminItems = [
   { name: 'Solicitudes Pendientes', path: '/admin/requests', icon: ClipboardList },
+  { name: 'Cartera Activa', path: '/admin/active-loans', icon: Briefcase },
+  { name: 'Validar Pagos', path: '/admin/payments', icon: ClipboardCheck },
+  { name: 'Bancos', path: '/admin/banks', icon: Landmark },
+  { name: 'Migrar Datos', path: '/admin/migration', icon: DatabaseZap },
 ];
 
 const navCls = ({ isActive }: { isActive: boolean }) =>

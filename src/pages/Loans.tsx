@@ -4,8 +4,15 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import {
   Landmark, Plus, CheckCircle2, Circle, AlertCircle,
-  X, Copy, CreditCard, TrendingUp, AlertTriangle, Calculator,
+  X, Copy, CreditCard, TrendingUp, AlertTriangle, Calculator, Clock,
 } from 'lucide-react';
+
+interface AdminBank {
+  id: string;
+  bankName: string;
+  clabe: string;
+  accountHolder: string;
+}
 
 interface Installment {
   id: string;
@@ -64,11 +71,13 @@ export default function Loans() {
 
   const [loans, setLoans] = useState<Loan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [banks, setBanks] = useState<AdminBank[]>([]);
 
   // Modals
   const [showSimModal, setShowSimModal] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [payTarget, setPayTarget] = useState<Installment | null>(null);
+  const [payRegistered, setPayRegistered] = useState(false);
 
   // Simulator state
   const [simAmount, setSimAmount] = useState('');
@@ -84,7 +93,7 @@ export default function Loans() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Pay form state
-  const [payForm, setPayForm] = useState({ amount: '', reference: '' });
+  const [payForm, setPayForm] = useState({ amount: '', bankId: '', reference: '' });
   const [isPaying, setIsPaying] = useState(false);
 
   // Simulator calculations
@@ -97,6 +106,13 @@ export default function Loans() {
   const reqAmount = parseFloat(reqForm.amount) || 0;
   const isOverLimit = creditLimit > 0 && reqAmount > creditLimit;
 
+  const fetchBanks = useCallback(async () => {
+    try {
+      const { data } = await axios.get<AdminBank[]>(`${API}/admin-banks`);
+      setBanks(data);
+    } catch { /* bancos no críticos */ }
+  }, []);
+
   const fetchLoans = useCallback(async () => {
     try {
       const { data } = await axios.get<Loan[]>(`${API}/loans/my-loans`, { headers: authHeaders() });
@@ -108,7 +124,7 @@ export default function Loans() {
     }
   }, []);
 
-  useEffect(() => { void fetchLoans(); }, [fetchLoans]);
+  useEffect(() => { void fetchLoans(); void fetchBanks(); }, [fetchLoans, fetchBanks]);
 
   const handleRequestLoan = async () => {
     const amount = parseFloat(reqForm.amount);
@@ -168,17 +184,21 @@ export default function Loans() {
     if (!payTarget) return;
     const amount = parseFloat(payForm.amount);
     if (isNaN(amount) || amount <= 0) { toast.error('Ingresa una cantidad válida'); return; }
+    if (!payForm.bankId) { toast.error('Selecciona el banco al que realizaste el depósito'); return; }
     setIsPaying(true);
     try {
-      await axios.patch(
-        `${API}/loans/installments/${payTarget.id}/pay`,
-        { amount, reference: payForm.reference || undefined },
+      await axios.post(
+        `${API}/payment-requests`,
+        {
+          installmentId: payTarget.id,
+          amount,
+          bankId: payForm.bankId,
+          reference: payForm.reference || undefined,
+        },
         { headers: authHeaders() },
       );
-      toast.success('Pago registrado correctamente');
-      setPayTarget(null);
-      setPayForm({ amount: '', reference: '' });
-      await fetchLoans();
+      setPayRegistered(true);
+      setPayForm({ amount: '', bankId: '', reference: '' });
     } catch (e: any) {
       toast.error(e?.response?.data?.message ?? 'Error al registrar el pago');
     } finally {
@@ -299,7 +319,7 @@ export default function Loans() {
                               <td className="py-3 text-center">
                                 {!isComplete && (
                                   <button
-                                    onClick={() => { setPayTarget(inst); setPayForm({ amount: '', reference: '' }); }}
+                                    onClick={() => { setPayTarget(inst); setPayRegistered(false); setPayForm({ amount: '', bankId: '', reference: '' }); }}
                                     className="text-xs bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 px-3 py-1 rounded-lg transition-colors font-medium"
                                   >
                                     Abonar
@@ -545,79 +565,133 @@ export default function Loans() {
             <div className="flex justify-between items-center p-6 border-b border-slate-700">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
                 <CreditCard size={20} className="text-emerald-400" />
-                Registrar Pago — Cuota #{payTarget.number}
+                Registrar Abono — Cuota #{payTarget.number}
               </h3>
-              <button onClick={() => setPayTarget(null)} className="text-slate-400 hover:text-white"><X size={20} /></button>
-            </div>
-
-            <div className="p-6 space-y-5">
-              <div className="bg-slate-900/70 border border-slate-600 rounded-xl p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
-                  <p className="text-sm font-bold text-emerald-400 uppercase tracking-wider">Instrucciones de Pago SPEI</p>
-                </div>
-                <div className="space-y-3 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Banco</span>
-                    <span className="text-white font-semibold">Santander</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Titular</span>
-                    <span className="text-white font-semibold">Silvestre Hdz H</span>
-                  </div>
-                  <div className="flex justify-between items-center border-t border-slate-700 pt-3">
-                    <span className="text-slate-400">CLABE</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-white font-mono font-semibold tracking-wider">0141 8065 5476 1234 56</span>
-                      <button onClick={() => copyText('014180655476123456')} className="text-slate-500 hover:text-emerald-400 transition-colors">
-                        <Copy size={14} />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 mt-1">
-                    <p className="text-amber-300 text-xs font-semibold mb-1">Usa este concepto exacto en tu app bancaria:</p>
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-amber-200 text-sm font-bold">Abono {shortId(payTarget.id)}</span>
-                      <button onClick={() => copyText(`Abono ${shortId(payTarget.id)}`)} className="text-slate-500 hover:text-amber-400 transition-colors">
-                        <Copy size={14} />
-                      </button>
-                    </div>
-                  </div>
-                  <p className="text-slate-500 text-xs">
-                    Pendiente: <span className="text-white font-bold">{formatCurrency(Number(payTarget.amountDue) - Number(payTarget.amountPaid))}</span>
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm text-slate-300 font-medium mb-1">Cantidad transferida (MXN)</label>
-                  <input type="number" value={payForm.amount}
-                    onChange={e => setPayForm(f => ({ ...f, amount: e.target.value }))}
-                    className={inputCls} placeholder="0.00" min="0.01" step="0.01" />
-                </div>
-                <div>
-                  <label className="block text-sm text-slate-300 font-medium mb-1">
-                    Concepto / Referencia usada en el SPEI
-                    <span className="text-slate-500 font-normal ml-1">(opcional)</span>
-                  </label>
-                  <input type="text" value={payForm.reference}
-                    onChange={e => setPayForm(f => ({ ...f, reference: e.target.value }))}
-                    className={inputCls} placeholder={`Abono ${shortId(payTarget.id)}`} />
-                </div>
-              </div>
-            </div>
-
-            <div className="p-6 border-t border-slate-700 flex gap-3 justify-end">
-              <button onClick={() => setPayTarget(null)} className="px-4 py-2 rounded-lg text-slate-300 hover:text-white transition-colors">Cancelar</button>
-              <button
-                onClick={() => void handlePayInstallment()}
-                disabled={isPaying}
-                className="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2 rounded-lg font-bold transition-colors disabled:opacity-50"
-              >
-                {isPaying ? 'Registrando...' : 'Confirmar Pago'}
+              <button onClick={() => { setPayTarget(null); setPayRegistered(false); }} className="text-slate-400 hover:text-white">
+                <X size={20} />
               </button>
             </div>
+
+            {payRegistered ? (
+              /* ── Pantalla de confirmación ── */
+              <div className="p-8 text-center">
+                <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-4">
+                  <Clock size={32} className="text-emerald-400" />
+                </div>
+                <h4 className="text-xl font-bold text-white mb-2">Pago Registrado</h4>
+                <p className="text-slate-300 text-sm mb-1">Tu abono ha sido recibido correctamente.</p>
+                <p className="text-slate-400 text-sm">
+                  Se verá reflejado en un máximo de <strong className="text-white">24 horas</strong> tras la validación manual del administrador.
+                </p>
+                <button
+                  onClick={() => { setPayTarget(null); setPayRegistered(false); }}
+                  className="mt-6 bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2.5 rounded-xl font-bold transition-colors"
+                >
+                  Entendido
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="p-6 space-y-5">
+
+                  {/* 1 — Seleccionar banco */}
+                  <div>
+                    <label className="block text-sm text-slate-300 font-medium mb-1">
+                      ¿A qué banco realizaste el depósito?
+                    </label>
+                    <select
+                      value={payForm.bankId}
+                      onChange={e => setPayForm(f => ({ ...f, bankId: e.target.value }))}
+                      className={inputCls}
+                    >
+                      <option value="">— Selecciona un banco —</option>
+                      {banks.map(b => (
+                        <option key={b.id} value={b.id}>
+                          {b.bankName} — {b.accountHolder}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* 2 — Datos del banco seleccionado (CLABE dinámica) */}
+                  {(() => {
+                    const selected = banks.find(b => b.id === payForm.bankId);
+                    if (!selected) return null;
+                    return (
+                      <div className="bg-slate-900/70 border border-slate-600 rounded-xl p-5">
+                        <div className="flex items-center gap-2 mb-4">
+                          <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                          <p className="text-sm font-bold text-emerald-400 uppercase tracking-wider">Datos para tu SPEI</p>
+                        </div>
+                        <div className="space-y-3 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Banco</span>
+                            <span className="text-white font-semibold">{selected.bankName}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Titular</span>
+                            <span className="text-white font-semibold">{selected.accountHolder}</span>
+                          </div>
+                          <div className="flex justify-between items-center border-t border-slate-700 pt-3">
+                            <span className="text-slate-400">CLABE</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-white font-mono font-semibold tracking-wider">{selected.clabe}</span>
+                              <button onClick={() => copyText(selected.clabe)} className="text-slate-500 hover:text-emerald-400 transition-colors">
+                                <Copy size={14} />
+                              </button>
+                            </div>
+                          </div>
+                          <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 mt-1">
+                            <p className="text-amber-300 text-xs font-semibold mb-1">Usa este concepto en tu app bancaria:</p>
+                            <div className="flex items-center justify-between">
+                              <span className="font-mono text-amber-200 text-sm font-bold">Abono {shortId(payTarget.id)}</span>
+                              <button onClick={() => copyText(`Abono ${shortId(payTarget.id)}`)} className="text-slate-500 hover:text-amber-400 transition-colors">
+                                <Copy size={14} />
+                              </button>
+                            </div>
+                          </div>
+                          <p className="text-slate-500 text-xs">
+                            Pendiente: <span className="text-white font-bold">{formatCurrency(Number(payTarget.amountDue) - Number(payTarget.amountPaid))}</span>
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* 3 — Monto y referencia */}
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm text-slate-300 font-medium mb-1">Cantidad transferida (MXN)</label>
+                      <input type="number" value={payForm.amount}
+                        onChange={e => setPayForm(f => ({ ...f, amount: e.target.value }))}
+                        className={inputCls} placeholder="0.00" min="0.01" step="0.01" />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-slate-300 font-medium mb-1">
+                        Referencia del SPEI
+                        <span className="text-slate-500 font-normal ml-1">(opcional pero recomendada)</span>
+                      </label>
+                      <input type="text" value={payForm.reference}
+                        onChange={e => setPayForm(f => ({ ...f, reference: e.target.value }))}
+                        className={inputCls} placeholder={`Abono ${shortId(payTarget.id)}`} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-6 border-t border-slate-700 flex gap-3 justify-end">
+                  <button onClick={() => setPayTarget(null)} className="px-4 py-2 rounded-lg text-slate-300 hover:text-white transition-colors">
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => void handlePayInstallment()}
+                    disabled={isPaying}
+                    className="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2 rounded-lg font-bold transition-colors disabled:opacity-50"
+                  >
+                    {isPaying ? 'Registrando...' : 'Confirmar Abono'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

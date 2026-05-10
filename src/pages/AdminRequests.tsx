@@ -56,6 +56,7 @@ export default function AdminRequests() {
 
   // Reject confirmation state
   const [rejectTarget, setRejectTarget] = useState<AdminLoan | null>(null);
+  const [isRejecting, setIsRejecting] = useState(false);
 
   const fetchRequests = useCallback(async () => {
     try {
@@ -102,10 +103,18 @@ export default function AdminRequests() {
     }
   };
 
-  const handleReject = (loan: AdminLoan) => {
-    setLoans(prev => prev.filter(l => l.id !== loan.id));
-    setRejectTarget(null);
-    toast.success('Solicitud removida de la vista');
+  const handleReject = async (loan: AdminLoan) => {
+    setIsRejecting(true);
+    try {
+      await axios.patch(`${API}/loans/${loan.id}/reject`, {}, { headers: authHeaders() });
+      toast.success('Solicitud rechazada');
+      setLoans(prev => prev.filter(l => l.id !== loan.id));
+      setRejectTarget(null);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? 'Error al rechazar');
+    } finally {
+      setIsRejecting(false);
+    }
   };
 
   const capacity = (loan: AdminLoan) => {
@@ -370,12 +379,14 @@ export default function AdminRequests() {
               </p>
               <div className="flex gap-3">
                 <button onClick={() => setRejectTarget(null)}
-                  className="flex-1 px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:text-white transition-colors">
+                  disabled={isRejecting}
+                  className="flex-1 px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:text-white transition-colors disabled:opacity-50">
                   Cancelar
                 </button>
-                <button onClick={() => handleReject(rejectTarget)}
-                  className="flex-1 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-bold transition-colors">
-                  Rechazar
+                <button onClick={() => void handleReject(rejectTarget)}
+                  disabled={isRejecting}
+                  className="flex-1 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-bold transition-colors disabled:opacity-50">
+                  {isRejecting ? 'Rechazando...' : 'Rechazar'}
                 </button>
               </div>
             </div>

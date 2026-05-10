@@ -11,6 +11,10 @@ import Loans from './pages/Loans';
 import Register from './pages/Register';
 import Landing from './pages/Landing';
 import AdminRequests from './pages/AdminRequests';
+import AdminActiveLoans from './pages/AdminActiveLoans';
+import AdminMigration from './pages/AdminMigration';
+import AdminPayments from './pages/AdminPayments';
+import AdminBanks from './pages/AdminBanks';
 
 function App() {
   return (
@@ -36,6 +40,10 @@ function App() {
           
           <Route path="/crypto" element={<Crypto />} />
           <Route path="/admin/requests" element={<AdminRequests />} />
+          <Route path="/admin/active-loans" element={<AdminActiveLoans />} />
+          <Route path="/admin/migration" element={<AdminMigration />} />
+          <Route path="/admin/payments" element={<AdminPayments />} />
+          <Route path="/admin/banks" element={<AdminBanks />} />
         </Route>
         
         {/* Ruta comodín para URLs que de verdad no existen */}
