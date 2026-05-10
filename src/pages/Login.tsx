@@ -1,37 +1,36 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 export default function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); // Evita que la página se recargue
-    setError('');
-    setIsLoading(true);
+    e.preventDefault();
+    setIsLoading(true); // Asumiendo que tienes un estado isLoading como en Register
 
     try {
-      // Hacemos la petición a tu API en NestJS
       const response = await axios.post('http://localhost:3000/auth/login', {
         email,
-        password,
+        password
       });
 
-      // Si todo sale bien, guardamos el token en el navegador
-      const token = response.data.access_token;
-      localStorage.setItem('token', token);
+      // Guardamos el token en el navegador
+      localStorage.setItem('token', response.data.access_token);
       
+      // Opcional: También podrías guardar el usuario y sus activeModules
+      // localStorage.setItem('user', JSON.stringify(response.data.user));
+
+      toast.success('¡Bienvenido de vuelta!');
       navigate('/dashboard');
-      
-      // Aquí más adelante haremos la redirección al Dashboard
-      
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (err) {
-      setError('Credenciales incorrectas. Intenta de nuevo.');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+      toast.error('Correo o contraseña incorrectos');
     } finally {
       setIsLoading(false);
     }
@@ -43,12 +42,6 @@ export default function Login() {
         <h2 className="text-3xl font-bold text-white text-center mb-6">
           Iniciar Sesión
         </h2>
-
-        {error && (
-          <div className="bg-red-500/10 border border-red-500 text-red-500 px-4 py-3 rounded mb-4 text-center">
-            {error}
-          </div>
-        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

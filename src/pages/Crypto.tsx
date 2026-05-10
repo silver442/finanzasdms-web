@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { Bitcoin, RefreshCw, TrendingUp, TrendingDown, X, Wallet, DollarSign, PieChart as PieChartIcon, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';

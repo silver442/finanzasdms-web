@@ -8,6 +8,8 @@ import CreditCardDetail from './pages/CreditCardDetail';
 import Portfolio from './pages/Portfolio';
 import Crypto from './pages/Crypto';
 import Loans from './pages/Loans';
+import Register from './pages/Register';
+import Landing from './pages/Landing';
 
 function App() {
   return (
@@ -15,7 +17,9 @@ function App() {
       <Toaster richColors theme="dark" position="top-right" />
       <Routes>
         {/* Rutas Públicas */}
+        <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
         
         {/* Rutas Protegidas (El Guardián envuelve todo lo que está adentro) */}
         <Route element={<ProtectedRoute />}>
