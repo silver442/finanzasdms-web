@@ -22,9 +22,7 @@ export default function Login() {
 
       // Guardamos el token en el navegador
       localStorage.setItem('token', response.data.access_token);
-      
-      // Opcional: También podrías guardar el usuario y sus activeModules
-      // localStorage.setItem('user', JSON.stringify(response.data.user));
+      localStorage.setItem('user', JSON.stringify(response.data.user));
 
       toast.success('¡Bienvenido de vuelta!');
       navigate('/dashboard');

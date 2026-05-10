@@ -10,6 +10,7 @@ import Crypto from './pages/Crypto';
 import Loans from './pages/Loans';
 import Register from './pages/Register';
 import Landing from './pages/Landing';
+import AdminRequests from './pages/AdminRequests';
 
 function App() {
   return (
@@ -34,6 +35,7 @@ function App() {
           <Route path="/portfolio" element={<Portfolio />} />
           
           <Route path="/crypto" element={<Crypto />} />
+          <Route path="/admin/requests" element={<AdminRequests />} />
         </Route>
         
         {/* Ruta comodín para URLs que de verdad no existen */}
