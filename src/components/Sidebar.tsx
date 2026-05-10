@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, CreditCard, Landmark, PieChart, Bitcoin, LogOut, ShieldCheck, ClipboardList, Briefcase, DatabaseZap, ClipboardCheck } from 'lucide-react';
+import { LayoutDashboard, CreditCard, Landmark, PieChart, Bitcoin, LogOut, ShieldCheck, ClipboardList, Briefcase, DatabaseZap, ClipboardCheck, UserCircle, TrendingUp, BarChart2 } from 'lucide-react';
 
 function getUserRole(): string {
   try {
@@ -12,6 +12,8 @@ function getUserRole(): string {
 
 const menuItems = [
   { name: 'Resumen Financiero', path: '/dashboard', icon: LayoutDashboard },
+  { name: 'Mi Perfil', path: '/profile', icon: UserCircle },
+  { name: 'Gana Dinero', path: '/investments', icon: TrendingUp },
   { name: 'Tarjetas de Crédito', path: '/credit-cards', icon: CreditCard },
   { name: 'Préstamos', path: '/loans', icon: Landmark },
   { name: 'Portafolio (Bolsa)', path: '/portfolio', icon: PieChart },
@@ -19,6 +21,7 @@ const menuItems = [
 ];
 
 const adminItems = [
+  { name: 'Panel de Control', path: '/admin/home', icon: BarChart2 },
   { name: 'Solicitudes Pendientes', path: '/admin/requests', icon: ClipboardList },
   { name: 'Cartera Activa', path: '/admin/active-loans', icon: Briefcase },
   { name: 'Validar Pagos', path: '/admin/payments', icon: ClipboardCheck },

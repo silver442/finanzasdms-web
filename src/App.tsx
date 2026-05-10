@@ -15,6 +15,9 @@ import AdminActiveLoans from './pages/AdminActiveLoans';
 import AdminMigration from './pages/AdminMigration';
 import AdminPayments from './pages/AdminPayments';
 import AdminBanks from './pages/AdminBanks';
+import Profile from './pages/Profile';
+import AdminHome from './pages/AdminHome';
+import Investments from './pages/Investments';
 
 function App() {
   return (
@@ -44,6 +47,9 @@ function App() {
           <Route path="/admin/migration" element={<AdminMigration />} />
           <Route path="/admin/payments" element={<AdminPayments />} />
           <Route path="/admin/banks" element={<AdminBanks />} />
+          <Route path="/admin/home" element={<AdminHome />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/investments" element={<Investments />} />
         </Route>
         
         {/* Ruta comodín para URLs que de verdad no existen */}

@@ -4,7 +4,7 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import {
   Landmark, Plus, CheckCircle2, Circle, AlertCircle,
-  X, Copy, CreditCard, TrendingUp, AlertTriangle, Calculator, Clock,
+  X, Copy, CreditCard, TrendingUp, AlertTriangle, Calculator, Clock, Ban,
 } from 'lucide-react';
 
 interface AdminBank {
@@ -72,6 +72,7 @@ export default function Loans() {
   const [loans, setLoans] = useState<Loan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [banks, setBanks] = useState<AdminBank[]>([]);
+  const [slotsAvailable, setSlotsAvailable] = useState(true);
 
   // Modals
   const [showSimModal, setShowSimModal] = useState(false);
@@ -106,6 +107,13 @@ export default function Loans() {
   const reqAmount = parseFloat(reqForm.amount) || 0;
   const isOverLimit = creditLimit > 0 && reqAmount > creditLimit;
 
+  const fetchCapacity = useCallback(async () => {
+    try {
+      const { data } = await axios.get<{ available: boolean }>(`${API}/loans/capacity`, { headers: authHeaders() });
+      setSlotsAvailable(data.available);
+    } catch { /* no crítico */ }
+  }, []);
+
   const fetchBanks = useCallback(async () => {
     try {
       const { data } = await axios.get<AdminBank[]>(`${API}/admin-banks`);
@@ -124,7 +132,7 @@ export default function Loans() {
     }
   }, []);
 
-  useEffect(() => { void fetchLoans(); void fetchBanks(); }, [fetchLoans, fetchBanks]);
+  useEffect(() => { void fetchLoans(); void fetchBanks(); void fetchCapacity(); }, [fetchLoans, fetchBanks, fetchCapacity]);
 
   const handleRequestLoan = async () => {
     const amount = parseFloat(reqForm.amount);
@@ -223,7 +231,7 @@ export default function Loans() {
     <div className="p-8 text-white font-sans max-w-7xl mx-auto">
 
       {/* ── Header ── */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex justify-between items-center mb-4">
         <div>
           <h1 className="text-3xl font-extrabold text-emerald-400 flex items-center gap-3">
             <Landmark size={32} />
@@ -241,13 +249,26 @@ export default function Loans() {
           </button>
           <button
             onClick={() => setShowRequestModal(true)}
-            className="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2"
+            disabled={!slotsAvailable}
+            title={!slotsAvailable ? 'Cupos agotados este mes' : undefined}
+            className="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:bg-slate-600"
           >
             <Plus size={20} />
             Solicitar Préstamo
           </button>
         </div>
       </div>
+
+      {/* ── Banner: cupos agotados ── */}
+      {!slotsAvailable && (
+        <div className="mb-8 flex items-center gap-3 bg-amber-500/10 border border-amber-500/30 rounded-xl px-5 py-4">
+          <Ban size={20} className="text-amber-400 shrink-0" />
+          <div>
+            <p className="text-amber-300 font-bold text-sm">Cupos de crédito agotados por este mes</p>
+            <p className="text-amber-400/70 text-xs mt-0.5">Se han alcanzado los 20 créditos activos simultáneos. Intenta de nuevo el próximo mes.</p>
+          </div>
+        </div>
+      )}
 
       {/* ── Loan list ── */}
       {isLoading ? (
