@@ -1,0 +1,642 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { Fragment, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { toast } from 'sonner';
+import {
+  ArrowLeft, Plus, AlertTriangle, Check,
+  ChevronRight, ChevronLeft, Send, CalendarCheck,
+} from 'lucide-react';
+
+const API = 'http://localhost:3000';
+const DEFAULT_CREDIT_LIMIT = 1000;
+const DEFAULT_RATE = 50;
+const TERM_OPTIONS = [1, 2, 3, 6, 9, 12, 18, 24];
+const HOUSING_OPTIONS = ['Propia', 'Rentada', 'Familiar'];
+
+const MEXICO_STATES = [
+  'Aguascalientes', 'Baja California', 'Baja California Sur', 'Campeche',
+  'Chiapas', 'Chihuahua', 'Ciudad de México', 'Coahuila de Zaragoza',
+  'Colima', 'Durango', 'Estado de México', 'Guanajuato', 'Guerrero',
+  'Hidalgo', 'Jalisco', 'Michoacán de Ocampo', 'Morelos', 'Nayarit',
+  'Nuevo León', 'Oaxaca', 'Puebla', 'Querétaro', 'Quintana Roo',
+  'San Luis Potosí', 'Sinaloa', 'Sonora', 'Tabasco', 'Tamaulipas',
+  'Tlaxcala', 'Veracruz de Ignacio de la Llave', 'Yucatán', 'Zacatecas',
+];
+
+const COLOMBIA_DEPARTMENTS = [
+  'Amazonas', 'Antioquia', 'Arauca', 'Atlántico', 'Bogotá D.C.', 'Bolívar',
+  'Boyacá', 'Caldas', 'Caquetá', 'Casanare', 'Cauca', 'Cesar', 'Chocó',
+  'Córdoba', 'Cundinamarca', 'Guainía', 'Guaviare', 'Huila', 'La Guajira',
+  'Magdalena', 'Meta', 'Nariño', 'Norte de Santander', 'Putumayo', 'Quindío',
+  'Risaralda', 'San Andrés y Providencia', 'Santander', 'Sucre', 'Tolima',
+  'Valle del Cauca', 'Vaupés', 'Vichada',
+];
+
+const COUNTRIES = ['México', 'Colombia', 'Otro'];
+
+const STEP_LABELS = ['Datos del Préstamo', 'Información Personal', 'Resumen Final'];
+
+function authHeaders() {
+  return { Authorization: `Bearer ${localStorage.getItem('token')}` };
+}
+
+function getUserDefaults() {
+  try {
+    const raw = localStorage.getItem('user');
+    if (!raw) return { creditLimit: DEFAULT_CREDIT_LIMIT, currentRate: DEFAULT_RATE };
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    return {
+      creditLimit: Number(parsed.creditLimit ?? DEFAULT_CREDIT_LIMIT) || DEFAULT_CREDIT_LIMIT,
+      currentRate: Number(parsed.currentRate ?? DEFAULT_RATE) || DEFAULT_RATE,
+    };
+  } catch {
+    return { creditLimit: DEFAULT_CREDIT_LIMIT, currentRate: DEFAULT_RATE };
+  }
+}
+
+const inputCls =
+  'w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:border-emerald-500 transition-colors placeholder-slate-600';
+
+const sectionHeader = 'text-xs font-bold text-slate-400 uppercase tracking-wider mb-4';
+
+// ── Stepper component ─────────────────────────────────────────────────────────
+function Stepper({ current }: { current: number }) {
+  return (
+    <div className="flex items-center justify-center mb-8">
+      {STEP_LABELS.map((label, idx) => {
+        const num = idx + 1;
+        const done = current > num;
+        const active = current === num;
+        return (
+          <Fragment key={num}>
+            <div className="flex flex-col items-center gap-1.5" style={{ minWidth: 88 }}>
+              <div
+                className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm border-2 transition-all duration-300 ${
+                  done
+                    ? 'bg-emerald-500 border-emerald-500 text-white'
+                    : active
+                      ? 'bg-emerald-500 border-emerald-400 text-white shadow-lg shadow-emerald-500/40 ring-4 ring-emerald-500/20'
+                      : 'bg-slate-800 border-slate-600 text-slate-500'
+                }`}
+              >
+                {done ? <Check size={15} strokeWidth={2.5} /> : num}
+              </div>
+              <span
+                className={`text-xs font-medium text-center leading-tight ${
+                  current >= num ? 'text-white' : 'text-slate-500'
+                }`}
+              >
+                {label}
+              </span>
+            </div>
+            {idx < STEP_LABELS.length - 1 && (
+              <div
+                className={`h-0.5 w-16 sm:w-20 mx-1 mb-5 rounded-full transition-all duration-500 flex-shrink-0 ${
+                  current > idx + 1 ? 'bg-emerald-500' : 'bg-slate-700'
+                }`}
+              />
+            )}
+          </Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+export default function LoanRequest() {
+  const navigate = useNavigate();
+  const { creditLimit, currentRate } = useMemo(() => getUserDefaults(), []);
+
+  const [step, setStep] = useState(1);
+  const [form, setForm] = useState({
+    concept: '',
+    amount: '',
+    termMonths: '12',
+    phone: '',
+    income: '',
+    expenses: '',
+    housingStatus: 'Rentada',
+    country: '',
+    state: '',
+    referralCode: '',
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // ── Derived financial values ──────────────────────────────────────────────
+  const amountN = parseFloat(form.amount) || 0;
+  const termN = parseInt(form.termMonths, 10) || 0;
+  const isOverLimit = creditLimit > 0 && amountN > creditLimit;
+  const timeFactor = termN >= 12 ? termN / 12 : 1;
+  const interest = amountN > 0 && termN > 0 ? amountN * (currentRate / 100) * timeFactor : 0;
+  const total = amountN + interest;
+  const monthly = termN > 0 ? total / termN : 0;
+  const effectiveRate = currentRate * timeFactor;
+
+  const fmt = (v: number) =>
+    new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
+
+  const fmtDate = (d: Date) =>
+    d.toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
+
+  const rows = useMemo(() => {
+    if (amountN <= 0 || termN <= 0 || monthly <= 0) return [];
+    const today = new Date();
+    return Array.from({ length: termN }, (_, i) => {
+      const dueDate = new Date(today.getFullYear(), today.getMonth() + i + 1, today.getDate());
+      const remainingBalance = Math.max(0, total - monthly * (i + 1));
+      return { number: i + 1, dueDate, amountDue: monthly, remainingBalance };
+    });
+  }, [amountN, termN, monthly, total]);
+
+  const endDate = rows.length > 0 ? rows[rows.length - 1].dueDate : null;
+
+  // ── Step validation ───────────────────────────────────────────────────────
+  const step1Valid =
+    form.concept.trim().length > 0 && amountN > 0 && !isOverLimit && termN > 0;
+  const step2Valid =
+    form.phone.trim().length > 0 &&
+    parseFloat(form.income) > 0 &&
+    parseFloat(form.expenses) > 0;
+
+  // ── Location helpers ──────────────────────────────────────────────────────
+  const stateOptions =
+    form.country === 'México' ? MEXICO_STATES :
+    form.country === 'Colombia' ? COLOMBIA_DEPARTMENTS :
+    null;
+
+  const stateLabel =
+    form.country === 'Colombia' ? 'Departamento' :
+    form.country === 'Otro' ? 'Estado / Región' :
+    'Estado';
+
+  const statePlaceholder =
+    form.country === 'Colombia' ? 'Selecciona tu departamento' :
+    form.country === 'México' ? 'Selecciona tu estado' :
+    form.country === 'Otro' ? 'Ingresa tu estado o región' :
+    'Selecciona primero tu país';
+
+  const handleCountryChange = (country: string) => {
+    setForm(f => ({ ...f, country, state: '' }));
+  };
+
+  // ── Submit ────────────────────────────────────────────────────────────────
+  const handleSubmit = async () => {
+    const amount = parseFloat(form.amount);
+    const termMonths = parseInt(form.termMonths, 10);
+    const income = parseFloat(form.income);
+    const expenses = parseFloat(form.expenses);
+
+    if (!form.concept.trim() || isNaN(amount) || amount <= 0 || isNaN(termMonths) || termMonths < 1) {
+      toast.error('Completa correctamente el concepto, monto y plazo');
+      return;
+    }
+    if (!form.phone.trim() || isNaN(income) || income <= 0 || isNaN(expenses) || expenses <= 0) {
+      toast.error('Completa el teléfono, ingresos y gastos');
+      return;
+    }
+    if (isOverLimit) {
+      toast.error('El monto supera tu límite de crédito');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await axios.post(
+        `${API}/loans/request`,
+        {
+          concept: form.concept,
+          amount,
+          termMonths,
+          phone: form.phone,
+          income,
+          expenses,
+          housingStatus: form.housingStatus,
+          state: form.state,
+          country: form.country,
+          referralCode: form.referralCode || undefined,
+        },
+        { headers: authHeaders() },
+      );
+      toast.success('¡Solicitud enviada! El equipo revisará tu caso en breve.');
+      navigate('/loans');
+    } catch (e: any) {
+      const msg = e?.response?.data?.message;
+      toast.error(Array.isArray(msg) ? (msg as string[])[0] : (msg as string | undefined) ?? 'Error al solicitar préstamo');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // ── Render ────────────────────────────────────────────────────────────────
+  return (
+    <div className="p-8 text-white font-sans">
+      <button
+        onClick={() => navigate('/loans')}
+        className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors mb-8 font-medium"
+      >
+        <ArrowLeft size={18} />
+        Volver a Mis Préstamos
+      </button>
+
+      <div className="mb-6">
+        <h1 className="text-2xl font-extrabold text-white flex items-center gap-3">
+          <Plus size={24} className="text-emerald-400" />
+          Solicitar Préstamo
+        </h1>
+        <p className="text-slate-400 mt-1 text-sm">Completa la información para enviar tu solicitud</p>
+      </div>
+
+      <div className="max-w-4xl mx-auto">
+        <Stepper current={step} />
+
+        {/* ════════════════ PASO 1: Datos del Préstamo ════════════════ */}
+        {step === 1 && (
+          <div className="max-w-xl mx-auto">
+            <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-5">
+
+              {/* Mini info bar */}
+              <div className="flex flex-wrap gap-2">
+                <span className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-300">
+                  Límite: <span className="text-white">{fmt(creditLimit)}</span>
+                </span>
+                <span className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-300">
+                  Tasa: <span className="text-emerald-400">{currentRate}% anual</span>
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-sm text-slate-300 font-medium mb-1.5">
+                  Concepto <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.concept}
+                  onChange={e => setForm(f => ({ ...f, concept: e.target.value }))}
+                  className={inputCls}
+                  placeholder="¿Para qué necesitas el préstamo?"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-slate-300 font-medium mb-1.5">
+                    Monto (MXN) <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={form.amount}
+                    onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
+                    className={`${inputCls} ${isOverLimit ? 'border-red-500 focus:border-red-500' : ''}`}
+                    placeholder="0.00"
+                    min="1"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-300 font-medium mb-1.5">
+                    Plazo <span className="text-red-400">*</span>
+                  </label>
+                  <select
+                    value={form.termMonths}
+                    onChange={e => setForm(f => ({ ...f, termMonths: e.target.value }))}
+                    className={`${inputCls} cursor-pointer`}
+                  >
+                    {TERM_OPTIONS.map(m => (
+                      <option key={m} value={m}>{m} {m === 1 ? 'mes' : 'meses'}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {isOverLimit && (
+                <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3">
+                  <AlertTriangle size={15} className="text-red-400 shrink-0" />
+                  <p className="text-sm text-red-300">
+                    El monto supera tu límite de <strong>{fmt(creditLimit)}</strong>
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm text-slate-300 font-medium mb-1.5">
+                  Código de Referido <span className="text-slate-500 font-normal">(opcional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.referralCode}
+                  onChange={e => setForm(f => ({ ...f, referralCode: e.target.value }))}
+                  className={inputCls}
+                  placeholder="REFXXX"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-1">
+                <button
+                  onClick={() => navigate('/loans')}
+                  className="px-5 py-3 rounded-xl border border-slate-600 text-slate-300 hover:text-white hover:border-slate-500 transition-colors font-medium"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => { if (step1Valid) setStep(2); }}
+                  disabled={!step1Valid}
+                  className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
+                >
+                  Siguiente
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ════════════════ PASO 2: Información Personal ════════════════ */}
+        {step === 2 && (
+          <div className="max-w-xl mx-auto">
+            <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-5">
+
+              <div>
+                <p className={sectionHeader}>Datos de Contacto e Ingresos</p>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm text-slate-300 font-medium mb-1.5">
+                        Teléfono <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="tel"
+                        value={form.phone}
+                        onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                        className={inputCls}
+                        placeholder="81 1234 5678"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-slate-300 font-medium mb-1.5">
+                        Ingresos Mensuales (MXN) <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        value={form.income}
+                        onChange={e => setForm(f => ({ ...f, income: e.target.value }))}
+                        className={inputCls}
+                        placeholder="0.00"
+                        min="0"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm text-slate-300 font-medium mb-1.5">
+                        Gastos Mensuales (MXN) <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        value={form.expenses}
+                        onChange={e => setForm(f => ({ ...f, expenses: e.target.value }))}
+                        className={inputCls}
+                        placeholder="0.00"
+                        min="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-slate-300 font-medium mb-1.5">Estado de Vivienda</label>
+                      <select
+                        value={form.housingStatus}
+                        onChange={e => setForm(f => ({ ...f, housingStatus: e.target.value }))}
+                        className={`${inputCls} cursor-pointer`}
+                      >
+                        {HOUSING_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <p className={sectionHeader}>Ubicación</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm text-slate-300 font-medium mb-1.5">País</label>
+                    <select
+                      value={form.country}
+                      onChange={e => handleCountryChange(e.target.value)}
+                      className={`${inputCls} cursor-pointer`}
+                    >
+                      <option value="">Selecciona tu país</option>
+                      {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-slate-300 font-medium mb-1.5">{stateLabel}</label>
+                    {!form.country ? (
+                      <input
+                        type="text"
+                        disabled
+                        className={`${inputCls} opacity-40 cursor-not-allowed`}
+                        placeholder="Selecciona primero tu país"
+                      />
+                    ) : stateOptions ? (
+                      <select
+                        value={form.state}
+                        onChange={e => setForm(f => ({ ...f, state: e.target.value }))}
+                        className={`${inputCls} cursor-pointer`}
+                      >
+                        <option value="">{statePlaceholder}</option>
+                        {stateOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={form.state}
+                        onChange={e => setForm(f => ({ ...f, state: e.target.value }))}
+                        className={inputCls}
+                        placeholder={statePlaceholder}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-1">
+                <button
+                  onClick={() => setStep(1)}
+                  className="flex items-center gap-1.5 px-5 py-3 rounded-xl border border-slate-600 text-slate-300 hover:text-white hover:border-slate-500 transition-colors font-medium"
+                >
+                  <ChevronLeft size={18} />
+                  Anterior
+                </button>
+                <button
+                  onClick={() => { if (step2Valid) setStep(3); }}
+                  disabled={!step2Valid}
+                  className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
+                >
+                  Ver Resumen
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ════════════════ PASO 3: Resumen Final ════════════════ */}
+        {step === 3 && (
+          <div className="grid grid-cols-1 xl:grid-cols-[1fr_300px] gap-6 items-start">
+
+            {/* Tabla de amortización */}
+            <div className="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-700 flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider">
+                  Tabla de Amortización
+                </h3>
+                <span className="text-xs text-slate-500 bg-slate-900 px-2.5 py-0.5 rounded-full">
+                  {rows.length} cuotas
+                </span>
+              </div>
+              <div className="overflow-auto max-h-[480px]">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-slate-800 z-10 shadow-sm">
+                    <tr className="border-b border-slate-700 text-xs text-slate-500 uppercase tracking-wider">
+                      <th className="text-center px-4 py-3 w-10">#</th>
+                      <th className="text-left px-4 py-3">Vencimiento</th>
+                      <th className="text-right px-4 py-3">Cuota</th>
+                      <th className="text-right px-4 py-3">Saldo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map(row => (
+                      <tr
+                        key={row.number}
+                        className={`border-b border-slate-700/50 transition-colors ${
+                          row.number === rows.length
+                            ? 'bg-emerald-500/5 hover:bg-emerald-500/10'
+                            : 'hover:bg-slate-700/20'
+                        }`}
+                      >
+                        <td className="px-4 py-2.5 text-center">
+                          <span className="text-xs text-slate-500 tabular-nums">{row.number}</span>
+                        </td>
+                        <td className={`px-4 py-2.5 text-xs tabular-nums ${
+                          row.number === rows.length ? 'text-emerald-400 font-semibold' : 'text-slate-300'
+                        }`}>
+                          {fmtDate(row.dueDate)}
+                          {row.number === rows.length && (
+                            <span className="ml-1.5 text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full font-bold">
+                              FIN
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 text-right text-white font-semibold tabular-nums">
+                          {fmt(row.amountDue)}
+                        </td>
+                        <td className={`px-4 py-2.5 text-right tabular-nums font-semibold ${
+                          row.remainingBalance === 0 ? 'text-emerald-400' : 'text-slate-300'
+                        }`}>
+                          {fmt(row.remainingBalance)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="border-t-2 border-slate-600">
+                    <tr className="bg-slate-900/60">
+                      <td colSpan={2} className="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                        Total del Préstamo
+                      </td>
+                      <td className="px-4 py-3 text-right text-emerald-400 font-extrabold tabular-nums">
+                        {fmt(total)}
+                      </td>
+                      <td className="px-4 py-3 text-right text-emerald-400 font-extrabold tabular-nums">
+                        {fmt(0)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+
+            {/* Panel derecho: Resumen + acciones */}
+            <div className="sticky top-6 space-y-4">
+
+              {/* Desglose financiero */}
+              <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5 space-y-3">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+                  Desglose del Préstamo
+                </p>
+
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Concepto</span>
+                    <span className="text-white font-medium text-right max-w-[140px] truncate" title={form.concept}>
+                      {form.concept}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Plazo</span>
+                    <span className="text-white font-medium">
+                      {termN} {termN === 1 ? 'mes' : 'meses'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Capital</span>
+                    <span className="text-white font-semibold tabular-nums">{fmt(amountN)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">
+                      Interés ({effectiveRate.toFixed(0)}%{termN < 12 ? ' mín.' : ''})
+                    </span>
+                    <span className="text-amber-400 font-semibold tabular-nums">{fmt(interest)}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-slate-700 pt-2">
+                    <span className="text-slate-300 font-semibold">Total a pagar</span>
+                    <span className="text-white font-bold tabular-nums">{fmt(total)}</span>
+                  </div>
+                </div>
+
+                {/* Cuota mensual destacada */}
+                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 flex justify-between items-center">
+                  <span className="text-emerald-300 font-semibold text-sm">Cuota mensual</span>
+                  <span className="text-emerald-400 font-extrabold text-lg tabular-nums">{fmt(monthly)}</span>
+                </div>
+
+                {/* Fecha de finalización */}
+                {endDate && (
+                  <div className="bg-slate-900/60 border border-emerald-500/30 rounded-xl px-4 py-3 flex items-center gap-3">
+                    <CalendarCheck size={20} className="text-emerald-400 shrink-0" />
+                    <div>
+                      <p className="text-xs text-emerald-300 font-semibold uppercase tracking-wide">
+                        Fecha de Finalización
+                      </p>
+                      <p className="text-sm font-extrabold text-white mt-0.5">{fmtDate(endDate)}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Acciones */}
+              <div className="space-y-3">
+                <button
+                  onClick={() => setStep(2)}
+                  className="w-full flex items-center justify-center gap-1.5 px-5 py-3 rounded-xl border border-slate-600 text-slate-300 hover:text-white hover:border-slate-500 transition-colors font-medium"
+                >
+                  <ChevronLeft size={18} />
+                  Anterior
+                </button>
+                <button
+                  onClick={() => void handleSubmit()}
+                  disabled={isSubmitting}
+                  className="w-full bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3.5 rounded-xl font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
+                >
+                  <Send size={16} />
+                  {isSubmitting ? 'Enviando...' : 'Confirmar y Enviar'}
+                </button>
+              </div>
+            </div>
+
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

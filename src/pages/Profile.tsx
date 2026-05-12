@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { User, Star, TrendingUp, Shield, Zap, Lock, ChevronRight } from 'lucide-react';
+import { ArrowLeft, User, Star, TrendingUp, Shield, Zap, Lock, ChevronRight } from 'lucide-react';
 
 interface UserProfile {
   id: string;
@@ -70,6 +71,7 @@ function getLevelIcon(value: string) {
 }
 
 export default function Profile() {
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -120,6 +122,14 @@ export default function Profile() {
 
   return (
     <div className="p-8 text-white font-sans max-w-4xl mx-auto">
+      <button
+        onClick={() => navigate('/loans')}
+        className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors mb-8 font-medium"
+      >
+        <ArrowLeft size={18} />
+        Volver a Mis Préstamos
+      </button>
+
       <div className="mb-8">
         <h1 className="text-3xl font-extrabold text-white flex items-center gap-3">
           <User size={32} className="text-emerald-400" />

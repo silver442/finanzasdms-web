@@ -18,6 +18,8 @@ import AdminBanks from './pages/AdminBanks';
 import Profile from './pages/Profile';
 import AdminHome from './pages/AdminHome';
 import Investments from './pages/Investments';
+import LoanSimulator from './pages/LoanSimulator';
+import LoanRequest from './pages/LoanRequest';
 
 function App() {
   return (
@@ -36,9 +38,9 @@ function App() {
           {/* Pantallas en construcción del Sidebar */}
           <Route path="/credit-cards" element={<CreditCards />} />
           <Route path="/credit-cards/:id" element={<CreditCardDetail />} />
-          <Route 
-            path="/loans" 
-            element={<Loans/>} />
+          <Route path="/loans" element={<Loans />} />
+          <Route path="/loans/simulator" element={<LoanSimulator />} />
+          <Route path="/loans/request" element={<LoanRequest />} />
           <Route path="/portfolio" element={<Portfolio />} />
           
           <Route path="/crypto" element={<Crypto />} />
