@@ -5,7 +5,8 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import {
   ArrowLeft, Plus, AlertTriangle, Check,
-  ChevronRight, ChevronLeft, Send, CalendarCheck,
+  ChevronRight, ChevronLeft, Send, CalendarCheck, X,
+  MessageCircle, ShieldAlert,
 } from 'lucide-react';
 
 const API = 'http://localhost:3000';
@@ -13,6 +14,7 @@ const DEFAULT_CREDIT_LIMIT = 1000;
 const DEFAULT_RATE = 50;
 const TERM_OPTIONS = [1, 2, 3, 6, 9, 12, 18, 24];
 const HOUSING_OPTIONS = ['Propia', 'Rentada', 'Familiar'];
+const WHATSAPP_URL = 'https://wa.me/5200000000000?text=Verificaci%C3%B3n+de+identidad+FinanzasDMS';
 
 const MEXICO_STATES = [
   'Aguascalientes', 'Baja California', 'Baja California Sur', 'Campeche',
@@ -34,8 +36,23 @@ const COLOMBIA_DEPARTMENTS = [
 ];
 
 const COUNTRIES = ['México', 'Colombia', 'Otro'];
-
 const STEP_LABELS = ['Datos del Préstamo', 'Información Personal', 'Resumen Final'];
+
+const TERMS_TEXT = `Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+
+Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
+Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.
+
+Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet.`;
+
+const PRIVACY_TEXT = `En cumplimiento con la Ley Federal de Protección de Datos Personales en Posesión de los Particulares, FinanzasDMS hace de su conocimiento que los datos personales que proporcione serán utilizados exclusivamente para los fines establecidos en este aviso.
+
+Ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
+
+Sus datos podrán ser compartidos con las autoridades competentes cuando así lo requiera la ley. No se realizarán transferencias a terceros sin consentimiento previo, salvo las excepciones previstas en la ley.
+
+Para ejercer sus derechos ARCO (Acceso, Rectificación, Cancelación u Oposición), puede contactarnos a través de los canales oficiales indicados en nuestra plataforma.`;
 
 function authHeaders() {
   return { Authorization: `Bearer ${localStorage.getItem('token')}` };
@@ -55,12 +72,24 @@ function getUserDefaults() {
   }
 }
 
+function getFamilyCode(): string | null {
+  try {
+    const raw = localStorage.getItem('user');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const code = parsed.familyCode;
+    return typeof code === 'string' && code.length > 0 ? code : null;
+  } catch {
+    return null;
+  }
+}
+
 const inputCls =
   'w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:border-emerald-500 transition-colors placeholder-slate-600';
 
 const sectionHeader = 'text-xs font-bold text-slate-400 uppercase tracking-wider mb-4';
 
-// ── Stepper component ─────────────────────────────────────────────────────────
+// ── Stepper ───────────────────────────────────────────────────────────────────
 function Stepper({ current }: { current: number }) {
   return (
     <div className="flex items-center justify-center mb-8">
@@ -71,35 +100,100 @@ function Stepper({ current }: { current: number }) {
         return (
           <Fragment key={num}>
             <div className="flex flex-col items-center gap-1.5" style={{ minWidth: 88 }}>
-              <div
-                className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm border-2 transition-all duration-300 ${
-                  done
-                    ? 'bg-emerald-500 border-emerald-500 text-white'
-                    : active
-                      ? 'bg-emerald-500 border-emerald-400 text-white shadow-lg shadow-emerald-500/40 ring-4 ring-emerald-500/20'
-                      : 'bg-slate-800 border-slate-600 text-slate-500'
-                }`}
-              >
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm border-2 transition-all duration-300 ${
+                done
+                  ? 'bg-emerald-500 border-emerald-500 text-white'
+                  : active
+                    ? 'bg-emerald-500 border-emerald-400 text-white shadow-lg shadow-emerald-500/40 ring-4 ring-emerald-500/20'
+                    : 'bg-slate-800 border-slate-600 text-slate-500'
+              }`}>
                 {done ? <Check size={15} strokeWidth={2.5} /> : num}
               </div>
-              <span
-                className={`text-xs font-medium text-center leading-tight ${
-                  current >= num ? 'text-white' : 'text-slate-500'
-                }`}
-              >
+              <span className={`text-xs font-medium text-center leading-tight ${current >= num ? 'text-white' : 'text-slate-500'}`}>
                 {label}
               </span>
             </div>
             {idx < STEP_LABELS.length - 1 && (
-              <div
-                className={`h-0.5 w-16 sm:w-20 mx-1 mb-5 rounded-full transition-all duration-500 flex-shrink-0 ${
-                  current > idx + 1 ? 'bg-emerald-500' : 'bg-slate-700'
-                }`}
-              />
+              <div className={`h-0.5 w-16 sm:w-20 mx-1 mb-5 rounded-full transition-all duration-500 flex-shrink-0 ${
+                current > idx + 1 ? 'bg-emerald-500' : 'bg-slate-700'
+              }`} />
             )}
           </Fragment>
         );
       })}
+    </div>
+  );
+}
+
+// ── Legal Modal (Terms / Privacy) ─────────────────────────────────────────────
+function LegalModal({
+  title,
+  body,
+  onClose,
+}: {
+  title: string;
+  body: string;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+      <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[80vh]">
+        <div className="flex justify-between items-center p-5 border-b border-slate-700 shrink-0">
+          <h3 className="text-base font-bold text-white">{title}</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+        <div className="overflow-y-auto p-5 flex-1">
+          <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-line">{body}</p>
+        </div>
+        <div className="p-5 border-t border-slate-700 shrink-0">
+          <button
+            onClick={onClose}
+            className="w-full bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-xl font-semibold transition-colors"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── WhatsApp Verification Modal ────────────────────────────────────────────────
+function WhatsAppModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+      <div className="bg-slate-800 border border-amber-500/30 rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="p-6 text-center">
+          <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto mb-4">
+            <ShieldAlert size={28} className="text-amber-400" />
+          </div>
+          <h3 className="text-lg font-extrabold text-white mb-2">
+            Verificación de Identidad Requerida
+          </h3>
+          <p className="text-slate-300 text-sm leading-relaxed mb-6">
+            Como eres un usuario nuevo, necesitamos validar tu identidad. Por favor, envía una foto de tu <strong className="text-white">INE</strong> a nuestro WhatsApp para que el equipo active tu acceso al crédito.
+          </p>
+          <div className="flex flex-col gap-3">
+            <a
+              href={WHATSAPP_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-bold transition-all shadow-lg shadow-emerald-500/20"
+            >
+              <MessageCircle size={18} />
+              Enviar WhatsApp
+            </a>
+            <button
+              onClick={onClose}
+              className="py-2.5 rounded-xl border border-slate-600 text-slate-300 hover:text-white hover:border-slate-500 transition-colors font-medium text-sm"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -121,8 +215,14 @@ export default function LoanRequest() {
     country: '',
     state: '',
     referralCode: '',
+    disbursementAccount: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [acceptPrivacy, setAcceptPrivacy] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
 
   // ── Derived financial values ──────────────────────────────────────────────
   const amountN = parseFloat(form.amount) || 0;
@@ -153,12 +253,12 @@ export default function LoanRequest() {
   const endDate = rows.length > 0 ? rows[rows.length - 1].dueDate : null;
 
   // ── Step validation ───────────────────────────────────────────────────────
-  const step1Valid =
-    form.concept.trim().length > 0 && amountN > 0 && !isOverLimit && termN > 0;
+  const step1Valid = form.concept.trim().length > 0 && amountN > 0 && !isOverLimit && termN > 0;
   const step2Valid =
     form.phone.trim().length > 0 &&
     parseFloat(form.income) > 0 &&
     parseFloat(form.expenses) > 0;
+  const isSubmitEnabled = acceptTerms && acceptPrivacy && !isSubmitting;
 
   // ── Location helpers ──────────────────────────────────────────────────────
   const stateOptions =
@@ -183,6 +283,12 @@ export default function LoanRequest() {
 
   // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
+    // Identity verification gate
+    if (!getFamilyCode()) {
+      setShowWhatsAppModal(true);
+      return;
+    }
+
     const amount = parseFloat(form.amount);
     const termMonths = parseInt(form.termMonths, 10);
     const income = parseFloat(form.income);
@@ -216,6 +322,7 @@ export default function LoanRequest() {
           state: form.state,
           country: form.country,
           referralCode: form.referralCode || undefined,
+          disbursementAccount: form.disbursementAccount || undefined,
         },
         { headers: authHeaders() },
       );
@@ -251,12 +358,10 @@ export default function LoanRequest() {
       <div className="max-w-4xl mx-auto">
         <Stepper current={step} />
 
-        {/* ════════════════ PASO 1: Datos del Préstamo ════════════════ */}
+        {/* ════════════ PASO 1: Datos del Préstamo ════════════ */}
         {step === 1 && (
           <div className="max-w-xl mx-auto">
             <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-5">
-
-              {/* Mini info bar */}
               <div className="flex flex-wrap gap-2">
                 <span className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-300">
                   Límite: <span className="text-white">{fmt(creditLimit)}</span>
@@ -351,7 +456,7 @@ export default function LoanRequest() {
           </div>
         )}
 
-        {/* ════════════════ PASO 2: Información Personal ════════════════ */}
+        {/* ════════════ PASO 2: Información Personal ════════════ */}
         {step === 2 && (
           <div className="max-w-xl mx-auto">
             <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-5">
@@ -412,6 +517,39 @@ export default function LoanRequest() {
                       </select>
                     </div>
                   </div>
+                </div>
+              </div>
+
+              {/* CLABE de depósito */}
+              <div>
+                <p className={sectionHeader}>Cuenta de Desembolso</p>
+                <div>
+                  <label className="block text-sm text-slate-300 font-medium mb-1.5">
+                    CLABE Interbancaria de Depósito
+                    <span className="text-slate-500 font-normal ml-1">(18 dígitos, a donde recibirás el préstamo)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={form.disbursementAccount}
+                    onChange={e => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 18);
+                      setForm(f => ({ ...f, disbursementAccount: val }));
+                    }}
+                    className={inputCls}
+                    placeholder="000000000000000000"
+                    maxLength={18}
+                    inputMode="numeric"
+                  />
+                  {form.disbursementAccount.length > 0 && form.disbursementAccount.length < 18 && (
+                    <p className="text-xs text-amber-400 mt-1">
+                      Faltan {18 - form.disbursementAccount.length} dígitos
+                    </p>
+                  )}
+                  {form.disbursementAccount.length === 18 && (
+                    <p className="text-xs text-emerald-400 mt-1 flex items-center gap-1">
+                      <Check size={11} /> CLABE completa
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -481,7 +619,7 @@ export default function LoanRequest() {
           </div>
         )}
 
-        {/* ════════════════ PASO 3: Resumen Final ════════════════ */}
+        {/* ════════════ PASO 3: Resumen Final ════════════ */}
         {step === 3 && (
           <div className="grid grid-cols-1 xl:grid-cols-[1fr_300px] gap-6 items-start">
 
@@ -556,7 +694,7 @@ export default function LoanRequest() {
               </div>
             </div>
 
-            {/* Panel derecho: Resumen + acciones */}
+            {/* Panel derecho: Resumen + Legal + Acciones */}
             <div className="sticky top-6 space-y-4">
 
               {/* Desglose financiero */}
@@ -564,7 +702,6 @@ export default function LoanRequest() {
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
                   Desglose del Préstamo
                 </p>
-
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-slate-400">Concepto</span>
@@ -593,14 +730,10 @@ export default function LoanRequest() {
                     <span className="text-white font-bold tabular-nums">{fmt(total)}</span>
                   </div>
                 </div>
-
-                {/* Cuota mensual destacada */}
                 <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 flex justify-between items-center">
                   <span className="text-emerald-300 font-semibold text-sm">Cuota mensual</span>
                   <span className="text-emerald-400 font-extrabold text-lg tabular-nums">{fmt(monthly)}</span>
                 </div>
-
-                {/* Fecha de finalización */}
                 {endDate && (
                   <div className="bg-slate-900/60 border border-emerald-500/30 rounded-xl px-4 py-3 flex items-center gap-3">
                     <CalendarCheck size={20} className="text-emerald-400 shrink-0" />
@@ -611,6 +744,59 @@ export default function LoanRequest() {
                       <p className="text-sm font-extrabold text-white mt-0.5">{fmtDate(endDate)}</p>
                     </div>
                   </div>
+                )}
+              </div>
+
+              {/* Checkboxes legales */}
+              <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5 space-y-3">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+                  Autorización Legal
+                </p>
+
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={acceptTerms}
+                    onChange={e => setAcceptTerms(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded border-slate-600 text-emerald-500 bg-slate-900 shrink-0 cursor-pointer"
+                  />
+                  <span className="text-sm text-slate-300 leading-snug group-hover:text-white transition-colors">
+                    Acepto los{' '}
+                    <button
+                      type="button"
+                      onClick={e => { e.stopPropagation(); setShowTermsModal(true); }}
+                      className="text-blue-400 hover:text-blue-300 underline underline-offset-2 transition-colors"
+                    >
+                      Términos y Condiciones
+                    </button>
+                    {' '}del préstamo.
+                  </span>
+                </label>
+
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={acceptPrivacy}
+                    onChange={e => setAcceptPrivacy(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded border-slate-600 text-emerald-500 bg-slate-900 shrink-0 cursor-pointer"
+                  />
+                  <span className="text-sm text-slate-300 leading-snug group-hover:text-white transition-colors">
+                    Autorizo el tratamiento de mis datos personales según el{' '}
+                    <button
+                      type="button"
+                      onClick={e => { e.stopPropagation(); setShowPrivacyModal(true); }}
+                      className="text-blue-400 hover:text-blue-300 underline underline-offset-2 transition-colors"
+                    >
+                      Aviso de Privacidad
+                    </button>
+                    .
+                  </span>
+                </label>
+
+                {(!acceptTerms || !acceptPrivacy) && (
+                  <p className="text-xs text-slate-500 italic">
+                    Debes aceptar ambas condiciones para continuar.
+                  </p>
                 )}
               </div>
 
@@ -625,7 +811,7 @@ export default function LoanRequest() {
                 </button>
                 <button
                   onClick={() => void handleSubmit()}
-                  disabled={isSubmitting}
+                  disabled={!isSubmitEnabled}
                   className="w-full bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3.5 rounded-xl font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
                 >
                   <Send size={16} />
@@ -633,10 +819,28 @@ export default function LoanRequest() {
                 </button>
               </div>
             </div>
-
           </div>
         )}
       </div>
+
+      {/* ── Modales Legales ── */}
+      {showTermsModal && (
+        <LegalModal
+          title="Términos y Condiciones"
+          body={TERMS_TEXT}
+          onClose={() => setShowTermsModal(false)}
+        />
+      )}
+      {showPrivacyModal && (
+        <LegalModal
+          title="Aviso de Privacidad"
+          body={PRIVACY_TEXT}
+          onClose={() => setShowPrivacyModal(false)}
+        />
+      )}
+      {showWhatsAppModal && (
+        <WhatsAppModal onClose={() => setShowWhatsAppModal(false)} />
+      )}
     </div>
   );
 }

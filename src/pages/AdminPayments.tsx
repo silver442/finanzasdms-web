@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { ClipboardCheck, CheckCircle2, XCircle, Clock, Landmark, User } from 'lucide-react';
+import { ClipboardCheck, CheckCircle2, XCircle, Clock, Landmark, User, Eye, X, FileImage } from 'lucide-react';
 
 interface PaymentRequestUser {
   id: string;
@@ -32,6 +32,7 @@ interface PaymentRequest {
   id: string;
   amount: string | number;
   reference?: string;
+  receiptUrl?: string;
   createdAt: string;
   user: PaymentRequestUser;
   installment: PaymentInstallment;
@@ -56,6 +57,7 @@ export default function AdminPayments() {
   const [requests, setRequests] = useState<PaymentRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
 
   const fetchRequests = useCallback(async () => {
     try {
@@ -170,6 +172,16 @@ export default function AdminPayments() {
                     {fmtDate(req.createdAt)}
                   </div>
                   <div className="flex gap-2">
+                    {req.receiptUrl && (
+                      <button
+                        onClick={() => setReceiptPreview(req.receiptUrl!)}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 text-sm font-semibold transition-all"
+                        title="Ver comprobante"
+                      >
+                        <Eye size={15} />
+                        Comprobante
+                      </button>
+                    )}
                     <button
                       onClick={() => void handleReject(req.id, userName)}
                       disabled={isProcessing}
@@ -191,6 +203,59 @@ export default function AdminPayments() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ── Modal: Ver Comprobante ── */}
+      {receiptPreview && (
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setReceiptPreview(null)}
+        >
+          <div
+            className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center p-4 border-b border-slate-700 shrink-0">
+              <div className="flex items-center gap-2">
+                <FileImage size={18} className="text-sky-400" />
+                <h3 className="text-sm font-bold text-white">Comprobante de Pago</h3>
+              </div>
+              <button
+                onClick={() => setReceiptPreview(null)}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="overflow-auto flex-1 p-4 flex items-center justify-center">
+              {receiptPreview.startsWith('data:image') ? (
+                <img
+                  src={receiptPreview}
+                  alt="Comprobante"
+                  className="max-w-full max-h-[70vh] rounded-lg object-contain"
+                />
+              ) : receiptPreview.startsWith('data:application/pdf') ? (
+                <iframe
+                  src={receiptPreview}
+                  title="Comprobante PDF"
+                  className="w-full h-[70vh] rounded-lg"
+                />
+              ) : (
+                <div className="text-center text-slate-400 py-8">
+                  <FileImage size={40} className="mx-auto mb-3 opacity-40" />
+                  <p className="text-sm">No se puede previsualizar este archivo.</p>
+                  <a
+                    href={receiptPreview}
+                    download="comprobante"
+                    className="mt-3 inline-block text-sky-400 hover:text-sky-300 underline text-sm"
+                  >
+                    Descargar archivo
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

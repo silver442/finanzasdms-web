@@ -5,7 +5,7 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import {
   Landmark, Plus, CheckCircle2, Circle, AlertCircle,
-  X, Copy, CreditCard, Calculator, Clock, Ban, Trophy,
+  X, Copy, CreditCard, Calculator, Clock, Ban, Trophy, Paperclip,
 } from 'lucide-react';
 
 interface AdminBank {
@@ -84,7 +84,7 @@ export default function Loans() {
 
   const [payTarget, setPayTarget] = useState<Installment | null>(null);
   const [payRegistered, setPayRegistered] = useState(false);
-  const [payForm, setPayForm] = useState({ amount: '', bankId: '', reference: '' });
+  const [payForm, setPayForm] = useState({ amount: '', bankId: '', reference: '', receipt: null as File | null });
   const [isPaying, setIsPaying] = useState(false);
 
   const fetchCapacity = useCallback(async () => {
@@ -114,11 +114,29 @@ export default function Loans() {
 
   useEffect(() => { void fetchLoans(); void fetchBanks(); void fetchCapacity(); }, [fetchLoans, fetchBanks, fetchCapacity]);
 
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
   const handlePayInstallment = async () => {
     if (!payTarget) return;
     const amount = parseFloat(payForm.amount);
     if (isNaN(amount) || amount <= 0) { toast.error('Ingresa una cantidad válida'); return; }
     if (!payForm.bankId) { toast.error('Selecciona el banco al que realizaste el depósito'); return; }
+
+    let receiptUrl: string | undefined;
+    if (payForm.receipt) {
+      if (payForm.receipt.size > 5 * 1024 * 1024) {
+        toast.error('El comprobante no debe superar 5 MB');
+        return;
+      }
+      receiptUrl = await fileToBase64(payForm.receipt);
+    }
+
     setIsPaying(true);
     try {
       await axios.post(
@@ -128,11 +146,12 @@ export default function Loans() {
           amount,
           bankId: payForm.bankId,
           reference: payForm.reference || undefined,
+          receiptUrl,
         },
         { headers: authHeaders() },
       );
       setPayRegistered(true);
-      setPayForm({ amount: '', bankId: '', reference: '' });
+      setPayForm({ amount: '', bankId: '', reference: '', receipt: null });
     } catch (e: any) {
       toast.error(e?.response?.data?.message ?? 'Error al registrar el pago');
     } finally {
@@ -278,7 +297,7 @@ export default function Loans() {
                               <td className="py-3 text-center">
                                 {!isComplete && (
                                   <button
-                                    onClick={() => { setPayTarget(inst); setPayRegistered(false); setPayForm({ amount: '', bankId: '', reference: '' }); }}
+                                    onClick={() => { setPayTarget(inst); setPayRegistered(false); setPayForm({ amount: '', bankId: '', reference: '', receipt: null }); }}
                                     className="text-xs bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 px-3 py-1 rounded-lg transition-colors font-medium"
                                   >
                                     Abonar
@@ -320,7 +339,7 @@ export default function Loans() {
                 <CreditCard size={20} className="text-emerald-400" />
                 Registrar Abono — Cuota #{payTarget.number}
               </h3>
-              <button onClick={() => { setPayTarget(null); setPayRegistered(false); }} className="text-slate-400 hover:text-white">
+              <button onClick={() => { setPayTarget(null); setPayRegistered(false); setPayForm({ amount: '', bankId: '', reference: '', receipt: null }); }} className="text-slate-400 hover:text-white">
                 <X size={20} />
               </button>
             </div>
@@ -422,6 +441,24 @@ export default function Loans() {
                       <input type="text" value={payForm.reference}
                         onChange={e => setPayForm(f => ({ ...f, reference: e.target.value }))}
                         className={inputCls} placeholder={`Abono ${shortId(payTarget.id)}`} />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-slate-300 font-medium mb-1">
+                        Comprobante de transferencia
+                        <span className="text-slate-500 font-normal ml-1">(captura de pantalla, max 5 MB)</span>
+                      </label>
+                      <label className={`flex items-center gap-3 cursor-pointer border border-dashed rounded-lg px-4 py-3 transition-colors ${payForm.receipt ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-slate-600 hover:border-slate-500 bg-slate-900'}`}>
+                        <Paperclip size={16} className={payForm.receipt ? 'text-emerald-400' : 'text-slate-500'} />
+                        <span className={`text-sm truncate ${payForm.receipt ? 'text-emerald-400' : 'text-slate-500'}`}>
+                          {payForm.receipt ? payForm.receipt.name : 'Seleccionar archivo...'}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          onChange={e => setPayForm(f => ({ ...f, receipt: e.target.files?.[0] ?? null }))}
+                        />
+                      </label>
                     </div>
                   </div>
                 </div>
