@@ -114,42 +114,27 @@ export default function Loans() {
 
   useEffect(() => { void fetchLoans(); void fetchBanks(); void fetchCapacity(); }, [fetchLoans, fetchBanks, fetchCapacity]);
 
-  const fileToBase64 = (file: File): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-
   const handlePayInstallment = async () => {
     if (!payTarget) return;
     const amount = parseFloat(payForm.amount);
     if (isNaN(amount) || amount <= 0) { toast.error('Ingresa una cantidad válida'); return; }
     if (!payForm.bankId) { toast.error('Selecciona el banco al que realizaste el depósito'); return; }
 
-    let receiptUrl: string | undefined;
-    if (payForm.receipt) {
-      if (payForm.receipt.size > 5 * 1024 * 1024) {
-        toast.error('El comprobante no debe superar 5 MB');
-        return;
-      }
-      receiptUrl = await fileToBase64(payForm.receipt);
+    if (payForm.receipt && payForm.receipt.size > 5 * 1024 * 1024) {
+      toast.error('El comprobante no debe superar 5 MB');
+      return;
     }
+
+    const formData = new FormData();
+    formData.append('installmentId', payTarget.id);
+    formData.append('amount', String(amount));
+    formData.append('bankId', payForm.bankId);
+    if (payForm.reference) formData.append('reference', payForm.reference);
+    if (payForm.receipt)   formData.append('receipt', payForm.receipt);
 
     setIsPaying(true);
     try {
-      await axios.post(
-        `${API}/payment-requests`,
-        {
-          installmentId: payTarget.id,
-          amount,
-          bankId: payForm.bankId,
-          reference: payForm.reference || undefined,
-          receiptUrl,
-        },
-        { headers: authHeaders() },
-      );
+      await axios.post(`${API}/payment-requests`, formData, { headers: authHeaders() });
       setPayRegistered(true);
       setPayForm({ amount: '', bankId: '', reference: '', receipt: null });
     } catch (e: any) {
