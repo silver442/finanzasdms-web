@@ -20,6 +20,9 @@ import AdminHome from './pages/AdminHome';
 import Investments from './pages/Investments';
 import LoanSimulator from './pages/LoanSimulator';
 import LoanRequest from './pages/LoanRequest';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import VerifyEmail from './pages/VerifyEmail';
 
 function App() {
   return (
@@ -30,6 +33,9 @@ function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
         
         {/* Rutas Protegidas (El Guardián envuelve todo lo que está adentro) */}
         <Route element={<ProtectedRoute />}>

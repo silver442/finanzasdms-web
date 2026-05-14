@@ -38,21 +38,107 @@ const COLOMBIA_DEPARTMENTS = [
 const COUNTRIES = ['México', 'Colombia', 'Otro'];
 const STEP_LABELS = ['Datos del Préstamo', 'Información Personal', 'Resumen Final'];
 
-const TERMS_TEXT = `Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+const TERMS_CONTENT = (
+  <div className="space-y-4 text-sm text-slate-300 leading-relaxed">
+    <h3 className="text-base font-bold text-white">TÉRMINOS Y CONDICIONES DE SERVICIO – FINANZASDMS</h3>
+    <p>
+      El presente documento establece las condiciones bajo las cuales se otorgan créditos a través de
+      la plataforma FinanzasDMS. Al aceptar estos términos, el usuario manifiesta su conformidad con
+      lo siguiente:
+    </p>
 
-Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+    <div>
+      <p><strong className="text-white">Naturaleza del Servicio:</strong> FinanzasDMS es una
+      plataforma de gestión de microcréditos personales. El otorgamiento de cualquier préstamo está
+      sujeto a la evaluación de riesgo y disponibilidad de cupos.</p>
+    </div>
 
-Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.
+    <div>
+      <p><strong className="text-white">Tasas de Interés:</strong> La tasa de interés es anual y se
+      calcula de forma proporcional al tiempo del préstamo. En plazos menores a 12 meses, se aplicará
+      el cobro equivalente a una anualidad completa como comisión mínima de apertura y gestión.</p>
+    </div>
 
-Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet.`;
+    <div>
+      <p><strong className="text-white">Sistema de Niveles y Límites:</strong> El usuario acepta que
+      su límite de crédito y tasa de interés dependen de su nivel de confianza (Novato, Cumplidor,
+      Socio o Elite), el cual se calcula con base en su historial de pagos y puntos acumulados en la
+      plataforma.</p>
+    </div>
 
-const PRIVACY_TEXT = `En cumplimiento con la Ley Federal de Protección de Datos Personales en Posesión de los Particulares, FinanzasDMS hace de su conocimiento que los datos personales que proporcione serán utilizados exclusivamente para los fines establecidos en este aviso.
+    <div>
+      <p className="font-semibold text-white mb-2">Política de Pagos y Morosidad:</p>
+      <ul className="list-disc list-inside space-y-2 pl-2">
+        <li>
+          <strong className="text-white">Degradación:</strong> El usuario acepta que, por cada 5 días
+          de retraso en una cuota, su nivel de confianza bajará un escalón automáticamente.
+        </li>
+        <li>
+          <strong className="text-white">Interés Moratorio:</strong> A partir del día 11 de retraso,
+          se generará un recargo administrativo de $10.00 MXN diarios que se sumará al saldo pendiente
+          de la cuota vencida.
+        </li>
+        <li>
+          <strong className="text-white">Bloqueo:</strong> Si el retraso supera los 60 días naturales,
+          la cuenta será bloqueada permanentemente.
+        </li>
+        <li>
+          <strong className="text-white">Reestructuración:</strong> En caso de realizar pagos parciales
+          o excedentes, el sistema recalculará automáticamente las cuotas restantes para ajustar el
+          saldo deudor, manteniendo las fechas de vencimiento originales.
+        </li>
+      </ul>
+    </div>
+  </div>
+);
 
-Ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
+const PRIVACY_CONTENT = (
+  <div className="space-y-4 text-sm text-slate-300 leading-relaxed">
+    <h3 className="text-base font-bold text-white">AVISO DE PRIVACIDAD SIMPLIFICADO</h3>
+    <p>
+      FinanzasDMS, plataforma operada desde Monterrey, Nuevo León, México, es responsable del
+      tratamiento de sus datos personales, los cuales serán utilizados exclusivamente para las
+      finalidades aquí descritas.
+    </p>
 
-Sus datos podrán ser compartidos con las autoridades competentes cuando así lo requiera la ley. No se realizarán transferencias a terceros sin consentimiento previo, salvo las excepciones previstas en la ley.
+    <div>
+      <p><strong className="text-white">Datos Recabados:</strong> Para la evaluación de su solicitud
+      de crédito, recolectamos: nombre completo, teléfono, correo electrónico, datos financieros
+      básicos, ubicación geográfica y clave interbancaria (CLABE) para desembolso.</p>
+    </div>
 
-Para ejercer sus derechos ARCO (Acceso, Rectificación, Cancelación u Oposición), puede contactarnos a través de los canales oficiales indicados en nuestra plataforma.`;
+    <div>
+      <p className="font-semibold text-white mb-2">Finalidad del Tratamiento:</p>
+      <p className="mb-2">Sus datos serán utilizados para:</p>
+      <ul className="list-disc list-inside space-y-1.5 pl-2">
+        <li>Evaluar su solvencia crediticia y capacidad de pago.</li>
+        <li>Identificar la categoría de su perfil.</li>
+        <li>
+          Gestionar la cobranza, transferencias de fondos y aplicar las penalizaciones
+          correspondientes en caso de mora.
+        </li>
+      </ul>
+    </div>
+
+    <div>
+      <p><strong className="text-white">Protección de Evidencia:</strong> Las capturas de pantalla o
+      archivos de comprobantes de pago subidos a la plataforma serán utilizados únicamente para la
+      conciliación administrativa de su cuenta.</p>
+    </div>
+
+    <div>
+      <p><strong className="text-white">Transferencia de Datos:</strong> Sus datos no serán
+      compartidos, vendidos ni transferidos a terceros con fines de lucro o marketing.</p>
+    </div>
+
+    <div>
+      <p><strong className="text-white">Derechos ARCO:</strong> Usted tiene derecho al Acceso,
+      Rectificación, Cancelación u Oposición del manejo de sus datos. Para ejercer estos derechos o
+      solicitar la eliminación de su cuenta, deberá contactar directamente a la administración a
+      través de nuestros canales oficiales.</p>
+    </div>
+  </div>
+);
 
 function authHeaders() {
   return { Authorization: `Bearer ${localStorage.getItem('token')}` };
@@ -132,12 +218,12 @@ function LegalModal({
   onClose,
 }: {
   title: string;
-  body: string;
+  body: React.ReactNode;
   onClose: () => void;
 }) {
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
-      <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[80vh]">
+      <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[85vh]">
         <div className="flex justify-between items-center p-5 border-b border-slate-700 shrink-0">
           <h3 className="text-base font-bold text-white">{title}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
@@ -145,14 +231,14 @@ function LegalModal({
           </button>
         </div>
         <div className="overflow-y-auto p-5 flex-1">
-          <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-line">{body}</p>
+          {body}
         </div>
         <div className="p-5 border-t border-slate-700 shrink-0">
           <button
             onClick={onClose}
-            className="w-full bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-xl font-semibold transition-colors"
+            className="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-emerald-500/20"
           >
-            Cerrar
+            Entendido, cerrar
           </button>
         </div>
       </div>
@@ -827,14 +913,14 @@ export default function LoanRequest() {
       {showTermsModal && (
         <LegalModal
           title="Términos y Condiciones"
-          body={TERMS_TEXT}
+          body={TERMS_CONTENT}
           onClose={() => setShowTermsModal(false)}
         />
       )}
       {showPrivacyModal && (
         <LegalModal
           title="Aviso de Privacidad"
-          body={PRIVACY_TEXT}
+          body={PRIVACY_CONTENT}
           onClose={() => setShowPrivacyModal(false)}
         />
       )}

@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { Landmark, User, Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
+import { Landmark, User, Mail, Lock, ArrowRight, Loader2, CheckCircle } from 'lucide-react';
 
 export default function Register() {
-  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
+  const [registered, setRegistered] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -37,8 +37,7 @@ export default function Register() {
         password: formData.password
       });
 
-      toast.success('¡Cuenta creada con éxito! Ahora puedes iniciar sesión.');
-      navigate('/login');
+      setRegistered(true);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       const message = error.response?.data?.message || 'Error al crear la cuenta. Intenta de nuevo.';
@@ -72,86 +71,111 @@ export default function Register() {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-slate-800 py-8 px-4 shadow-2xl sm:rounded-2xl sm:px-10 border border-slate-700">
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1">Nombre Completo</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <User className="h-5 w-5 text-slate-500" />
+          {registered ? (
+            <div className="text-center">
+              <div className="flex justify-center mb-4">
+                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-full p-4">
+                  <CheckCircle className="w-10 h-10 text-emerald-400" />
                 </div>
-                <input 
-                  type="text" required 
-                  value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  className="block w-full pl-10 pr-3 py-2.5 border border-slate-600 rounded-xl bg-slate-900/50 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all" 
-                  placeholder="Ej. Silvestre Hernández" 
-                />
               </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1">Correo Electrónico</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-slate-500" />
-                </div>
-                <input 
-                  type="email" required 
-                  value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  className="block w-full pl-10 pr-3 py-2.5 border border-slate-600 rounded-xl bg-slate-900/50 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all" 
-                  placeholder="tu@correo.com" 
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1">Contraseña</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-slate-500" />
-                </div>
-                <input 
-                  type="password" required 
-                  value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})}
-                  className="block w-full pl-10 pr-3 py-2.5 border border-slate-600 rounded-xl bg-slate-900/50 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all" 
-                  placeholder="Mínimo 6 caracteres" 
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1">Confirmar Contraseña</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-slate-500" />
-                </div>
-                <input 
-                  type="password" required 
-                  value={formData.confirmPassword} onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
-                  className="block w-full pl-10 pr-3 py-2.5 border border-slate-600 rounded-xl bg-slate-900/50 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all" 
-                  placeholder="Repite tu contraseña" 
-                />
-              </div>
-            </div>
-
-            <button 
-              type="submit" 
-              disabled={isLoading}
-              className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-xl shadow-lg shadow-emerald-500/20 text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-emerald-500 transition-all disabled:opacity-70"
-            >
-              {isLoading ? <Loader2 className="animate-spin h-5 w-5" /> : 'Crear cuenta'}
-              {!isLoading && <ArrowRight className="h-5 w-5" />}
-            </button>
-          </form>
-
-          <div className="mt-6 text-center">
-            <p className="text-sm text-slate-400">
-              ¿Ya tienes una cuenta?{' '}
-              <Link to="/login" className="font-bold text-emerald-400 hover:text-emerald-300 transition-colors">
-                Inicia sesión aquí
+              <h3 className="text-xl font-bold text-white mb-3">¡Cuenta creada!</h3>
+              <p className="text-slate-400 text-sm leading-relaxed mb-6">
+                Hemos enviado un enlace de verificación a{' '}
+                <span className="text-white font-medium">{formData.email}</span>.
+                Por favor, haz clic en él para activar tu cuenta y poder iniciar sesión.
+                Revisa también tu carpeta de SPAM.
+              </p>
+              <Link
+                to="/login"
+                className="inline-block bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 px-8 rounded-xl transition-all shadow-lg shadow-emerald-500/20"
+              >
+                Volver al Inicio de Sesión
               </Link>
-            </p>
-          </div>
+            </div>
+          ) : (
+            <>
+              <form className="space-y-6" onSubmit={handleSubmit}>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Nombre Completo</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <User className="h-5 w-5 text-slate-500" />
+                    </div>
+                    <input
+                      type="text" required
+                      value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})}
+                      className="block w-full pl-10 pr-3 py-2.5 border border-slate-600 rounded-xl bg-slate-900/50 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                      placeholder="Ej. Silvestre Hernández"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Correo Electrónico</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Mail className="h-5 w-5 text-slate-500" />
+                    </div>
+                    <input
+                      type="email" required
+                      value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})}
+                      className="block w-full pl-10 pr-3 py-2.5 border border-slate-600 rounded-xl bg-slate-900/50 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                      placeholder="tu@correo.com"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Contraseña</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Lock className="h-5 w-5 text-slate-500" />
+                    </div>
+                    <input
+                      type="password" required
+                      value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})}
+                      className="block w-full pl-10 pr-3 py-2.5 border border-slate-600 rounded-xl bg-slate-900/50 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                      placeholder="Mínimo 6 caracteres"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Confirmar Contraseña</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Lock className="h-5 w-5 text-slate-500" />
+                    </div>
+                    <input
+                      type="password" required
+                      value={formData.confirmPassword} onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
+                      className="block w-full pl-10 pr-3 py-2.5 border border-slate-600 rounded-xl bg-slate-900/50 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                      placeholder="Repite tu contraseña"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-xl shadow-lg shadow-emerald-500/20 text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-emerald-500 transition-all disabled:opacity-70"
+                >
+                  {isLoading ? <Loader2 className="animate-spin h-5 w-5" /> : 'Crear cuenta'}
+                  {!isLoading && <ArrowRight className="h-5 w-5" />}
+                </button>
+              </form>
+
+              <div className="mt-6 text-center">
+                <p className="text-sm text-slate-400">
+                  ¿Ya tienes una cuenta?{' '}
+                  <Link to="/login" className="font-bold text-emerald-400 hover:text-emerald-300 transition-colors">
+                    Inicia sesión aquí
+                  </Link>
+                </p>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
