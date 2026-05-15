@@ -2,7 +2,7 @@ import { Navigate, Outlet } from 'react-router-dom';
 import { PhoneCall, AlertTriangle } from 'lucide-react';
 import Sidebar from './Sidebar';
 
-const WHATSAPP_NUMBER = '5215512345678'; // Cambiar al número real del administrador
+const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER;
 
 function getStoredUser(): Record<string, unknown> | null {
   try {

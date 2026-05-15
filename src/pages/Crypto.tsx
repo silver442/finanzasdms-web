@@ -44,8 +44,8 @@ export default function Crypto() {
   const [transferType, setTransferType] = useState<'Depositar' | 'Retirar'>('Depositar');
   const [transferAmount, setTransferAmount] = useState('');
 
-  const CRYPTO_API_KEY = "e0b7f598c999c2d9a4484c0c6c12e90f9047d90c6ab4d8ed0cde4da857dea374";
-  const FX_API_KEY = "5e4543e870e938dbae331eef";
+  const CRYPTO_API_KEY = import.meta.env.VITE_CRYPTO_API_KEY;
+  const FX_API_KEY = import.meta.env.VITE_FX_API_KEY;
 
   const fetchLiveMarketData = useCallback(async () => {
     setIsRefreshing(true);
