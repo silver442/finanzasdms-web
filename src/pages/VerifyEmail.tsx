@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
 
-const API = 'http://localhost:3000';
+const API = import.meta.env.VITE_API_URL;
 
 type Status = 'loading' | 'success' | 'error';
 

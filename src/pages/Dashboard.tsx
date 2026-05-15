@@ -51,7 +51,7 @@ export default function Dashboard() {
     const fetchDashboardData = async () => {
       try {
         const token = localStorage.getItem('token');
-        const response = await axios.get('http://localhost:3000/dashboard/summary', {
+        const response = await axios.get(`${import.meta.env.VITE_API_URL}/dashboard/summary`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setSummary(response.data);

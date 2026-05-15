@@ -31,7 +31,7 @@ export default function Register() {
 
     try {
       // Conectando al endpoint que acaba de crear tu IA
-      await axios.post('http://localhost:3000/auth/register', {
+      await axios.post(`${import.meta.env.VITE_API_URL}/auth/register`, {
         name: formData.name,
         email: formData.email,
         password: formData.password

@@ -9,7 +9,7 @@ import {
   MessageCircle, ShieldAlert,
 } from 'lucide-react';
 
-const API = 'http://localhost:3000';
+const API = import.meta.env.VITE_API_URL;
 const DEFAULT_CREDIT_LIMIT = 1000;
 const DEFAULT_RATE = 50;
 const TERM_OPTIONS = [1, 2, 3, 6, 9, 12, 18, 24];

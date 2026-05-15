@@ -37,7 +37,7 @@ const LEVELS: LevelConfig[] = [
   { value: 'ELITE',       label: 'Élite',         minPoints: 9999, creditLimit: 15000, rate: 25, maxMonths: 24 },
 ];
 
-const API = 'http://localhost:3000';
+const API = import.meta.env.VITE_API_URL;
 
 function authHeaders() {
   return { Authorization: `Bearer ${localStorage.getItem('token')}` };
