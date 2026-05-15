@@ -10,15 +10,13 @@ type Status = 'loading' | 'success' | 'error';
 export default function VerifyEmail() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') ?? '';
-  const [status, setStatus] = useState<Status>('loading');
-  const [message, setMessage] = useState('');
+  const [status, setStatus] = useState<Status>(() => (token ? 'loading' : 'error'));
+  const [message, setMessage] = useState(() =>
+    token ? '' : 'Enlace inválido. No se encontró el token de verificación.',
+  );
 
   useEffect(() => {
-    if (!token) {
-      setStatus('error');
-      setMessage('Enlace inválido. No se encontró el token de verificación.');
-      return;
-    }
+    if (!token) return;
 
     axios
       .get<{ message: string }>(`${API}/auth/verify-email`, { params: { token } })
