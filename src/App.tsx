@@ -18,6 +18,7 @@ import AdminBanks from './pages/AdminBanks';
 import Profile from './pages/Profile';
 import AdminHome from './pages/AdminHome';
 import AdminReferrals from './pages/AdminReferrals';
+import AdminUsers from './pages/AdminUsers';
 import Investments from './pages/Investments';
 import LoanSimulator from './pages/LoanSimulator';
 import LoanRequest from './pages/LoanRequest';
@@ -58,6 +59,7 @@ function App() {
           <Route path="/admin/banks" element={<AdminBanks />} />
           <Route path="/admin/home" element={<AdminHome />} />
           <Route path="/admin/referrals" element={<AdminReferrals />} />
+          <Route path="/admin/users" element={<AdminUsers />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/investments" element={<Investments />} />
         </Route>

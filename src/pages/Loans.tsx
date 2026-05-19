@@ -32,6 +32,7 @@ interface Loan {
   interestRate: string | number;
   termMonths: number;
   startDate: string;
+  updatedAt: string;
   status: 'REQUESTED' | 'ACTIVE' | 'PAID' | 'DEFAULTED' | 'REJECTED';
   installments: Installment[];
 }
@@ -59,14 +60,17 @@ function getLevelStyle(level: string): string {
 function getUserProfile() {
   try {
     const raw = localStorage.getItem('user');
-    if (!raw) return { level: 'NOVATO_1', points: 0 };
+    if (!raw) return { level: 'NOVATO_1', points: 0, familyCode: null as string | null };
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     return {
       level: typeof parsed.level === 'string' ? parsed.level : 'NOVATO_1',
       points: typeof parsed.points === 'number' ? parsed.points : 0,
+      familyCode: typeof parsed.familyCode === 'string' && parsed.familyCode.length > 0
+        ? parsed.familyCode
+        : null,
     };
   } catch {
-    return { level: 'NOVATO_1', points: 0 };
+    return { level: 'NOVATO_1', points: 0, familyCode: null as string | null };
   }
 }
 
@@ -84,7 +88,7 @@ const inputCls =
 
 export default function Loans() {
   const navigate = useNavigate();
-  const { level, points } = useMemo(() => getUserProfile(), []);
+  const { level, points, familyCode } = useMemo(() => getUserProfile(), []);
   const userLevel = useMemo(() => getUserLevel(), []);
 
   const [loans, setLoans] = useState<Loan[]>([]);
@@ -248,7 +252,10 @@ export default function Loans() {
         </div>
       ) : (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-          {loans.map(loan => {
+          {loans.filter(loan => {
+            if (loan.status !== 'REJECTED') return true;
+            return Date.now() - new Date(loan.updatedAt).getTime() < 24 * 60 * 60 * 1000;
+          }).map(loan => {
             const totalPaid = loan.installments.reduce((acc, i) => acc + Number(i.amountPaid), 0);
             const totalDue = loan.installments.reduce((acc, i) => acc + Number(i.amountDue), 0);
             const currentDebt = totalDue - totalPaid;
@@ -272,8 +279,18 @@ export default function Loans() {
                 </div>
 
                 {isRequested ? (
-                  <div className="flex-1 p-6 text-slate-400 text-sm text-center py-10">
-                    Esperando aprobación del administrador.
+                  <div className="flex-1 p-6 flex flex-col items-center justify-center gap-3 py-10">
+                    <p className="text-slate-400 text-sm">Esperando aprobación del administrador.</p>
+                    {(level.startsWith('NOVATO') || !familyCode) && (
+                      <a
+                        href={`https://wa.me/${import.meta.env.VITE_WHATSAPP_NUMBER}?text=${encodeURIComponent('Verificación de identidad FinanzasDMS')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1 inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500 hover:text-white px-4 py-2 rounded-xl text-sm font-bold transition-all"
+                      >
+                        📲 Enviar INE por WhatsApp
+                      </a>
+                    )}
                   </div>
                 ) : isRejected ? (
                   <div className="flex-1 p-6 flex flex-col items-center justify-center gap-3 py-10">

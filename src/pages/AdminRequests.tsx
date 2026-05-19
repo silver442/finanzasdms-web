@@ -4,7 +4,7 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import {
   ShieldCheck, ShieldAlert, User, Phone, MapPin, Wallet,
-  CheckCircle2, XCircle, X, AlertTriangle,
+  CheckCircle2, XCircle, X, AlertTriangle, Pencil,
 } from 'lucide-react';
 
 interface LoanUser {
@@ -19,6 +19,8 @@ interface LoanUser {
   country?: string;
   currentRate?: string | number;
   creditLimit?: string | number;
+  level?: string;
+  familyCode?: string | null;
 }
 
 interface AdminLoan {
@@ -26,6 +28,7 @@ interface AdminLoan {
   concept: string;
   amount: string | number;
   termMonths: number;
+  interestRate?: string | number;
   startDate: string;
   referralCode?: string;
   user: LoanUser;
@@ -67,6 +70,11 @@ export default function AdminRequests() {
   // Reject confirmation state
   const [rejectTarget, setRejectTarget] = useState<AdminLoan | null>(null);
   const [isRejecting, setIsRejecting] = useState(false);
+
+  // Edit conditions modal state
+  const [editTarget, setEditTarget] = useState<AdminLoan | null>(null);
+  const [editForm, setEditForm] = useState({ amount: '', termMonths: '', interestRate: '' });
+  const [isSaving, setIsSaving] = useState(false);
 
   const fetchRequests = useCallback(async () => {
     try {
@@ -127,6 +135,61 @@ export default function AdminRequests() {
     }
   };
 
+  const handleSaveConditions = async () => {
+    if (!editTarget) return;
+    const payload: Record<string, number> = {};
+    if (editForm.amount !== '') payload.amount = parseFloat(editForm.amount);
+    if (editForm.termMonths !== '') payload.termMonths = parseInt(editForm.termMonths);
+    if (editForm.interestRate !== '') payload.interestRate = parseFloat(editForm.interestRate);
+
+    if (Object.keys(payload).length === 0) { setEditTarget(null); return; }
+
+    setIsSaving(true);
+    try {
+      const { data } = await axios.patch(
+        `${API}/loans/${editTarget.id}/conditions`,
+        payload,
+        { headers: authHeaders() },
+      );
+      setLoans(prev => prev.map(l => l.id === editTarget.id ? { ...l, ...data } : l));
+      toast.success('Condiciones actualizadas');
+      setEditTarget(null);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? 'Error al guardar condiciones');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const editValidation = useMemo(() => {
+    if (!editTarget) return { amountError: null, rateError: null, hasErrors: false };
+
+    const isFamiliar = !!editTarget.user.familyCode;
+    const isReferido  = !!editTarget.referralCode && !isFamiliar;
+
+    const maxAmount = isFamiliar
+      ? Number(editTarget.user.creditLimit ?? 0) * 3
+      : isReferido ? 1000 : null;
+
+    const minRate = isFamiliar ? 30 : isReferido ? 40 : null;
+    const categoryLabel = isFamiliar ? 'familiares' : 'referidos';
+
+    const parsedAmount = editForm.amount !== '' ? parseFloat(editForm.amount) : null;
+    const parsedRate   = editForm.interestRate !== '' ? parseFloat(editForm.interestRate) : null;
+
+    const amountError =
+      maxAmount !== null && parsedAmount !== null && parsedAmount > maxAmount
+        ? `⚠️ El monto supera el máximo de ${fmt(maxAmount)} para ${categoryLabel}`
+        : null;
+
+    const rateError =
+      minRate !== null && parsedRate !== null && parsedRate < minRate
+        ? `⚠️ La tasa no puede ser menor a ${minRate}% para ${categoryLabel}`
+        : null;
+
+    return { amountError, rateError, hasErrors: !!(amountError || rateError) };
+  }, [editTarget, editForm]);
+
   const capacity = (loan: AdminLoan) => {
     const income = Number(loan.user.income ?? 0);
     const expenses = Number(loan.user.expenses ?? 0);
@@ -179,9 +242,16 @@ export default function AdminRequests() {
                       </span>
                     )}
                   </div>
-                  <span className="bg-amber-500/20 text-amber-400 text-xs px-2 py-1 rounded border border-amber-500/30 font-semibold whitespace-nowrap">
-                    En revisión
-                  </span>
+                  <div className="flex flex-col items-end gap-1.5">
+                    <span className="bg-amber-500/20 text-amber-400 text-xs px-2 py-1 rounded border border-amber-500/30 font-semibold whitespace-nowrap">
+                      En revisión
+                    </span>
+                    {loan.user.level?.startsWith('NOVATO') && (
+                      <span className="bg-red-500/10 text-red-400 border border-red-500/30 text-xs px-2 py-1 rounded font-semibold whitespace-nowrap">
+                        ⚠️ Requiere INE (Verificar WhatsApp)
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* KYC body */}
@@ -261,12 +331,13 @@ export default function AdminRequests() {
                   {/* Límite y tasa */}
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div className="bg-slate-900 rounded-lg p-3">
-                      <p className="text-slate-500 text-xs mb-0.5">Límite de Crédito</p>
+                      <p className="text-slate-500 text-xs mb-0.5">Límite Global del Usuario</p>
                       <p className="text-white font-bold">{fmt(loan.user.creditLimit ?? 0)}</p>
                     </div>
                     <div className="bg-slate-900 rounded-lg p-3">
                       <p className="text-slate-500 text-xs mb-0.5">Tasa Personalizada</p>
-                      <p className="text-white font-bold">{pct(loan.user.currentRate)}</p>
+                      <p className="text-white font-bold">{pct(loan.interestRate ?? 0)}</p>
+                      <p className="text-slate-500 text-xs mt-0.5">Sugerida: {pct(loan.user.currentRate)}</p>
                     </div>
                   </div>
                 </div>
@@ -288,6 +359,20 @@ export default function AdminRequests() {
                       >
                         <XCircle size={18} />
                         Rechazar
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditTarget(loan);
+                          setEditForm({
+                            amount: String(Number(loan.amount)),
+                            termMonths: String(loan.termMonths),
+                            interestRate: '',
+                          });
+                        }}
+                        className="flex items-center justify-center gap-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-2.5 rounded-xl font-bold transition-all"
+                        title="Editar condiciones"
+                      >
+                        <Pencil size={16} />
                       </button>
                       <button
                         onClick={() => openApprove(loan)}
@@ -411,6 +496,96 @@ export default function AdminRequests() {
                   {isRejecting ? 'Rechazando...' : 'Rechazar'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Editar Condiciones ── */}
+      {editTarget && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex justify-between items-center p-6 border-b border-slate-700">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <Pencil size={18} className="text-amber-400" />
+                Editar Condiciones
+              </h3>
+              <button onClick={() => setEditTarget(null)} className="text-slate-400 hover:text-white">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-slate-400">
+                Solicitud de <strong className="text-white">{editTarget.user.name ?? editTarget.user.email}</strong>.
+                Deja un campo sin cambios para mantener el valor actual.
+              </p>
+
+              <div>
+                <label className="text-sm text-slate-300 font-medium block mb-1">Monto ($)</label>
+                <input
+                  type="number"
+                  value={editForm.amount}
+                  onChange={e => setEditForm(f => ({ ...f, amount: e.target.value }))}
+                  className={inputCls}
+                  min="100"
+                  step="100"
+                />
+                {editValidation.amountError
+                  ? <p className="text-red-400 text-xs mt-1">{editValidation.amountError}</p>
+                  : <p className="text-xs text-slate-500 mt-1">
+                      Límite de crédito: <span className="text-emerald-400">{fmt(editTarget.user.creditLimit ?? 0)}</span>
+                    </p>
+                }
+              </div>
+
+              <div>
+                <label className="text-sm text-slate-300 font-medium block mb-1">Plazo (meses)</label>
+                <input
+                  type="number"
+                  value={editForm.termMonths}
+                  onChange={e => setEditForm(f => ({ ...f, termMonths: e.target.value }))}
+                  className={inputCls}
+                  min="1"
+                  max="24"
+                  step="1"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm text-slate-300 font-medium block mb-1">Tasa de interés (%)</label>
+                <input
+                  type="number"
+                  value={editForm.interestRate}
+                  onChange={e => setEditForm(f => ({ ...f, interestRate: e.target.value }))}
+                  className={inputCls}
+                  min="0"
+                  max="100"
+                  step="0.5"
+                />
+                {editValidation.rateError
+                  ? <p className="text-red-400 text-xs mt-1">{editValidation.rateError}</p>
+                  : <p className="text-xs text-slate-500 mt-1">
+                      Tasa personalizada del usuario: <span className="text-emerald-400">{pct(editTarget.user.currentRate)}</span>
+                    </p>
+                }
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-slate-700 flex gap-3 justify-end">
+              <button
+                onClick={() => setEditTarget(null)}
+                className="px-4 py-2 rounded-lg text-slate-300 hover:text-white transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => void handleSaveConditions()}
+                disabled={isSaving || editValidation.hasErrors}
+                className="bg-amber-500 hover:bg-amber-600 text-white px-5 py-2 rounded-lg font-bold transition-colors disabled:opacity-50"
+              >
+                {isSaving ? 'Guardando...' : 'Guardar Cambios'}
+              </button>
             </div>
           </div>
         </div>
