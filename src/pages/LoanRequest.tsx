@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Fragment, useState, useMemo } from 'react';
+import { Fragment, useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -328,11 +328,14 @@ export default function LoanRequest() {
   const navigate = useNavigate();
   const { creditLimit, currentRate } = useMemo(() => getUserDefaults(), []);
 
+  const isFamiliar = Boolean(getFamilyCode());
+  const availableTerms = isFamiliar ? [1, 2, 3, 6, 9, 12, 18, 24] : [1, 2, 3, 6];
+
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
     concept: '',
     amount: '',
-    termMonths: '12',
+    termMonths: '6',
     phone: '',
     income: '',
     expenses: '',
@@ -342,6 +345,12 @@ export default function LoanRequest() {
     referralCode: '',
     disbursementAccount: '',
   });
+  useEffect(() => {
+    if (!isFamiliar && parseInt(form.termMonths, 10) > 6) {
+      setForm(f => ({ ...f, termMonths: '6' }));
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [acceptPrivacy, setAcceptPrivacy] = useState(false);
@@ -378,11 +387,10 @@ export default function LoanRequest() {
   const endDate = rows.length > 0 ? rows[rows.length - 1].dueDate : null;
 
   // ── Step validation ───────────────────────────────────────────────────────
-  const step1Valid = form.concept.trim().length > 0 && amountN > 0 && !isOverLimit && termN > 0;
-  const step2Valid =
-    form.phone.trim().length > 0 &&
-    parseFloat(form.income) > 0 &&
-    parseFloat(form.expenses) > 0;
+  const maxTerm = isFamiliar ? 24 : 6;
+  const step1Valid = form.concept.trim().length > 0 && amountN > 0 && !isOverLimit && termN > 0 && termN <= maxTerm;
+  const phoneValid = /^\d{10}$/.test(form.phone);
+  const step2Valid = phoneValid && parseFloat(form.income) > 0 && parseFloat(form.expenses) > 0;
   const isSubmitEnabled = acceptTerms && acceptPrivacy && !isSubmitting;
 
   // ── Location helpers ──────────────────────────────────────────────────────
@@ -531,7 +539,7 @@ export default function LoanRequest() {
                     onChange={e => setForm(f => ({ ...f, termMonths: e.target.value }))}
                     className={`${inputCls} cursor-pointer`}
                   >
-                    {TERM_OPTIONS.map(m => (
+                    {availableTerms.map(m => (
                       <option key={m} value={m}>{m} {m === 1 ? 'mes' : 'meses'}</option>
                     ))}
                   </select>
@@ -596,10 +604,24 @@ export default function LoanRequest() {
                       <input
                         type="tel"
                         value={form.phone}
-                        onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                        onChange={e => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                          setForm(f => ({ ...f, phone: val }));
+                        }}
                         className={inputCls}
-                        placeholder="81 1234 5678"
+                        placeholder="8112345678"
+                        inputMode="numeric"
                       />
+                      {form.phone.length > 0 && form.phone.length < 10 && (
+                        <p className="text-xs text-amber-400 mt-1">
+                          Faltan {10 - form.phone.length} dígitos
+                        </p>
+                      )}
+                      {form.phone.length === 10 && (
+                        <p className="text-xs text-emerald-400 mt-1 flex items-center gap-1">
+                          <Check size={11} /> Teléfono válido
+                        </p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm text-slate-300 font-medium mb-1.5">

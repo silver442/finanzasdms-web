@@ -70,12 +70,22 @@ function getUserProfile() {
   }
 }
 
+function getUserLevel(): string {
+  try {
+    const raw = localStorage.getItem('user');
+    if (!raw) return 'NOVATO_1';
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    return typeof parsed.level === 'string' ? parsed.level : 'NOVATO_1';
+  } catch { return 'NOVATO_1'; }
+}
+
 const inputCls =
   'w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-4 py-2 focus:outline-none focus:border-emerald-500 transition-colors placeholder-slate-600';
 
 export default function Loans() {
   const navigate = useNavigate();
   const { level, points } = useMemo(() => getUserProfile(), []);
+  const userLevel = useMemo(() => getUserLevel(), []);
 
   const [loans, setLoans] = useState<Loan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -113,6 +123,12 @@ export default function Loans() {
   }, []);
 
   useEffect(() => { void fetchLoans(); void fetchBanks(); void fetchCapacity(); }, [fetchLoans, fetchBanks, fetchCapacity]);
+
+  const personalLimit = userLevel.startsWith('NOVATO') ? 1 : 3;
+  const personalLimitReached = useMemo(
+    () => loans.filter(l => l.status === 'ACTIVE' || l.status === 'REQUESTED').length >= personalLimit,
+    [loans, personalLimit],
+  );
 
   const handlePayInstallment = async () => {
     if (!payTarget) return;
@@ -191,8 +207,8 @@ export default function Loans() {
           </button>
           <button
             onClick={() => navigate('/loans/request')}
-            disabled={!slotsAvailable}
-            title={!slotsAvailable ? 'Cupos agotados este mes' : undefined}
+            disabled={!slotsAvailable || personalLimitReached}
+            title={!slotsAvailable ? 'Cupos agotados este mes' : personalLimitReached ? 'Límite de préstamos alcanzado' : undefined}
             className="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:bg-slate-600"
           >
             <Plus size={20} />
@@ -203,12 +219,22 @@ export default function Loans() {
 
       {/* ── Banner: cupos agotados ── */}
       {!slotsAvailable && (
-        <div className="mb-8 flex items-center gap-3 bg-amber-500/10 border border-amber-500/30 rounded-xl px-5 py-4">
+        <div className="mb-4 flex items-center gap-3 bg-amber-500/10 border border-amber-500/30 rounded-xl px-5 py-4">
           <Ban size={20} className="text-amber-400 shrink-0" />
           <div>
             <p className="text-amber-300 font-bold text-sm">Cupos de crédito agotados por este mes</p>
             <p className="text-amber-400/70 text-xs mt-0.5">Se han alcanzado los 20 créditos activos simultáneos. Intenta de nuevo el próximo mes.</p>
           </div>
+        </div>
+      )}
+
+      {/* ── Banner: límite personal alcanzado ── */}
+      {personalLimitReached && (
+        <div className="mb-4 flex items-center gap-3 bg-red-500/10 border border-red-500/30 rounded-xl px-5 py-4">
+          <AlertCircle size={20} className="text-red-400 shrink-0" />
+          <p className="text-red-300 text-sm font-medium">
+            Liquida tu préstamo actual antes de solicitar uno nuevo.
+          </p>
         </div>
       )}
 
