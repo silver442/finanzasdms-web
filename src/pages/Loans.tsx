@@ -32,7 +32,7 @@ interface Loan {
   interestRate: string | number;
   termMonths: number;
   startDate: string;
-  status: 'REQUESTED' | 'ACTIVE' | 'PAID' | 'DEFAULTED';
+  status: 'REQUESTED' | 'ACTIVE' | 'PAID' | 'DEFAULTED' | 'REJECTED';
   installments: Installment[];
 }
 
@@ -228,14 +228,16 @@ export default function Loans() {
             const currentDebt = totalDue - totalPaid;
             const isPaid = loan.status === 'PAID';
             const isRequested = loan.status === 'REQUESTED';
+            const isRejected = loan.status === 'REJECTED';
 
             return (
-              <div key={loan.id} className={`bg-slate-800 rounded-2xl border shadow-xl overflow-hidden flex flex-col ${isPaid ? 'border-emerald-500/30' : 'border-slate-700'}`}>
+              <div key={loan.id} className={`bg-slate-800 rounded-2xl border shadow-xl overflow-hidden flex flex-col ${isPaid ? 'border-emerald-500/30' : isRejected ? 'border-red-500/30' : 'border-slate-700'}`}>
                 <div className="p-6 border-b border-slate-700 bg-slate-900/40">
                   <h2 className="text-xl font-bold text-white mb-1 flex items-center gap-2">
                     {loan.concept}
                     {isPaid && <span className="bg-emerald-500/20 text-emerald-400 text-xs px-2 py-0.5 rounded border border-emerald-500/30">Liquidado</span>}
                     {isRequested && <span className="bg-amber-500/20 text-amber-400 text-xs px-2 py-0.5 rounded border border-amber-500/30">En revisión</span>}
+                    {isRejected && <span className="bg-red-500/20 text-red-400 text-xs px-2 py-0.5 rounded border border-red-500/30">Rechazado</span>}
                   </h2>
                   <p className="text-sm text-slate-400">
                     Capital: {formatCurrency(loan.amount)} · {loan.termMonths} meses · {Number(loan.interestRate)}% anual
@@ -246,6 +248,16 @@ export default function Loans() {
                 {isRequested ? (
                   <div className="flex-1 p-6 text-slate-400 text-sm text-center py-10">
                     Esperando aprobación del administrador.
+                  </div>
+                ) : isRejected ? (
+                  <div className="flex-1 p-6 flex flex-col items-center justify-center gap-3 py-10">
+                    <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center">
+                      <Ban size={24} className="text-red-400" />
+                    </div>
+                    <p className="text-red-400 font-semibold text-sm">Solicitud rechazada</p>
+                    <p className="text-slate-500 text-xs text-center max-w-xs">
+                      Esta solicitud no fue aprobada por el administrador. Puedes solicitar un nuevo préstamo cuando lo desees.
+                    </p>
                   </div>
                 ) : (
                   <div className="flex-1 p-6 overflow-x-auto">
