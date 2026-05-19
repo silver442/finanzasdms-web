@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import {
   ArrowLeft, Plus, AlertTriangle, Check,
   ChevronRight, ChevronLeft, Send, CalendarCheck, X,
-  MessageCircle, ShieldAlert,
+  MessageCircle, ShieldAlert, CheckCircle2,
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL;
@@ -248,36 +248,66 @@ function LegalModal({
 
 // ── WhatsApp Verification Modal ────────────────────────────────────────────────
 function WhatsAppModal({ onClose }: { onClose: () => void }) {
+  const [sent, setSent] = useState(false);
+
+  const handleSend = () => {
+    window.open(WHATSAPP_URL, '_blank');
+    setSent(true);
+  };
+
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
       <div className="bg-slate-800 border border-amber-500/30 rounded-2xl shadow-2xl w-full max-w-md">
         <div className="p-6 text-center">
-          <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto mb-4">
-            <ShieldAlert size={28} className="text-amber-400" />
-          </div>
-          <h3 className="text-lg font-extrabold text-white mb-2">
-            Verificación de Identidad Requerida
-          </h3>
-          <p className="text-slate-300 text-sm leading-relaxed mb-6">
-            Como eres un usuario nuevo, necesitamos validar tu identidad. Por favor, envía una foto de tu <strong className="text-white">INE</strong> a nuestro WhatsApp para que el equipo active tu acceso al crédito.
-          </p>
-          <div className="flex flex-col gap-3">
-            <a
-              href={WHATSAPP_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-bold transition-all shadow-lg shadow-emerald-500/20"
-            >
-              <MessageCircle size={18} />
-              Enviar WhatsApp
-            </a>
-            <button
-              onClick={onClose}
-              className="py-2.5 rounded-xl border border-slate-600 text-slate-300 hover:text-white hover:border-slate-500 transition-colors font-medium text-sm"
-            >
-              Cerrar
-            </button>
-          </div>
+          {sent ? (
+            <>
+              <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mx-auto mb-4">
+                <CheckCircle2 size={28} className="text-emerald-400" />
+              </div>
+              <h3 className="text-lg font-extrabold text-white mb-2">
+                ¡Mensaje enviado!
+              </h3>
+              <p className="text-slate-300 text-sm leading-relaxed mb-2">
+                Se envió tu solicitud de préstamo.
+              </p>
+              <p className="text-slate-400 text-sm leading-relaxed mb-6">
+                Te contactaremos por WhatsApp para verificar tu identidad y continuar con el proceso.
+              </p>
+              <button
+                onClick={onClose}
+                className="w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold transition-all shadow-lg shadow-emerald-500/20"
+              >
+                Cerrar
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto mb-4">
+                <ShieldAlert size={28} className="text-amber-400" />
+              </div>
+              <h3 className="text-lg font-extrabold text-white mb-2">
+                Verificación de Identidad Requerida
+              </h3>
+              <p className="text-slate-300 text-sm leading-relaxed mb-6">
+                Como eres un usuario nuevo, necesitamos validar tu identidad. Por favor, envía una foto de tu <strong className="text-white">INE</strong> a nuestro WhatsApp para que el equipo active tu acceso al crédito.
+              </p>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={handleSend}
+                  className="flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-bold transition-all shadow-lg shadow-emerald-500/20"
+                >
+                  <MessageCircle size={18} />
+                  Enviar WhatsApp
+                </button>
+                <button
+                  onClick={onClose}
+                  className="py-2.5 rounded-xl border border-slate-600 text-slate-300 hover:text-white hover:border-slate-500 transition-colors font-medium text-sm"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
