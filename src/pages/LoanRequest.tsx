@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Fragment, useState, useMemo } from 'react';
+import { Fragment, useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
 import {
   ArrowLeft, Plus, AlertTriangle, Check,
   ChevronRight, ChevronLeft, Send, CalendarCheck, X,
-  MessageCircle, ShieldAlert,
+  MessageCircle, ShieldAlert, CheckCircle2,
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL;
@@ -248,36 +248,75 @@ function LegalModal({
 
 // ── WhatsApp Verification Modal ────────────────────────────────────────────────
 function WhatsAppModal({ onClose }: { onClose: () => void }) {
+  const navigate = useNavigate();
+  const [sent, setSent] = useState(false);
+
+  const handleSend = () => {
+    window.open(WHATSAPP_URL, '_blank');
+    setSent(true);
+  };
+
+  const handleClose = () => {
+    onClose();
+    navigate('/loans');
+  };
+
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
       <div className="bg-slate-800 border border-amber-500/30 rounded-2xl shadow-2xl w-full max-w-md">
         <div className="p-6 text-center">
-          <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto mb-4">
-            <ShieldAlert size={28} className="text-amber-400" />
-          </div>
-          <h3 className="text-lg font-extrabold text-white mb-2">
-            Verificación de Identidad Requerida
-          </h3>
-          <p className="text-slate-300 text-sm leading-relaxed mb-6">
-            Como eres un usuario nuevo, necesitamos validar tu identidad. Por favor, envía una foto de tu <strong className="text-white">INE</strong> a nuestro WhatsApp para que el equipo active tu acceso al crédito.
-          </p>
-          <div className="flex flex-col gap-3">
-            <a
-              href={WHATSAPP_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-bold transition-all shadow-lg shadow-emerald-500/20"
-            >
-              <MessageCircle size={18} />
-              Enviar WhatsApp
-            </a>
-            <button
-              onClick={onClose}
-              className="py-2.5 rounded-xl border border-slate-600 text-slate-300 hover:text-white hover:border-slate-500 transition-colors font-medium text-sm"
-            >
-              Cerrar
-            </button>
-          </div>
+          {sent ? (
+            <>
+              <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mx-auto mb-4">
+                <CheckCircle2 size={28} className="text-emerald-400" />
+              </div>
+              <h3 className="text-lg font-extrabold text-white mb-2">
+                ¡WhatsApp enviado!
+              </h3>
+              <p className="text-slate-300 text-sm leading-relaxed mb-2">
+                Tu solicitud de préstamo ya fue registrada y está en revisión.
+              </p>
+              <p className="text-slate-400 text-sm leading-relaxed mb-6">
+                Te contactaremos por WhatsApp para verificar tu identidad y activar el crédito.
+              </p>
+              <button
+                onClick={handleClose}
+                className="w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold transition-all shadow-lg shadow-emerald-500/20"
+              >
+                Ir a Mis Préstamos
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mx-auto mb-4">
+                <CheckCircle2 size={28} className="text-emerald-400" />
+              </div>
+              <h3 className="text-lg font-extrabold text-white mb-2">
+                ¡Solicitud enviada!
+              </h3>
+              <p className="text-slate-300 text-sm leading-relaxed mb-2">
+                Tu préstamo fue registrado correctamente y está en revisión.
+              </p>
+              <p className="text-slate-400 text-sm leading-relaxed mb-6">
+                Para agilizar el proceso, envíanos una foto de tu <strong className="text-white">INE</strong> por WhatsApp para verificar tu identidad.
+              </p>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={handleSend}
+                  className="flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-bold transition-all shadow-lg shadow-emerald-500/20"
+                >
+                  <MessageCircle size={18} />
+                  Enviar WhatsApp
+                </button>
+                <button
+                  onClick={handleClose}
+                  className="py-2.5 rounded-xl border border-slate-600 text-slate-300 hover:text-white hover:border-slate-500 transition-colors font-medium text-sm"
+                >
+                  Ir a Mis Préstamos
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -289,11 +328,14 @@ export default function LoanRequest() {
   const navigate = useNavigate();
   const { creditLimit, currentRate } = useMemo(() => getUserDefaults(), []);
 
+  const isFamiliar = Boolean(getFamilyCode());
+  const availableTerms = isFamiliar ? [1, 2, 3, 6, 9, 12, 18, 24] : [1, 2, 3, 6];
+
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
     concept: '',
     amount: '',
-    termMonths: '12',
+    termMonths: '6',
     phone: '',
     income: '',
     expenses: '',
@@ -303,6 +345,12 @@ export default function LoanRequest() {
     referralCode: '',
     disbursementAccount: '',
   });
+  useEffect(() => {
+    if (!isFamiliar && parseInt(form.termMonths, 10) > 6) {
+      setForm(f => ({ ...f, termMonths: '6' }));
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [acceptPrivacy, setAcceptPrivacy] = useState(false);
@@ -339,11 +387,10 @@ export default function LoanRequest() {
   const endDate = rows.length > 0 ? rows[rows.length - 1].dueDate : null;
 
   // ── Step validation ───────────────────────────────────────────────────────
-  const step1Valid = form.concept.trim().length > 0 && amountN > 0 && !isOverLimit && termN > 0;
-  const step2Valid =
-    form.phone.trim().length > 0 &&
-    parseFloat(form.income) > 0 &&
-    parseFloat(form.expenses) > 0;
+  const maxTerm = isFamiliar ? 24 : 6;
+  const step1Valid = form.concept.trim().length > 0 && amountN > 0 && !isOverLimit && termN > 0 && termN <= maxTerm;
+  const phoneValid = /^\d{10}$/.test(form.phone);
+  const step2Valid = phoneValid && parseFloat(form.income) > 0 && parseFloat(form.expenses) > 0;
   const isSubmitEnabled = acceptTerms && acceptPrivacy && !isSubmitting;
 
   // ── Location helpers ──────────────────────────────────────────────────────
@@ -369,12 +416,6 @@ export default function LoanRequest() {
 
   // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
-    // Identity verification gate
-    if (!getFamilyCode()) {
-      setShowWhatsAppModal(true);
-      return;
-    }
-
     const amount = parseFloat(form.amount);
     const termMonths = parseInt(form.termMonths, 10);
     const income = parseFloat(form.income);
@@ -412,8 +453,13 @@ export default function LoanRequest() {
         },
         { headers: authHeaders() },
       );
-      toast.success('¡Solicitud enviada! El equipo revisará tu caso en breve.');
-      navigate('/loans');
+      if (!getFamilyCode()) {
+        // Solicitud guardada — mostrar modal para que el usuario se verifique por WhatsApp
+        setShowWhatsAppModal(true);
+      } else {
+        toast.success('¡Solicitud enviada! El equipo revisará tu caso en breve.');
+        navigate('/loans');
+      }
     } catch (e: any) {
       const msg = e?.response?.data?.message;
       toast.error(Array.isArray(msg) ? (msg as string[])[0] : (msg as string | undefined) ?? 'Error al solicitar préstamo');
@@ -493,7 +539,7 @@ export default function LoanRequest() {
                     onChange={e => setForm(f => ({ ...f, termMonths: e.target.value }))}
                     className={`${inputCls} cursor-pointer`}
                   >
-                    {TERM_OPTIONS.map(m => (
+                    {availableTerms.map(m => (
                       <option key={m} value={m}>{m} {m === 1 ? 'mes' : 'meses'}</option>
                     ))}
                   </select>
@@ -558,10 +604,24 @@ export default function LoanRequest() {
                       <input
                         type="tel"
                         value={form.phone}
-                        onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                        onChange={e => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                          setForm(f => ({ ...f, phone: val }));
+                        }}
                         className={inputCls}
-                        placeholder="81 1234 5678"
+                        placeholder="8112345678"
+                        inputMode="numeric"
                       />
+                      {form.phone.length > 0 && form.phone.length < 10 && (
+                        <p className="text-xs text-amber-400 mt-1">
+                          Faltan {10 - form.phone.length} dígitos
+                        </p>
+                      )}
+                      {form.phone.length === 10 && (
+                        <p className="text-xs text-emerald-400 mt-1 flex items-center gap-1">
+                          <Check size={11} /> Teléfono válido
+                        </p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm text-slate-300 font-medium mb-1.5">

@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, CreditCard, Landmark, PieChart, Bitcoin, LogOut, ShieldCheck, ClipboardList, Briefcase, DatabaseZap, ClipboardCheck, TrendingUp, BarChart2 } from 'lucide-react';
 
 function getUserRole(): string {
@@ -7,6 +7,15 @@ function getUserRole(): string {
     if (!raw) return '';
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     return typeof parsed.role === 'string' ? parsed.role : '';
+  } catch { return ''; }
+}
+
+function getUserName(): string {
+  try {
+    const raw = localStorage.getItem('user');
+    if (!raw) return '';
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    return typeof parsed.name === 'string' ? parsed.name : '';
   } catch { return ''; }
 }
 
@@ -26,6 +35,7 @@ const adminItems = [
   { name: 'Validar Pagos', path: '/admin/payments', icon: ClipboardCheck },
   { name: 'Bancos', path: '/admin/banks', icon: Landmark },
   { name: 'Migrar Datos', path: '/admin/migration', icon: DatabaseZap },
+  { name: 'Tarjetas Referidos', path: '/admin/referrals', icon: TrendingUp },
 ];
 
 const navCls = ({ isActive }: { isActive: boolean }) =>
@@ -38,6 +48,7 @@ const navCls = ({ isActive }: { isActive: boolean }) =>
 export default function Sidebar() {
   const navigate = useNavigate();
   const role = getUserRole();
+  const name = getUserName();
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -48,9 +59,14 @@ export default function Sidebar() {
   return (
     <aside className="w-64 bg-slate-800 border-r border-slate-700 flex flex-col h-full shadow-2xl z-10">
       <div className="p-6 border-b border-slate-700">
-        <h2 className="text-2xl font-extrabold text-emerald-400 tracking-tight">
+        <Link to="/" className="text-2xl font-extrabold text-emerald-400 tracking-tight hover:text-emerald-300 transition-colors">
           FinanzasDMS
-        </h2>
+        </Link>
+        {name && (
+          <p className="text-slate-400 text-sm mt-1 truncate">
+            <span className="text-slate-500">Hola,</span> {name}
+          </p>
+        )}
       </div>
 
       <nav className="flex-1 p-4 space-y-2 overflow-y-auto">

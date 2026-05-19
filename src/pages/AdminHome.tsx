@@ -47,6 +47,7 @@ const LEVEL_GROUPS = [
 export default function AdminHome() {
   const [metrics, setMetrics] = useState<AdminMetrics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [adminCount, setAdminCount] = useState<number | null>(null);
 
   const fetchMetrics = useCallback(async () => {
     try {
@@ -61,8 +62,15 @@ export default function AdminHome() {
     }
   }, []);
 
+  const fetchAdminCount = useCallback(async () => {
+    try {
+      const { data } = await axios.get<number>(`${API}/users/admin-count`, { headers: authHeaders() });
+      setAdminCount(data);
+    } catch { /* no crítico */ }
+  }, []);
+
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void fetchMetrics(); }, [fetchMetrics]);
+  useEffect(() => { void fetchMetrics(); void fetchAdminCount(); }, [fetchMetrics, fetchAdminCount]);
 
   if (isLoading) {
     return (
@@ -103,7 +111,7 @@ export default function AdminHome() {
       </div>
 
       {/* ── KPIs ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5">
           <div className="flex items-center gap-2 mb-3">
             <Wallet size={16} className="text-emerald-400" />
@@ -140,6 +148,15 @@ export default function AdminHome() {
           </div>
           <p className="text-2xl font-extrabold text-white">{metrics.activeLoansCount}</p>
           <p className="text-xs text-slate-500 mt-1">de 20 cupos disponibles</p>
+        </div>
+
+        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <ShieldCheck size={16} className="text-amber-400" />
+            <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Administradores</p>
+          </div>
+          <p className="text-2xl font-extrabold text-white">{adminCount ?? '—'}</p>
+          <p className="text-xs text-slate-500 mt-1">usuarios con rol admin</p>
         </div>
       </div>
 

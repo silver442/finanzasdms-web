@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import {
-  ShieldCheck, User, Phone, MapPin, Wallet,
+  ShieldCheck, ShieldAlert, User, Phone, MapPin, Wallet,
   CheckCircle2, XCircle, X, AlertTriangle,
 } from 'lucide-react';
 
@@ -37,6 +37,15 @@ function authHeaders() {
   return { Authorization: `Bearer ${localStorage.getItem('token')}` };
 }
 
+function getAdminId(): string {
+  try {
+    const raw = localStorage.getItem('user');
+    if (!raw) return '';
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    return typeof parsed.id === 'string' ? parsed.id : '';
+  } catch { return ''; }
+}
+
 function fmt(v: string | number) {
   return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(v));
 }
@@ -46,6 +55,7 @@ function pct(v?: string | number) {
 }
 
 export default function AdminRequests() {
+  const adminId = useMemo(() => getAdminId(), []);
   const [loans, setLoans] = useState<AdminLoan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -147,6 +157,7 @@ export default function AdminRequests() {
       ) : (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           {loans.map(loan => {
+            const isOwnLoan = loan.user.id === adminId;
             const { income, expenses, free } = capacity(loan);
             const totalFlat = Number(loan.amount) + Number(loan.amount) * (Number(loan.user.currentRate ?? 50) / 100);
             const monthlyEst = loan.termMonths > 0 ? totalFlat / loan.termMonths : 0;
@@ -262,20 +273,31 @@ export default function AdminRequests() {
 
                 {/* Actions */}
                 <div className="p-5 border-t border-slate-700 flex gap-3">
-                  <button
-                    onClick={() => setRejectTarget(loan)}
-                    className="flex-1 flex items-center justify-center gap-2 bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500 hover:text-white hover:border-red-500 px-4 py-2.5 rounded-xl font-bold transition-all"
-                  >
-                    <XCircle size={18} />
-                    Rechazar
-                  </button>
-                  <button
-                    onClick={() => openApprove(loan)}
-                    className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-emerald-500/20"
-                  >
-                    <CheckCircle2 size={18} />
-                    Aprobar
-                  </button>
+                  {isOwnLoan ? (
+                    <div className="flex-1 flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-2.5">
+                      <ShieldAlert size={15} className="text-amber-400 shrink-0" />
+                      <span className="text-amber-300 text-xs font-semibold">
+                        Tu solicitud · Requiere revisión de otro Admin
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => setRejectTarget(loan)}
+                        className="flex-1 flex items-center justify-center gap-2 bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500 hover:text-white hover:border-red-500 px-4 py-2.5 rounded-xl font-bold transition-all"
+                      >
+                        <XCircle size={18} />
+                        Rechazar
+                      </button>
+                      <button
+                        onClick={() => openApprove(loan)}
+                        className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-emerald-500/20"
+                      >
+                        <CheckCircle2 size={18} />
+                        Aprobar
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             );
