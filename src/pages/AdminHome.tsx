@@ -61,6 +61,7 @@ export default function AdminHome() {
     }
   }, []);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void fetchMetrics(); }, [fetchMetrics]);
 
   if (isLoading) {
@@ -106,7 +107,7 @@ export default function AdminHome() {
         <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5">
           <div className="flex items-center gap-2 mb-3">
             <Wallet size={16} className="text-emerald-400" />
-            <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Capital en la Calle</p>
+            <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Capital Prestado</p>
           </div>
           <p className="text-2xl font-extrabold text-white">{fmt(metrics.capitalEnCalle)}</p>
           <p className="text-xs text-slate-500 mt-1">saldo pendiente en préstamos activos</p>

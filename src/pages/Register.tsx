@@ -106,7 +106,7 @@ export default function Register() {
                       type="text" required
                       value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})}
                       className="block w-full pl-10 pr-3 py-2.5 border border-slate-600 rounded-xl bg-slate-900/50 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-                      placeholder="Ej. Silvestre Hernández"
+                      placeholder="Ej. Javier Rodriguez"
                     />
                   </div>
                 </div>
@@ -136,7 +136,7 @@ export default function Register() {
                       type="password" required
                       value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})}
                       className="block w-full pl-10 pr-3 py-2.5 border border-slate-600 rounded-xl bg-slate-900/50 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-                      placeholder="Mínimo 6 caracteres"
+                      placeholder="Mínimo 8 caracteres"
                     />
                   </div>
                 </div>
