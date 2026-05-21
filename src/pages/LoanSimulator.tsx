@@ -1,10 +1,37 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calculator, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Calculator, TrendingUp, HelpCircle } from 'lucide-react';
 
 const DEFAULT_CREDIT_LIMIT = 1000;
 const DEFAULT_RATE = 50;
 const TERM_OPTIONS = [1, 2, 3, 6, 9, 12, 18, 24];
+
+type Frequency = 'Semanal' | 'Quincenal' | 'Mensual';
+
+const FREQ_CONFIG: Record<Frequency, { periodsPerMonth: number; dayStep: number; label: string }> = {
+  Mensual:   { periodsPerMonth: 1, dayStep: 0,  label: 'mensual'   },
+  Quincenal: { periodsPerMonth: 2, dayStep: 15, label: 'quincenal' },
+  Semanal:   { periodsPerMonth: 4, dayStep: 7,  label: 'semanal'   },
+};
+
+function getAvailableFrequencies(level: string): Frequency[] {
+  if (level === 'NOVATO_1') return ['Semanal'];
+  if (level === 'NOVATO_2' || level === 'NOVATO_3') return ['Semanal', 'Quincenal'];
+  return ['Semanal', 'Quincenal', 'Mensual'];
+}
+
+const TOOLTIP_LEVEL_TEXT = 'Tu límite y tasa están determinados por tu nivel actual. Sube de nivel realizando tus pagos puntualmente.';
+
+function InfoTooltip({ text }: { text: string }) {
+  return (
+    <span className="relative inline-flex group ml-1 align-middle">
+      <HelpCircle size={13} className="text-slate-500 group-hover:text-slate-300 cursor-help transition-colors" />
+      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-56 bg-slate-700 border border-slate-600 text-slate-200 text-xs rounded-lg px-3 py-2 leading-snug shadow-xl z-50 pointer-events-none text-center">
+        {text}
+      </span>
+    </span>
+  );
+}
 
 function getUserDefaults() {
   try {
@@ -20,6 +47,15 @@ function getUserDefaults() {
   }
 }
 
+function getUserLevel(): string {
+  try {
+    const raw = localStorage.getItem('user');
+    if (!raw) return 'NOVATO_1';
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    return typeof parsed.level === 'string' ? parsed.level : 'NOVATO_1';
+  } catch { return 'NOVATO_1'; }
+}
+
 function calcMonthly(amount: number, flatRate: number, months: number): number {
   if (amount <= 0 || months <= 0) return 0;
   const timeFactor = months >= 12 ? months / 12 : 1;
@@ -32,9 +68,15 @@ const inputCls =
 export default function LoanSimulator() {
   const navigate = useNavigate();
   const { creditLimit, currentRate } = useMemo(() => getUserDefaults(), []);
+  const userLevel = useMemo(() => getUserLevel(), []);
+  const availableFreqs = useMemo(() => getAvailableFrequencies(userLevel), [userLevel]);
 
   const [amount, setAmount] = useState('');
   const [months, setMonths] = useState('12');
+  const [freq, setFreq] = useState<Frequency>(() => {
+    const freqs = getAvailableFrequencies(getUserLevel());
+    return freqs[freqs.length - 1];
+  });
 
   const amountN = parseFloat(amount) || 0;
   const monthsN = parseInt(months, 10) || 0;
@@ -50,15 +92,25 @@ export default function LoanSimulator() {
   const fmtDate = (d: Date) =>
     d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
 
+  const { periodsPerMonth, dayStep } = FREQ_CONFIG[freq];
+  const periodPayment = monthly / periodsPerMonth;
+  const totalPeriods = monthsN * periodsPerMonth;
+
   const rows = useMemo(() => {
     if (amountN <= 0 || monthsN <= 0 || monthly <= 0) return [];
     const today = new Date();
-    return Array.from({ length: monthsN }, (_, i) => {
-      const dueDate = new Date(today.getFullYear(), today.getMonth() + i + 1, today.getDate());
-      const remainingBalance = Math.max(0, total - monthly * (i + 1));
-      return { number: i + 1, dueDate, amountDue: monthly, remainingBalance };
+    return Array.from({ length: totalPeriods }, (_, i) => {
+      let dueDate: Date;
+      if (freq === 'Mensual') {
+        dueDate = new Date(today.getFullYear(), today.getMonth() + i + 1, today.getDate());
+      } else {
+        dueDate = new Date(today);
+        dueDate.setDate(dueDate.getDate() + (i + 1) * dayStep);
+      }
+      const remainingBalance = Math.max(0, total - periodPayment * (i + 1));
+      return { number: i + 1, dueDate, amountDue: periodPayment, remainingBalance };
     });
-  }, [amountN, monthsN, monthly, total]);
+  }, [amountN, monthsN, monthly, total, freq, totalPeriods, periodPayment, dayStep]);
 
   return (
     <div className="p-8 text-white font-sans">
@@ -84,11 +136,15 @@ export default function LoanSimulator() {
         <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-5">
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-slate-900 rounded-xl p-4 border border-slate-700">
-              <p className="text-xs text-slate-500 mb-1">Límite Autorizado</p>
+              <p className="text-xs text-slate-500 mb-1">
+                Límite Autorizado<InfoTooltip text={TOOLTIP_LEVEL_TEXT} />
+              </p>
               <p className="text-lg font-extrabold text-white">{fmt(creditLimit)}</p>
             </div>
             <div className="bg-slate-900 rounded-xl p-4 border border-slate-700">
-              <p className="text-xs text-slate-500 mb-1">Tasa (anual)</p>
+              <p className="text-xs text-slate-500 mb-1">
+                Tasa (anual)<InfoTooltip text={TOOLTIP_LEVEL_TEXT} />
+              </p>
               <p className="text-lg font-extrabold text-emerald-400">{currentRate}%</p>
             </div>
           </div>
@@ -118,6 +174,19 @@ export default function LoanSimulator() {
             </select>
           </div>
 
+          <div>
+            <label className="block text-sm text-slate-300 font-medium mb-1.5">Frecuencia de Pago</label>
+            <select
+              value={freq}
+              onChange={e => setFreq(e.target.value as Frequency)}
+              className={`${inputCls} cursor-pointer`}
+            >
+              {availableFreqs.map(f => (
+                <option key={f} value={f}>{f}</option>
+              ))}
+            </select>
+          </div>
+
           {total > 0 && amountN > 0 && (
             <div className="bg-slate-900/60 border border-slate-700 rounded-xl p-4 space-y-2.5 text-sm">
               <div className="flex justify-between">
@@ -135,8 +204,8 @@ export default function LoanSimulator() {
                 <span className="text-white font-bold">{fmt(total)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Cuota mensual</span>
-                <span className="text-emerald-400 font-bold text-base">{fmt(monthly)}</span>
+                <span className="text-slate-400">Cuota {FREQ_CONFIG[freq].label}</span>
+                <span className="text-emerald-400 font-bold text-base">{fmt(periodPayment)}</span>
               </div>
             </div>
           )}
@@ -158,7 +227,7 @@ export default function LoanSimulator() {
             </h3>
             {rows.length > 0 && (
               <span className="text-xs text-slate-500 bg-slate-900 px-2.5 py-0.5 rounded-full">
-                {rows.length} cuotas
+                {rows.length} cuotas {FREQ_CONFIG[freq].label}s
               </span>
             )}
           </div>

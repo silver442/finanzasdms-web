@@ -1,4 +1,6 @@
+import { useState, useEffect } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { LayoutDashboard, CreditCard, Landmark, PieChart, Bitcoin, LogOut, ShieldCheck, ClipboardList, Briefcase, DatabaseZap, ClipboardCheck, TrendingUp, BarChart2, Users } from 'lucide-react';
 
 function getUserRole(): string {
@@ -50,6 +52,23 @@ export default function Sidebar() {
   const navigate = useNavigate();
   const role = getUserRole();
   const name = getUserName();
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    if (role !== 'ADMIN') return;
+    const fetchCount = async () => {
+      try {
+        const { data } = await axios.get<{ count: number }>(
+          `${import.meta.env.VITE_API_URL}/payment-requests/pending-count`,
+          { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } },
+        );
+        setPendingCount(data.count);
+      } catch { /* silencioso */ }
+    };
+    void fetchCount();
+    const interval = setInterval(() => void fetchCount(), 60_000);
+    return () => clearInterval(interval);
+  }, [role]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -88,6 +107,12 @@ export default function Sidebar() {
               <NavLink key={path} to={path} className={navCls}>
                 <Icon size={20} className="shrink-0" />
                 {name}
+                {path === '/admin/payments' && pendingCount > 0 && (
+                  <span className="ml-auto relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500" />
+                  </span>
+                )}
               </NavLink>
             ))}
           </div>

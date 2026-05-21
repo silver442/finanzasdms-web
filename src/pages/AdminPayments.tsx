@@ -228,32 +228,48 @@ export default function AdminPayments() {
                 <X size={20} />
               </button>
             </div>
-            <div className="overflow-auto flex-1 p-4 flex items-center justify-center">
-              {receiptPreview.startsWith('data:image') ? (
-                <img
-                  src={receiptPreview}
-                  alt="Comprobante"
-                  className="max-w-full max-h-[70vh] rounded-lg object-contain"
-                />
-              ) : receiptPreview.startsWith('data:application/pdf') ? (
-                <iframe
-                  src={receiptPreview}
-                  title="Comprobante PDF"
-                  className="w-full h-[70vh] rounded-lg"
-                />
-              ) : (
-                <div className="text-center text-slate-400 py-8">
-                  <FileImage size={40} className="mx-auto mb-3 opacity-40" />
-                  <p className="text-sm">No se puede previsualizar este archivo.</p>
-                  <a
-                    href={receiptPreview}
-                    download="comprobante"
-                    className="mt-3 inline-block text-sky-400 hover:text-sky-300 underline text-sm"
-                  >
-                    Descargar archivo
-                  </a>
-                </div>
-              )}
+            <div className="overflow-auto flex-1 p-4 flex flex-col items-center justify-center gap-3">
+              {(() => {
+                const isImage = /\.(jpg|jpeg|png|webp|gif)(\?.*)?$/i.test(receiptPreview) || receiptPreview.startsWith('data:image');
+                const isPdf   = /\.pdf(\?.*)?$/i.test(receiptPreview) || receiptPreview.startsWith('data:application/pdf');
+                if (isImage) return (
+                  <>
+                    <img
+                      src={receiptPreview}
+                      alt="Comprobante"
+                      className="max-w-full max-h-[65vh] rounded-lg object-contain"
+                    />
+                    <a
+                      href={receiptPreview}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sky-400 hover:text-sky-300 underline text-xs"
+                    >
+                      Abrir en pestaña nueva
+                    </a>
+                  </>
+                );
+                if (isPdf) return (
+                  <iframe
+                    src={receiptPreview}
+                    title="Comprobante PDF"
+                    className="w-full h-[70vh] rounded-lg"
+                  />
+                );
+                return (
+                  <div className="text-center text-slate-400 py-8">
+                    <FileImage size={40} className="mx-auto mb-3 opacity-40" />
+                    <p className="text-sm">No se puede previsualizar este archivo.</p>
+                    <a
+                      href={receiptPreview}
+                      download="comprobante"
+                      className="mt-3 inline-block text-sky-400 hover:text-sky-300 underline text-sm"
+                    >
+                      Descargar archivo
+                    </a>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>

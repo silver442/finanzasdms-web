@@ -4,8 +4,23 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import {
   ShieldCheck, ShieldAlert, User, Phone, MapPin, Wallet,
-  CheckCircle2, XCircle, X, AlertTriangle, Pencil,
+  CheckCircle2, XCircle, X, AlertTriangle, Pencil, CreditCard,
 } from 'lucide-react';
+
+const CLABE_BANK_CODES: Record<string, string> = {
+  '002': 'Citibanamex', '006': 'Bancomext', '009': 'Banobras',
+  '012': 'BBVA', '014': 'Santander', '021': 'HSBC',
+  '030': 'Bajío', '036': 'Inbursa', '042': 'Mifel',
+  '044': 'ScotiaBank', '058': 'Banregio', '059': 'Invex',
+  '062': 'Afirme', '072': 'Banorte', '127': 'Azteca',
+  '128': 'Autofin', '130': 'Compartamos', '132': 'Multiva',
+  '133': 'Actinver', '134': 'Walmart', '137': 'Bancoppel',
+  '138': 'ABC Capital', '141': 'Volkswagen', '143': 'CIBanco',
+  '147': 'Bankaool', '600': 'Monexcb', '601': 'GBM',
+  '610': 'HEY BANCO', '616': 'Fideam', '621': 'Actinver CB',
+  '646': 'STP', '706': 'Arcus', '722': 'Mercado Pago',
+  '723': 'Cuenca', '728': 'SPIN by OXXO',
+};
 
 interface LoanUser {
   id: string;
@@ -31,6 +46,7 @@ interface AdminLoan {
   interestRate?: string | number;
   startDate: string;
   referralCode?: string;
+  disbursementAccount?: string;
   user: LoanUser;
 }
 
@@ -340,6 +356,24 @@ export default function AdminRequests() {
                       <p className="text-slate-500 text-xs mt-0.5">Sugerida: {pct(loan.user.currentRate)}</p>
                     </div>
                   </div>
+
+                  {/* CLABE de depósito */}
+                  {loan.disbursementAccount && loan.disbursementAccount.length > 0 && (
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center shrink-0">
+                        <CreditCard size={16} className="text-slate-300" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">CLABE de Depósito</p>
+                        <p className="font-mono text-white text-sm">{loan.disbursementAccount}</p>
+                        {CLABE_BANK_CODES[loan.disbursementAccount.slice(0, 3)] && (
+                          <p className="text-emerald-400 text-xs mt-0.5">
+                            {CLABE_BANK_CODES[loan.disbursementAccount.slice(0, 3)]}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Actions */}
@@ -422,6 +456,22 @@ export default function AdminRequests() {
                   <span className="text-slate-400">Plazo</span>
                   <span className="text-white">{approveTarget.termMonths} meses</span>
                 </div>
+                {approveTarget.disbursementAccount && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">CLABE</span>
+                      <span className="text-white font-mono text-xs">{approveTarget.disbursementAccount}</span>
+                    </div>
+                    {CLABE_BANK_CODES[approveTarget.disbursementAccount.slice(0, 3)] && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Banco</span>
+                        <span className="text-emerald-400 font-semibold">
+                          {CLABE_BANK_CODES[approveTarget.disbursementAccount.slice(0, 3)]}
+                        </span>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
 
               <div>

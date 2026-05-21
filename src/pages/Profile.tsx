@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { ArrowLeft, User, Star, TrendingUp, Shield, Zap, Lock, ChevronRight } from 'lucide-react';
+import { ArrowLeft, User, Star, TrendingUp, Shield, Zap, Lock, ChevronRight, HelpCircle } from 'lucide-react';
 
 interface UserProfile {
   id: string;
@@ -61,6 +61,25 @@ function getLevelBg(value: string): string {
   if (value.startsWith('SOCIO'))      return 'bg-amber-500/10 border-amber-500/30';
   if (value === 'ELITE')              return 'bg-purple-500/10 border-purple-500/30';
   return 'bg-slate-700 border-slate-600';
+}
+
+function getFreqLabel(level: string): string {
+  if (level === 'NOVATO_1') return 'Semanal';
+  if (level === 'NOVATO_2' || level === 'NOVATO_3') return 'Semanal · Quincenal';
+  return 'Semanal · Quincenal · Mensual';
+}
+
+const TOOLTIP_LEVEL_TEXT = 'Tu límite y tasa están determinados por tu nivel actual. Sube de nivel realizando tus pagos puntualmente.';
+
+function InfoTooltip({ text }: { text: string }) {
+  return (
+    <span className="relative inline-flex group ml-1 align-middle">
+      <HelpCircle size={13} className="text-slate-500 group-hover:text-slate-300 cursor-help transition-colors" />
+      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-56 bg-slate-700 border border-slate-600 text-slate-200 text-xs rounded-lg px-3 py-2 leading-snug shadow-xl z-50 pointer-events-none text-center">
+        {text}
+      </span>
+    </span>
+  );
 }
 
 function getLevelIcon(value: string) {
@@ -196,11 +215,15 @@ export default function Profile() {
       {/* ── Beneficios actuales ── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 text-center">
-          <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">Límite de Crédito</p>
+          <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">
+            Límite de Crédito<InfoTooltip text={TOOLTIP_LEVEL_TEXT} />
+          </p>
           <p className="text-2xl font-extrabold text-white">{fmt(Number(profile.creditLimit))}</p>
         </div>
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 text-center">
-          <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">Tasa de Interés</p>
+          <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">
+            Tasa de Interés<InfoTooltip text={TOOLTIP_LEVEL_TEXT} />
+          </p>
           <p className="text-2xl font-extrabold text-emerald-400">{Number(profile.currentRate).toFixed(0)}%</p>
           <p className="text-xs text-slate-500 mt-0.5">anual</p>
         </div>
@@ -257,6 +280,7 @@ export default function Profile() {
                 <th className="text-right px-5 py-3">Límite</th>
                 <th className="text-right px-5 py-3">Tasa</th>
                 <th className="text-right px-5 py-3">Plazo</th>
+                <th className="text-right px-5 py-3">Frecuencias</th>
               </tr>
             </thead>
             <tbody>
@@ -291,6 +315,9 @@ export default function Profile() {
                     <td className={`px-5 py-3 text-right tabular-nums ${isCurrentLevel ? 'text-white' : isLocked ? 'text-slate-600' : 'text-slate-400'}`}>
                       {lvl.maxMonths} meses
                     </td>
+                    <td className={`px-5 py-3 text-right text-xs ${isCurrentLevel ? 'text-emerald-400 font-semibold' : isLocked ? 'text-slate-600' : 'text-slate-400'}`}>
+                      {getFreqLabel(lvl.value)}
+                    </td>
                   </tr>
                 );
               })}
@@ -298,7 +325,7 @@ export default function Profile() {
           </table>
         </div>
         <div className="px-5 py-3 border-t border-slate-700 flex flex-wrap gap-4 text-xs text-slate-500">
-          <span>+10 pts por pago puntual</span>
+          <span>+10puntos por cada pago puntual</span>
           <span>·</span>
           <span>+50 pts al liquidar un préstamo</span>
           <span>·</span>

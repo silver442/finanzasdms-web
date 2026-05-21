@@ -42,6 +42,7 @@ const EMPTY_FORM = {
   startDate: '',
   referralCode: '',
   paidInstallmentsCount: '',
+  paymentFrequency: 'MENSUAL',
 };
 
 export default function AdminMigration() {
@@ -71,12 +72,20 @@ export default function AdminMigration() {
   const amount      = parseFloat(form.amount) || 0;
   const rate        = parseFloat(form.interestRate) || 0;
   const months      = parseInt(form.termMonths) || 0;
-  const paidCount   = Math.min(parseInt(form.paidInstallmentsCount) || 0, months);
   const hasTable    = amount > 0 && months > 0 && form.startDate !== '';
 
+  const freqConfig: Record<string, { periods: number; dayStep: number; label: string }> = {
+    MENSUAL:   { periods: months,      dayStep: 0,  label: 'mensual'   },
+    QUINCENAL: { periods: months * 2,  dayStep: 15, label: 'quincenal' },
+    SEMANAL:   { periods: months * 4,  dayStep: 7,  label: 'semanal'   },
+  };
+  const { periods, dayStep, label: freqLabel } = freqConfig[form.paymentFrequency] ?? freqConfig['MENSUAL'];
+
+  const paidCount   = Math.min(parseInt(form.paidInstallmentsCount) || 0, periods);
+
   const totalDebt   = amount + amount * (rate / 100);
-  const monthly     = months > 0 ? totalDebt / months : 0;
-  const paidAmount  = monthly * paidCount;
+  const periodPay   = periods > 0 ? totalDebt / periods : 0;
+  const paidAmount  = periodPay * paidCount;
   const pending     = totalDebt - paidAmount;
 
   const selectedUser = users.find(u => u.id === form.userId);
@@ -86,18 +95,22 @@ export default function AdminMigration() {
     if (!hasTable) return [];
     const installments: ProjectedInstallment[] = [];
     let current = new Date(form.startDate + 'T12:00:00');
-    for (let i = 1; i <= months; i++) {
+    for (let i = 1; i <= periods; i++) {
       current = new Date(current);
-      current.setMonth(current.getMonth() + 1);
+      if (form.paymentFrequency === 'MENSUAL') {
+        current.setMonth(current.getMonth() + 1);
+      } else {
+        current.setDate(current.getDate() + dayStep);
+      }
       installments.push({
         number: i,
         dueDate: new Date(current),
-        amountDue: monthly,
+        amountDue: periodPay,
         paid: i <= paidCount,
       });
     }
     return installments;
-  }, [hasTable, form.startDate, months, monthly, paidCount]);
+  }, [hasTable, form.startDate, form.paymentFrequency, periods, dayStep, periodPay, paidCount]);
 
   // ── Submit ─────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
@@ -117,6 +130,7 @@ export default function AdminMigration() {
           interestRate: rate,
           termMonths: months,
           startDate: new Date(form.startDate + 'T12:00:00').toISOString(),
+          paymentFrequency: form.paymentFrequency,
           ...(form.referralCode ? { referralCode: form.referralCode } : {}),
           ...(paidCount > 0 ? { paidInstallmentsCount: paidCount } : {}),
         },
@@ -223,6 +237,15 @@ export default function AdminMigration() {
             </div>
 
             <div>
+              <label className={labelCls}>Frecuencia de Pago</label>
+              <select value={form.paymentFrequency} onChange={set('paymentFrequency')} className={inputCls}>
+                <option value="MENSUAL">Mensual</option>
+                <option value="QUINCENAL">Quincenal</option>
+                <option value="SEMANAL">Semanal</option>
+              </select>
+            </div>
+
+            <div>
               <label className={labelCls}>Fecha de Inicio Real</label>
               <input type="date" value={form.startDate} onChange={set('startDate')}
                 className={inputCls} required />
@@ -231,14 +254,14 @@ export default function AdminMigration() {
 
             <div>
               <label className={labelCls}>
-                Mensualidades ya pagadas
+                Cuotas ya pagadas
                 <span className="text-slate-600 normal-case font-normal ml-1">(opcional)</span>
               </label>
               <input type="number" value={form.paidInstallmentsCount} onChange={set('paidInstallmentsCount')}
-                placeholder="0" min="0" max={months || 999} step="1" className={inputCls} />
-              {paidCount > 0 && months > 0 && (
+                placeholder="0" min="0" max={periods || 999} step="1" className={inputCls} />
+              {paidCount > 0 && periods > 0 && (
                 <p className="text-xs text-emerald-500 mt-1">
-                  {paidCount} de {months} cuotas se marcarán como PAGADAS
+                  {paidCount} de {periods} cuotas se marcarán como PAGADAS
                 </p>
               )}
             </div>
@@ -271,7 +294,7 @@ export default function AdminMigration() {
               <div className="bg-slate-900/60 rounded-xl p-4 text-center">
                 <p className="text-slate-500 text-xs mb-1 uppercase tracking-wider">Saldo Pendiente</p>
                 <p className={`font-bold text-lg ${pending > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>{fmt(pending)}</p>
-                <p className="text-slate-600 text-xs mt-0.5">{months - paidCount} cuota{(months - paidCount) !== 1 ? 's' : ''} por cobrar</p>
+                <p className="text-slate-600 text-xs mt-0.5">{periods - paidCount} cuota{(periods - paidCount) !== 1 ? 's' : ''} por cobrar</p>
               </div>
             </div>
             <p className="text-xs text-slate-500 text-center">
@@ -349,11 +372,11 @@ export default function AdminMigration() {
             <div className="px-6 py-4 border-t border-slate-700 bg-slate-900/40 grid grid-cols-3 gap-4 text-sm">
               <div>
                 <p className="text-slate-500 text-xs mb-0.5">Total cuotas</p>
-                <p className="text-white font-bold">{months}</p>
+                <p className="text-white font-bold">{periods}</p>
               </div>
               <div>
-                <p className="text-slate-500 text-xs mb-0.5">Cuota mensual</p>
-                <p className="text-white font-bold">{fmt(monthly)}</p>
+                <p className="text-slate-500 text-xs mb-0.5">Cuota {freqLabel}</p>
+                <p className="text-white font-bold">{fmt(periodPay)}</p>
               </div>
               <div className="text-right">
                 <p className="text-slate-500 text-xs mb-0.5">Total a pagar</p>
