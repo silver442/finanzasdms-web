@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { LayoutDashboard, CreditCard, Landmark, PieChart, Bitcoin, LogOut, ShieldCheck, ClipboardList, Briefcase, DatabaseZap, ClipboardCheck, TrendingUp, BarChart2, Users } from 'lucide-react';
+import { LayoutDashboard, CreditCard, CalendarClock, Landmark, PieChart, Bitcoin, LogOut, ShieldCheck, ClipboardList, Briefcase, DatabaseZap, ClipboardCheck, TrendingUp, BarChart2, Users } from 'lucide-react';
 
 function getUserRole(): string {
   try {
@@ -24,6 +24,7 @@ function getUserName(): string {
 const menuItems = [
   { name: 'Resumen Financiero', path: '/dashboard', icon: LayoutDashboard },
   { name: 'Tarjetas de Crédito', path: '/credit-cards', icon: CreditCard },
+  { name: 'Suscripciones', path: '/subscriptions', icon: CalendarClock },
   { name: 'Préstamos', path: '/loans', icon: Landmark },
   { name: 'Portafolio', path: '/portfolio', icon: PieChart },
   { name: 'Inversiones Cripto', path: '/crypto', icon: Bitcoin },

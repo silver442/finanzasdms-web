@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import ProtectedRoute from './components/ProtectedRoute'; 
 import CreditCards from './pages/CreditCards';
 import CreditCardDetail from './pages/CreditCardDetail';
+import Subscriptions from './pages/Subscriptions';
 import Portfolio from './pages/Portfolio';
 import Crypto from './pages/Crypto';
 import Loans from './pages/Loans';
@@ -46,6 +47,7 @@ function App() {
           {/* Pantallas en construcción del Sidebar */}
           <Route path="/credit-cards" element={<CreditCards />} />
           <Route path="/credit-cards/:id" element={<CreditCardDetail />} />
+          <Route path="/subscriptions" element={<Subscriptions />} />
           <Route path="/loans" element={<Loans />} />
           <Route path="/loans/simulator" element={<LoanSimulator />} />
           <Route path="/loans/request" element={<LoanRequest />} />
