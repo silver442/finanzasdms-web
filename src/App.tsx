@@ -7,6 +7,7 @@ import CreditCards from './pages/CreditCards';
 import CreditCardDetail from './pages/CreditCardDetail';
 import Subscriptions from './pages/Subscriptions';
 import Portfolio from './pages/Portfolio';
+import PortfolioDetail from './pages/PortfolioDetail';
 import Crypto from './pages/Crypto';
 import Loans from './pages/Loans';
 import Register from './pages/Register';
@@ -52,7 +53,8 @@ function App() {
           <Route path="/loans/simulator" element={<LoanSimulator />} />
           <Route path="/loans/request" element={<LoanRequest />} />
           <Route path="/portfolio" element={<Portfolio />} />
-          
+          <Route path="/portfolio/:id" element={<PortfolioDetail />} />
+
           <Route path="/crypto" element={<Crypto />} />
           <Route path="/admin/requests" element={<AdminRequests />} />
           <Route path="/admin/active-loans" element={<AdminActiveLoans />} />
