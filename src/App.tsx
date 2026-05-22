@@ -27,6 +27,7 @@ import LoanRequest from './pages/LoanRequest';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
+import AccountMonitor from './pages/AccountMonitor';
 
 function App() {
   return (
@@ -66,6 +67,7 @@ function App() {
           <Route path="/admin/users" element={<AdminUsers />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/investments" element={<Investments />} />
+          <Route path="/monitor-cuentas" element={<AccountMonitor />} />
         </Route>
         
         {/* Ruta comodín para URLs que de verdad no existen */}
