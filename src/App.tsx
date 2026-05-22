@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -28,6 +28,23 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
 import AccountMonitor from './pages/AccountMonitor';
+import ModuleStore from './pages/ModuleStore';
+
+type FlagKey = 'hasCreditCardsModule' | 'hasLoansModule' | 'hasCryptoModule' | 'hasStockMarketModule' | 'hasCompoundInterestModule' | 'hasSubscriptionsModule' | 'hasMakeMoneyModule';
+
+function getFlag(key: FlagKey): boolean {
+  try {
+    const raw = localStorage.getItem('user');
+    if (!raw) return false;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (key === 'hasLoansModule' || key === 'hasMakeMoneyModule') return parsed[key] !== false;
+    return parsed[key] === true;
+  } catch { return false; }
+}
+
+function ModuleRoute({ flag }: { flag: FlagKey }) {
+  return getFlag(flag) ? <Outlet /> : <Navigate to="/dashboard" replace />;
+}
 
 function App() {
   return (
@@ -47,16 +64,24 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           
           {/* Pantallas en construcción del Sidebar */}
-          <Route path="/credit-cards" element={<CreditCards />} />
-          <Route path="/credit-cards/:id" element={<CreditCardDetail />} />
-          <Route path="/subscriptions" element={<Subscriptions />} />
-          <Route path="/loans" element={<Loans />} />
-          <Route path="/loans/simulator" element={<LoanSimulator />} />
-          <Route path="/loans/request" element={<LoanRequest />} />
+          <Route element={<ModuleRoute flag="hasCreditCardsModule" />}>
+            <Route path="/credit-cards" element={<CreditCards />} />
+            <Route path="/credit-cards/:id" element={<CreditCardDetail />} />
+          </Route>
+          <Route element={<ModuleRoute flag="hasSubscriptionsModule" />}>
+            <Route path="/subscriptions" element={<Subscriptions />} />
+          </Route>
+          <Route element={<ModuleRoute flag="hasLoansModule" />}>
+            <Route path="/loans" element={<Loans />} />
+            <Route path="/loans/simulator" element={<LoanSimulator />} />
+            <Route path="/loans/request" element={<LoanRequest />} />
+          </Route>
           <Route path="/portfolio" element={<Portfolio />} />
           <Route path="/portfolio/:id" element={<PortfolioDetail />} />
 
-          <Route path="/crypto" element={<Crypto />} />
+          <Route element={<ModuleRoute flag="hasCryptoModule" />}>
+            <Route path="/crypto" element={<Crypto />} />
+          </Route>
           <Route path="/admin/requests" element={<AdminRequests />} />
           <Route path="/admin/active-loans" element={<AdminActiveLoans />} />
           <Route path="/admin/migration" element={<AdminMigration />} />
@@ -66,8 +91,11 @@ function App() {
           <Route path="/admin/referrals" element={<AdminReferrals />} />
           <Route path="/admin/users" element={<AdminUsers />} />
           <Route path="/profile" element={<Profile />} />
-          <Route path="/investments" element={<Investments />} />
+          <Route element={<ModuleRoute flag="hasMakeMoneyModule" />}>
+            <Route path="/investments" element={<Investments />} />
+          </Route>
           <Route path="/monitor-cuentas" element={<AccountMonitor />} />
+          <Route path="/tienda" element={<ModuleStore />} />
         </Route>
         
         {/* Ruta comodín para URLs que de verdad no existen */}
