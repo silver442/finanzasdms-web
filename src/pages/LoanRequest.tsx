@@ -6,8 +6,50 @@ import { toast } from 'sonner';
 import {
   ArrowLeft, Plus, AlertTriangle, Check,
   ChevronRight, ChevronLeft, Send, CalendarCheck, X,
-  MessageCircle, ShieldAlert, CheckCircle2,
+  MessageCircle, ShieldAlert, CheckCircle2, HelpCircle,
 } from 'lucide-react';
+
+type Frequency = 'Semanal' | 'Quincenal' | 'Mensual';
+
+const FREQ_CONFIG: Record<Frequency, { periodsPerMonth: number; dayStep: number; label: string }> = {
+  Mensual:   { periodsPerMonth: 1, dayStep: 0,  label: 'mensual'   },
+  Quincenal: { periodsPerMonth: 2, dayStep: 15, label: 'quincenal' },
+  Semanal:   { periodsPerMonth: 4, dayStep: 7,  label: 'semanal'   },
+};
+
+function getAvailableFrequencies(level: string): Frequency[] {
+  if (level === 'NOVATO_1') return ['Semanal'];
+  if (level === 'NOVATO_2' || level === 'NOVATO_3') return ['Semanal', 'Quincenal'];
+  return ['Semanal', 'Quincenal', 'Mensual'];
+}
+
+const TOOLTIP_LEVEL_TEXT = 'Tu límite y tasa están determinados por tu nivel actual. Sube de nivel realizando tus pagos puntualmente.';
+
+function InfoTooltip({ text }: { text: string }) {
+  return (
+    <span className="relative inline-flex group ml-1 align-middle">
+      <HelpCircle size={13} className="text-slate-500 group-hover:text-slate-300 cursor-help transition-colors" />
+      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-56 bg-slate-700 border border-slate-600 text-slate-200 text-xs rounded-lg px-3 py-2 leading-snug shadow-xl z-50 pointer-events-none text-center">
+        {text}
+      </span>
+    </span>
+  );
+}
+
+const CLABE_BANK_CODES: Record<string, string> = {
+  '002': 'Citibanamex', '006': 'Bancomext', '009': 'Banobras',
+  '012': 'BBVA', '014': 'Santander', '021': 'HSBC',
+  '030': 'Bajío', '036': 'Inbursa', '042': 'Mifel',
+  '044': 'ScotiaBank', '058': 'Banregio', '059': 'Invex',
+  '062': 'Afirme', '072': 'Banorte', '127': 'Azteca',
+  '128': 'Autofin', '130': 'Compartamos', '132': 'Multiva',
+  '133': 'Actinver', '134': 'Walmart', '137': 'Bancoppel',
+  '138': 'ABC Capital', '141': 'Volkswagen', '143': 'CIBanco',
+  '147': 'Bankaool', '600': 'Monexcb', '601': 'GBM',
+  '610': 'HEY BANCO', '616': 'Fideam', '621': 'Actinver CB',
+  '646': 'STP', '706': 'Arcus', '722': 'Mercado Pago',
+  '723': 'Cuenca', '728': 'SPIN by OXXO',
+};
 
 const API = import.meta.env.VITE_API_URL;
 const DEFAULT_CREDIT_LIMIT = 1000;
@@ -139,6 +181,15 @@ const PRIVACY_CONTENT = (
     </div>
   </div>
 );
+
+function getUserLevel(): string {
+  try {
+    const raw = localStorage.getItem('user');
+    if (!raw) return 'NOVATO_1';
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    return typeof parsed.level === 'string' ? parsed.level : 'NOVATO_1';
+  } catch { return 'NOVATO_1'; }
+}
 
 function authHeaders() {
   return { Authorization: `Bearer ${localStorage.getItem('token')}` };
@@ -330,8 +381,14 @@ export default function LoanRequest() {
 
   const isFamiliar = Boolean(getFamilyCode());
   const availableTerms = isFamiliar ? [1, 2, 3, 6, 9, 12, 18, 24] : [1, 2, 3, 6];
+  const userLevel = useMemo(() => getUserLevel(), []);
+  const availableFreqs = useMemo(() => getAvailableFrequencies(userLevel), [userLevel]);
 
   const [step, setStep] = useState(1);
+  const [freq, setFreq] = useState<Frequency>(() => {
+    const freqs = getAvailableFrequencies(getUserLevel());
+    return freqs[freqs.length - 1];
+  });
   const [form, setForm] = useState({
     concept: '',
     amount: '',
@@ -374,15 +431,25 @@ export default function LoanRequest() {
   const fmtDate = (d: Date) =>
     d.toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
 
+  const { periodsPerMonth, dayStep } = FREQ_CONFIG[freq];
+  const periodPayment = termN > 0 ? total / (termN * periodsPerMonth) : 0;
+  const totalPeriods = termN * periodsPerMonth;
+
   const rows = useMemo(() => {
     if (amountN <= 0 || termN <= 0 || monthly <= 0) return [];
     const today = new Date();
-    return Array.from({ length: termN }, (_, i) => {
-      const dueDate = new Date(today.getFullYear(), today.getMonth() + i + 1, today.getDate());
-      const remainingBalance = Math.max(0, total - monthly * (i + 1));
-      return { number: i + 1, dueDate, amountDue: monthly, remainingBalance };
+    return Array.from({ length: totalPeriods }, (_, i) => {
+      let dueDate: Date;
+      if (freq === 'Mensual') {
+        dueDate = new Date(today.getFullYear(), today.getMonth() + i + 1, today.getDate());
+      } else {
+        dueDate = new Date(today);
+        dueDate.setDate(dueDate.getDate() + (i + 1) * dayStep);
+      }
+      const remainingBalance = Math.max(0, total - periodPayment * (i + 1));
+      return { number: i + 1, dueDate, amountDue: periodPayment, remainingBalance };
     });
-  }, [amountN, termN, monthly, total]);
+  }, [amountN, termN, monthly, total, freq, totalPeriods, periodPayment, dayStep]);
 
   const endDate = rows.length > 0 ? rows[rows.length - 1].dueDate : null;
 
@@ -390,8 +457,13 @@ export default function LoanRequest() {
   const maxTerm = isFamiliar ? 24 : 6;
   const step1Valid = form.concept.trim().length > 0 && amountN > 0 && !isOverLimit && termN > 0 && termN <= maxTerm;
   const phoneValid = /^\d{10}$/.test(form.phone);
-  const step2Valid = phoneValid && parseFloat(form.income) > 0 && parseFloat(form.expenses) > 0;
+  const clabeValid = form.disbursementAccount.length === 18;
+  const step2Valid = phoneValid && parseFloat(form.income) > 0 && parseFloat(form.expenses) > 0 && clabeValid;
   const isSubmitEnabled = acceptTerms && acceptPrivacy && !isSubmitting;
+
+  const detectedBank = form.disbursementAccount.length >= 3
+    ? CLABE_BANK_CODES[form.disbursementAccount.slice(0, 3)] ?? null
+    : null;
 
   // ── Location helpers ──────────────────────────────────────────────────────
   const stateOptions =
@@ -450,6 +522,7 @@ export default function LoanRequest() {
           country: form.country,
           referralCode: form.referralCode || undefined,
           disbursementAccount: form.disbursementAccount || undefined,
+          paymentFrequency: freq === 'Semanal' ? 'SEMANAL' : freq === 'Quincenal' ? 'QUINCENAL' : 'MENSUAL',
         },
         { headers: authHeaders() },
       );
@@ -496,10 +569,10 @@ export default function LoanRequest() {
             <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-5">
               <div className="flex flex-wrap gap-2">
                 <span className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-300">
-                  Límite: <span className="text-white">{fmt(creditLimit)}</span>
+                  Límite: <span className="text-white">{fmt(creditLimit)}</span><InfoTooltip text={TOOLTIP_LEVEL_TEXT} />
                 </span>
                 <span className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-300">
-                  Tasa: <span className="text-emerald-400">{currentRate}% anual</span>
+                  Tasa: <span className="text-emerald-400">{currentRate}% anual</span><InfoTooltip text={TOOLTIP_LEVEL_TEXT} />
                 </span>
               </div>
 
@@ -544,6 +617,21 @@ export default function LoanRequest() {
                     ))}
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm text-slate-300 font-medium mb-1.5">
+                  Frecuencia de Pago
+                </label>
+                <select
+                  value={freq}
+                  onChange={e => setFreq(e.target.value as Frequency)}
+                  className={`${inputCls} cursor-pointer`}
+                >
+                  {availableFreqs.map(f => (
+                    <option key={f} value={f}>{f}</option>
+                  ))}
+                </select>
               </div>
 
               {isOverLimit && (
@@ -671,7 +759,7 @@ export default function LoanRequest() {
                 <p className={sectionHeader}>Cuenta de Desembolso</p>
                 <div>
                   <label className="block text-sm text-slate-300 font-medium mb-1.5">
-                    CLABE Interbancaria de Depósito
+                    CLABE Interbancaria de Depósito <span className="text-red-400">*</span>
                     <span className="text-slate-500 font-normal ml-1">(18 dígitos, a donde recibirás el préstamo)</span>
                   </label>
                   <input
@@ -694,6 +782,15 @@ export default function LoanRequest() {
                   {form.disbursementAccount.length === 18 && (
                     <p className="text-xs text-emerald-400 mt-1 flex items-center gap-1">
                       <Check size={11} /> CLABE completa
+                      {detectedBank && <span className="ml-1">— <strong>{detectedBank}</strong></span>}
+                    </p>
+                  )}
+                  {form.disbursementAccount.length >= 3 && form.disbursementAccount.length < 18 && !detectedBank && (
+                    <p className="text-xs text-slate-500 mt-1">Banco no identificado</p>
+                  )}
+                  {form.disbursementAccount.length >= 3 && form.disbursementAccount.length < 18 && detectedBank && (
+                    <p className="text-xs text-emerald-400 mt-1 flex items-center gap-1">
+                      <Check size={11} /> Banco detectado: <strong>{detectedBank}</strong>
                     </p>
                   )}
                 </div>
@@ -776,7 +873,7 @@ export default function LoanRequest() {
                   Tabla de Amortización
                 </h3>
                 <span className="text-xs text-slate-500 bg-slate-900 px-2.5 py-0.5 rounded-full">
-                  {rows.length} cuotas
+                  {rows.length} cuotas {FREQ_CONFIG[freq].label}s
                 </span>
               </div>
               <div className="overflow-auto max-h-[480px]">
@@ -877,8 +974,8 @@ export default function LoanRequest() {
                   </div>
                 </div>
                 <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 flex justify-between items-center">
-                  <span className="text-emerald-300 font-semibold text-sm">Cuota mensual</span>
-                  <span className="text-emerald-400 font-extrabold text-lg tabular-nums">{fmt(monthly)}</span>
+                  <span className="text-emerald-300 font-semibold text-sm">Cuota {FREQ_CONFIG[freq].label}</span>
+                  <span className="text-emerald-400 font-extrabold text-lg tabular-nums">{fmt(periodPayment)}</span>
                 </div>
                 {endDate && (
                   <div className="bg-slate-900/60 border border-emerald-500/30 rounded-xl px-4 py-3 flex items-center gap-3">

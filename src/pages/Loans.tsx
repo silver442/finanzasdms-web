@@ -32,6 +32,7 @@ interface Loan {
   interestRate: string | number;
   termMonths: number;
   startDate: string;
+  updatedAt: string;
   status: 'REQUESTED' | 'ACTIVE' | 'PAID' | 'DEFAULTED' | 'REJECTED';
   installments: Installment[];
 }
@@ -59,14 +60,17 @@ function getLevelStyle(level: string): string {
 function getUserProfile() {
   try {
     const raw = localStorage.getItem('user');
-    if (!raw) return { level: 'NOVATO_1', points: 0 };
+    if (!raw) return { level: 'NOVATO_1', points: 0, familyCode: null as string | null };
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     return {
       level: typeof parsed.level === 'string' ? parsed.level : 'NOVATO_1',
       points: typeof parsed.points === 'number' ? parsed.points : 0,
+      familyCode: typeof parsed.familyCode === 'string' && parsed.familyCode.length > 0
+        ? parsed.familyCode
+        : null,
     };
   } catch {
-    return { level: 'NOVATO_1', points: 0 };
+    return { level: 'NOVATO_1', points: 0, familyCode: null as string | null };
   }
 }
 
@@ -84,7 +88,7 @@ const inputCls =
 
 export default function Loans() {
   const navigate = useNavigate();
-  const { level, points } = useMemo(() => getUserProfile(), []);
+  const { level, points, familyCode } = useMemo(() => getUserProfile(), []);
   const userLevel = useMemo(() => getUserLevel(), []);
 
   const [loans, setLoans] = useState<Loan[]>([]);
@@ -94,6 +98,7 @@ export default function Loans() {
 
   const [payTarget, setPayTarget] = useState<Installment | null>(null);
   const [payRegistered, setPayRegistered] = useState(false);
+  const [satCode, setSatCode] = useState('');
   const [payForm, setPayForm] = useState({ amount: '', bankId: '', reference: '', receipt: null as File | null });
   const [isPaying, setIsPaying] = useState(false);
 
@@ -136,6 +141,8 @@ export default function Loans() {
     if (isNaN(amount) || amount <= 0) { toast.error('Ingresa una cantidad válida'); return; }
     if (!payForm.bankId) { toast.error('Selecciona el banco al que realizaste el depósito'); return; }
 
+    if (!payForm.receipt) { toast.error('Adjunta el comprobante de transferencia'); return; }
+
     if (payForm.receipt && payForm.receipt.size > 5 * 1024 * 1024) {
       toast.error('El comprobante no debe superar 5 MB');
       return;
@@ -159,6 +166,10 @@ export default function Loans() {
       setIsPaying(false);
     }
   };
+
+  function generateSATCode(): string {
+    return 'F0' + Math.floor(Math.random() * 1e8).toString().padStart(8, '0');
+  }
 
   const formatCurrency = (v: string | number) =>
     new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(v));
@@ -248,7 +259,10 @@ export default function Loans() {
         </div>
       ) : (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-          {loans.map(loan => {
+          {loans.filter(loan => {
+            if (loan.status !== 'REJECTED') return true;
+            return Date.now() - new Date(loan.updatedAt).getTime() < 24 * 60 * 60 * 1000;
+          }).map(loan => {
             const totalPaid = loan.installments.reduce((acc, i) => acc + Number(i.amountPaid), 0);
             const totalDue = loan.installments.reduce((acc, i) => acc + Number(i.amountDue), 0);
             const currentDebt = totalDue - totalPaid;
@@ -272,8 +286,18 @@ export default function Loans() {
                 </div>
 
                 {isRequested ? (
-                  <div className="flex-1 p-6 text-slate-400 text-sm text-center py-10">
-                    Esperando aprobación del administrador.
+                  <div className="flex-1 p-6 flex flex-col items-center justify-center gap-3 py-10">
+                    <p className="text-slate-400 text-sm">Esperando aprobación del administrador.</p>
+                    {(level.startsWith('NOVATO') || !familyCode) && (
+                      <a
+                        href={`https://wa.me/${import.meta.env.VITE_WHATSAPP_NUMBER}?text=${encodeURIComponent('Verificación de identidad FinanzasDMS')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1 inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500 hover:text-white px-4 py-2 rounded-xl text-sm font-bold transition-all"
+                      >
+                        📲 Enviar INE por WhatsApp
+                      </a>
+                    )}
                   </div>
                 ) : isRejected ? (
                   <div className="flex-1 p-6 flex flex-col items-center justify-center gap-3 py-10">
@@ -320,7 +344,7 @@ export default function Loans() {
                               <td className="py-3 text-center">
                                 {!isComplete && (
                                   <button
-                                    onClick={() => { setPayTarget(inst); setPayRegistered(false); setPayForm({ amount: '', bankId: '', reference: '', receipt: null }); }}
+                                    onClick={() => { const code = generateSATCode(); setSatCode(code); setPayTarget(inst); setPayRegistered(false); setPayForm({ amount: '', bankId: '', reference: code, receipt: null }); }}
                                     className="text-xs bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 px-3 py-1 rounded-lg transition-colors font-medium"
                                   >
                                     Abonar
@@ -356,13 +380,13 @@ export default function Loans() {
       {/* ── Modal: Abonar (SPEI) ── */}
       {payTarget && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-lg">
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
             <div className="flex justify-between items-center p-6 border-b border-slate-700">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
                 <CreditCard size={20} className="text-emerald-400" />
                 Registrar Abono — Cuota #{payTarget.number}
               </h3>
-              <button onClick={() => { setPayTarget(null); setPayRegistered(false); setPayForm({ amount: '', bankId: '', reference: '', receipt: null }); }} className="text-slate-400 hover:text-white">
+              <button onClick={() => { setPayTarget(null); setPayRegistered(false); setSatCode(''); setPayForm({ amount: '', bankId: '', reference: '', receipt: null }); }} className="text-slate-400 hover:text-white">
                 <X size={20} />
               </button>
             </div>
@@ -378,7 +402,7 @@ export default function Loans() {
                   Se verá reflejado en un máximo de <strong className="text-white">24 horas</strong> tras la validación manual del administrador.
                 </p>
                 <button
-                  onClick={() => { setPayTarget(null); setPayRegistered(false); }}
+                  onClick={() => { setPayTarget(null); setPayRegistered(false); setSatCode(''); }}
                   className="mt-6 bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2.5 rounded-xl font-bold transition-colors"
                 >
                   Entendido
@@ -386,7 +410,7 @@ export default function Loans() {
               </div>
             ) : (
               <>
-                <div className="p-6 space-y-5">
+                <div className="p-6 space-y-5 overflow-y-auto flex-1">
                   <div>
                     <label className="block text-sm text-slate-300 font-medium mb-1">
                       ¿A qué banco realizaste el depósito?
@@ -435,8 +459,8 @@ export default function Loans() {
                           <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 mt-1">
                             <p className="text-amber-300 text-xs font-semibold mb-1">Usa este concepto en tu app bancaria:</p>
                             <div className="flex items-center justify-between">
-                              <span className="font-mono text-amber-200 text-sm font-bold">Abono {shortId(payTarget.id)}</span>
-                              <button onClick={() => copyText(`Abono ${shortId(payTarget.id)}`)} className="text-slate-500 hover:text-amber-400 transition-colors">
+                              <span className="font-mono text-amber-200 text-sm font-bold">{satCode}</span>
+                              <button onClick={() => copyText(satCode)} className="text-slate-500 hover:text-amber-400 transition-colors">
                                 <Copy size={14} />
                               </button>
                             </div>
@@ -463,12 +487,12 @@ export default function Loans() {
                       </label>
                       <input type="text" value={payForm.reference}
                         onChange={e => setPayForm(f => ({ ...f, reference: e.target.value }))}
-                        className={inputCls} placeholder={`Abono ${shortId(payTarget.id)}`} />
+                        className={inputCls} placeholder={satCode} />
                     </div>
                     <div>
                       <label className="block text-sm text-slate-300 font-medium mb-1">
-                        Comprobante de transferencia
-                        <span className="text-slate-500 font-normal ml-1">(captura de pantalla, max 5 MB)</span>
+                        Comprobante de transferencia <span className="text-red-400">*</span>
+                        <span className="text-slate-500 font-normal ml-1">Obligatorio — captura de pantalla, max 5 MB</span>
                       </label>
                       <label className={`flex items-center gap-3 cursor-pointer border border-dashed rounded-lg px-4 py-3 transition-colors ${payForm.receipt ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-slate-600 hover:border-slate-500 bg-slate-900'}`}>
                         <Paperclip size={16} className={payForm.receipt ? 'text-emerald-400' : 'text-slate-500'} />
@@ -492,8 +516,8 @@ export default function Loans() {
                   </button>
                   <button
                     onClick={() => void handlePayInstallment()}
-                    disabled={isPaying}
-                    className="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2 rounded-lg font-bold transition-colors disabled:opacity-50"
+                    disabled={isPaying || !payForm.receipt}
+                    className="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2 rounded-lg font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isPaying ? 'Registrando...' : 'Confirmar Abono'}
                   </button>
