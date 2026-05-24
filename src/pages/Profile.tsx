@@ -243,7 +243,7 @@ export default function Profile() {
               Próximo nivel: <span className={getLevelColor(nextConfig.value)}>{nextConfig.label}</span>
             </p>
           </div>
-          <div className="grid grid-cols-3 gap-3 text-center text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center text-sm">
             <div className="bg-slate-900 rounded-lg p-3">
               <p className="text-xs text-slate-500 mb-1">Límite</p>
               <p className="text-white font-bold">{fmt(nextConfig.creditLimit)}</p>

@@ -222,7 +222,7 @@ function getFamilyCode(): string | null {
 }
 
 const inputCls =
-  'w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:border-emerald-500 transition-colors placeholder-slate-600';
+  'w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-4 py-3 focus:outline-none focus:border-emerald-500 transition-colors placeholder-slate-600';
 
 const sectionHeader = 'text-xs font-bold text-slate-400 uppercase tracking-wider mb-4';
 
@@ -314,8 +314,8 @@ function WhatsAppModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
-      <div className="bg-slate-800 border border-amber-500/30 rounded-2xl shadow-2xl w-full max-w-md">
-        <div className="p-6 text-center">
+      <div className="bg-slate-800 border border-amber-500/30 rounded-2xl shadow-2xl w-[95%] md:max-w-lg max-h-[85vh] flex flex-col">
+        <div className="overflow-y-auto flex-1 p-4 md:p-6 text-center">
           {sent ? (
             <>
               <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mx-auto mb-4">
@@ -332,7 +332,7 @@ function WhatsAppModal({ onClose }: { onClose: () => void }) {
               </p>
               <button
                 onClick={handleClose}
-                className="w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold transition-all shadow-lg shadow-emerald-500/20"
+                className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold transition-all shadow-lg shadow-emerald-500/20"
               >
                 Ir a Mis Préstamos
               </button>
@@ -361,7 +361,7 @@ function WhatsAppModal({ onClose }: { onClose: () => void }) {
                 </button>
                 <button
                   onClick={handleClose}
-                  className="py-2.5 rounded-xl border border-slate-600 text-slate-300 hover:text-white hover:border-slate-500 transition-colors font-medium text-sm"
+                  className="py-3 rounded-xl border border-slate-600 text-slate-300 hover:text-white hover:border-slate-500 transition-colors font-medium text-sm"
                 >
                   Ir a Mis Préstamos
                 </button>

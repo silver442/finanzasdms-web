@@ -43,7 +43,7 @@ const FREQ_LABEL: Record<string, string> = {
 
 const EMPTY_FORM = { name: '', amount: '', frequency: 'MONTHLY', chargeDay: '', creditCardId: '' };
 
-const inputCls = 'w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:border-emerald-500 transition-colors placeholder:text-slate-600';
+const inputCls = 'w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-4 py-3 focus:outline-none focus:border-emerald-500 transition-colors placeholder:text-slate-600';
 const labelCls = 'block text-slate-400 text-sm font-medium mb-1';
 
 // SubForm fuera del componente padre para evitar desmontaje en cada render
@@ -58,15 +58,15 @@ function SubForm({ values, onChange, onSubmit, onCancel, saving, title, icon, ca
   cards: CardOption[];
 }) {
   return (
-    <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl w-full max-w-md">
-      <div className="flex justify-between items-center p-6 border-b border-slate-700">
+    <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl w-[95%] md:max-w-lg max-h-[85vh] flex flex-col">
+      <div className="flex justify-between items-center p-4 md:p-6 border-b border-slate-700 shrink-0">
         <h2 className="text-xl font-bold text-white flex items-center gap-2">
           {icon}
           {title}
         </h2>
         <button onClick={onCancel} className="text-slate-400 hover:text-white"><X size={20} /></button>
       </div>
-      <form onSubmit={e => void onSubmit(e)} className="p-6 space-y-4">
+      <form onSubmit={e => void onSubmit(e)} className="overflow-y-auto flex-1 p-4 md:p-6 space-y-4">
         <div>
           <label className={labelCls}>Nombre del servicio *</label>
           <input type="text" required placeholder="Ej. Netflix, Spotify, Gimnasio" value={values.name} onChange={onChange('name')} className={inputCls} />
@@ -98,11 +98,11 @@ function SubForm({ values, onChange, onSubmit, onCancel, saving, title, icon, ca
         </div>
         <div className="flex gap-3 pt-2">
           <button type="button" onClick={onCancel}
-            className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-xl transition-all font-medium">
+            className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl transition-all font-medium">
             Cancelar
           </button>
           <button type="submit" disabled={saving}
-            className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-2.5 rounded-xl transition-all font-bold shadow-lg shadow-emerald-500/20 disabled:opacity-50 flex items-center justify-center gap-2">
+            className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl transition-all font-bold shadow-lg shadow-emerald-500/20 disabled:opacity-50 flex items-center justify-center gap-2">
             {saving ? <><RefreshCw size={15} className="animate-spin" /> Guardando...</> : 'Guardar'}
           </button>
         </div>
@@ -238,9 +238,9 @@ export default function Subscriptions() {
 
   return (
     <div className="p-8 text-white font-sans max-w-5xl mx-auto">
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col md:flex-row items-start md:items-center gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-extrabold text-emerald-400 flex items-center gap-3">
+          <h1 className="text-2xl md:text-3xl font-extrabold text-emerald-400 flex items-center gap-3">
             <CalendarClock size={32} />
             Suscripciones
           </h1>
@@ -248,7 +248,7 @@ export default function Subscriptions() {
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2"
+          className="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 w-full md:w-auto"
         >
           <Plus size={20} />
           Nueva Suscripción

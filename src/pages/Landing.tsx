@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Landmark, ArrowRight, Sparkles, Wallet, Trophy, Store, ChevronRight, Activity, Star, Users, LineChart, PieChart, BookOpen } from 'lucide-react';
+import { Landmark, ArrowRight, Sparkles, Wallet, Trophy, Store, ChevronRight, Activity, Star, Users, LineChart, PieChart, BookOpen, Menu, X } from 'lucide-react';
 
 const LEVELS = [
   {
@@ -45,6 +45,7 @@ const METRICS = [
 
 export default function Landing() {
   const [activeLevel, setActiveLevel] = useState(1);
+  const [menuOpen, setMenuOpen] = useState(false);
   const level = LEVELS[activeLevel];
 
   return (
@@ -59,14 +60,16 @@ export default function Landing() {
 
       {/* --- HEADER --- */}
       <header className="fixed top-0 w-full z-[100] bg-slate-950/80 backdrop-blur-md border-b border-slate-800/50 transition-all">
-        <nav className="container mx-auto px-6 py-4 flex justify-between items-center">
+        <nav className="container mx-auto px-4 md:px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-2">
             <div className="p-2 bg-slate-800 rounded-lg border border-slate-700 shadow-md shadow-emerald-500/10">
               <Landmark className="h-6 w-6 text-emerald-400" />
             </div>
             <span className="text-xl font-extrabold tracking-tight">Finanzas<span className="text-emerald-400">DMS</span></span>
           </div>
-          <div className="flex items-center gap-4">
+
+          {/* Links de escritorio */}
+          <div className="hidden md:flex items-center gap-4">
             <Link to="/login" className="text-sm font-semibold text-slate-300 hover:text-white transition-colors">
               Iniciar Sesión
             </Link>
@@ -74,7 +77,36 @@ export default function Landing() {
               Crear Cuenta
             </Link>
           </div>
+
+          {/* Botón hamburguesa — solo móvil */}
+          <button
+            className="md:hidden text-slate-400 hover:text-white transition-colors p-1"
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-label="Abrir menú"
+          >
+            {menuOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
         </nav>
+
+        {/* Menú móvil desplegable */}
+        {menuOpen && (
+          <div className="md:hidden bg-slate-950/95 backdrop-blur-md border-t border-slate-800/50 px-6 py-4 flex flex-col gap-3">
+            <Link
+              to="/login"
+              onClick={() => setMenuOpen(false)}
+              className="text-sm font-semibold text-slate-300 hover:text-white transition-colors py-2"
+            >
+              Iniciar Sesión
+            </Link>
+            <Link
+              to="/register"
+              onClick={() => setMenuOpen(false)}
+              className="text-sm font-bold bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-xl transition-all text-center"
+            >
+              Crear Cuenta
+            </Link>
+          </div>
+        )}
       </header>
 
       {/* --- HERO SECTION --- */}
@@ -123,7 +155,8 @@ export default function Landing() {
           {/* Mockup del Dashboard — con datos vivos */}
           <div className="relative max-w-6xl mx-auto">
             <div className="absolute inset-0 bg-gradient-to-t from-emerald-500/30 via-cyan-500/10 to-transparent blur-3xl -z-10 opacity-60 animate-pulse"></div>
-            <div className="bg-slate-900 rounded-[2rem] border border-slate-800/50 shadow-2xl overflow-hidden aspect-[16/9] md:aspect-[21/9] lg:aspect-[16/7] flex">
+            <div className="w-full overflow-x-auto pb-4 snap-x">
+            <div className="bg-slate-900 rounded-[2rem] border border-slate-800/50 shadow-2xl overflow-hidden min-w-[700px] aspect-[16/9] md:aspect-[21/9] lg:aspect-[16/7] flex">
 
               {/* Sidebar */}
               <div className="w-16 md:w-60 border-r border-slate-800/50 bg-slate-950/50 p-4 hidden md:flex flex-col gap-3">
@@ -186,6 +219,7 @@ export default function Landing() {
 
               </div>
             </div>
+            </div>{/* /overflow-x-auto wrapper */}
           </div>
         </div>
       </section>

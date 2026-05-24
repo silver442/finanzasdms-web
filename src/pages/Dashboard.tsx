@@ -150,7 +150,7 @@ function PortfolioDashboardWidget({ data }: { data: ModuleSummary['portfolio'] |
       ) : (
         <>
           {/* Stats */}
-          <div className="grid grid-cols-2 gap-3 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
             <StatCard label="Total depositado" value={fmt(data.totalDeposited)} />
             <StatCard label="Valor real actual" value={fmt(data.totalRealValue)} color={gainPositive ? 'text-emerald-400' : 'text-red-400'} />
           </div>
@@ -217,7 +217,7 @@ function LoansDashboardWidget({ data }: { data: ModuleSummary['loans'] | null })
           <CheckCircle size={16} /> Sin préstamos activos
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <StatCard label="Activos" value={String(data.activeCount)} />
           <StatCard label="Pagados" value={String(data.paidCount)} color="text-slate-300" />
           <div className="bg-slate-900 rounded-xl p-3 col-span-2">
@@ -273,7 +273,7 @@ function CreditCardsDashboardWidget({ data }: { data: ModuleSummary['creditCards
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <StatCard label="Deuda total" value={fmt(data.totalDebt)} color="text-red-400" />
             <StatCard label="Límite total" value={fmt(data.totalLimit)} />
           </div>
@@ -458,7 +458,7 @@ export default function Dashboard() {
     .filter((key) => userFlags[key] === true);
 
   return (
-    <div className="p-8 text-white font-sans max-w-7xl mx-auto">
+    <div className="p-4 md:p-8 text-white font-sans max-w-7xl mx-auto">
       <h1 className="text-3xl font-extrabold text-emerald-400 mb-10">Resumen Financiero</h1>
 
       {/* CORE: siempre visible */}

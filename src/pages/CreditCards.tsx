@@ -162,16 +162,16 @@ export default function CreditCards() {
 
   const totalDebt = cards.reduce((acc, c) => acc + Number(c.currentBalance), 0);
 
-  const inputCls = 'w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:border-emerald-500 transition-colors placeholder:text-slate-600';
+  const inputCls = 'w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-4 py-3 focus:outline-none focus:border-emerald-500 transition-colors placeholder:text-slate-600';
   const labelCls = 'block text-slate-400 text-sm font-medium mb-1';
 
   return (
     <div className="p-8 text-white font-sans max-w-6xl mx-auto">
 
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col md:flex-row items-start md:items-center gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-extrabold text-emerald-400 flex items-center gap-3">
+          <h1 className="text-2xl md:text-3xl font-extrabold text-emerald-400 flex items-center gap-3">
             <CreditCard size={32} />
             Tarjetas de Crédito
           </h1>
@@ -179,7 +179,7 @@ export default function CreditCards() {
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2"
+          className="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 w-full md:w-auto"
         >
           <Plus size={20} />
           Nueva Tarjeta
@@ -200,7 +200,7 @@ export default function CreditCards() {
       ) : (
         <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-xl overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full min-w-max text-left border-collapse">
               <thead>
                 <tr className="bg-slate-900/50 text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700">
                   <th className="px-5 py-4 font-semibold">Tarjeta</th>
@@ -313,8 +313,8 @@ export default function CreditCards() {
       {/* ── Modal: Agregar Tarjeta ── */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl w-full max-w-md">
-            <div className="flex justify-between items-center p-6 border-b border-slate-700">
+          <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl w-[95%] md:max-w-lg max-h-[85vh] flex flex-col">
+            <div className="flex justify-between items-center p-4 md:p-6 border-b border-slate-700 shrink-0">
               <h2 className="text-xl font-bold text-white flex items-center gap-2">
                 <CreditCard className="text-emerald-500" size={20} />
                 Registrar Tarjeta
@@ -324,7 +324,7 @@ export default function CreditCards() {
               </button>
             </div>
 
-            <form onSubmit={e => void handleAddCard(e)} className="p-6 space-y-4">
+            <form onSubmit={e => void handleAddCard(e)} className="overflow-y-auto flex-1 p-4 md:p-6 space-y-4">
               <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-700">
                 <button type="button" onClick={() => setIsExisting(false)}
                   className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${!isExisting ? 'bg-emerald-500 text-white shadow' : 'text-slate-400 hover:text-white'}`}>
@@ -353,7 +353,7 @@ export default function CreditCards() {
                 <div className="pt-1">
                   <label className={labelCls}><span className="flex items-center gap-1.5"><DollarSign size={13} /> Saldo actual al corte anterior *</span></label>
                   <input type="number" required min="0" step="0.01" placeholder="0.00" value={form.initialDebt} onChange={set('initialDebt')}
-                    className="w-full bg-slate-900 border border-emerald-500/40 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:border-emerald-500 transition-colors placeholder:text-slate-600" />
+                    className="w-full bg-slate-900 border border-emerald-500/40 text-white rounded-lg px-4 py-3 focus:outline-none focus:border-emerald-500 transition-colors placeholder:text-slate-600" />
                 </div>
               )}
               <div>
@@ -372,11 +372,11 @@ export default function CreditCards() {
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => { setIsModalOpen(false); setForm(EMPTY_FORM); setIsExisting(false); }}
-                  className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-xl transition-all font-medium">
+                  className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl transition-all font-medium">
                   Cancelar
                 </button>
                 <button type="submit" disabled={isSaving}
-                  className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-2.5 rounded-xl transition-all font-bold shadow-lg shadow-emerald-500/20 disabled:opacity-50 flex items-center justify-center gap-2">
+                  className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl transition-all font-bold shadow-lg shadow-emerald-500/20 disabled:opacity-50 flex items-center justify-center gap-2">
                   {isSaving ? <><RefreshCw size={15} className="animate-spin" /> Guardando...</> : 'Guardar Tarjeta'}
                 </button>
               </div>
@@ -388,15 +388,15 @@ export default function CreditCards() {
       {/* ── Modal: Editar Tarjeta ── */}
       {editTarget && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl w-full max-w-md">
-            <div className="flex justify-between items-center p-6 border-b border-slate-700">
+          <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl w-[95%] md:max-w-lg max-h-[85vh] flex flex-col">
+            <div className="flex justify-between items-center p-4 md:p-6 border-b border-slate-700 shrink-0">
               <h2 className="text-xl font-bold text-white flex items-center gap-2">
                 <Pencil className="text-sky-400" size={18} />
                 Editar Tarjeta
               </h2>
               <button onClick={() => setEditTarget(null)} className="text-slate-400 hover:text-white"><X size={20} /></button>
             </div>
-            <form onSubmit={e => void handleEdit(e)} className="p-6 space-y-4">
+            <form onSubmit={e => void handleEdit(e)} className="overflow-y-auto flex-1 p-4 md:p-6 space-y-4">
               <div>
                 <label className={labelCls}>Nombre</label>
                 <input type="text" value={editForm.name} onChange={setEdit('name')} className={inputCls} />
@@ -425,11 +425,11 @@ export default function CreditCards() {
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setEditTarget(null)}
-                  className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-xl font-medium transition-all">
+                  className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl font-medium transition-all">
                   Cancelar
                 </button>
                 <button type="submit" disabled={isEditing}
-                  className="flex-1 bg-sky-500 hover:bg-sky-600 text-white py-2.5 rounded-xl font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                  className="flex-1 bg-sky-500 hover:bg-sky-600 text-white py-3 rounded-xl font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2">
                   {isEditing ? <><RefreshCw size={15} className="animate-spin" /> Guardando...</> : 'Guardar Cambios'}
                 </button>
               </div>
