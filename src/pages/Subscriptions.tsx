@@ -42,17 +42,83 @@ const FREQ_LABEL: Record<string, string> = {
 
 const EMPTY_FORM = { name: '', amount: '', frequency: 'MONTHLY', chargeDay: '', creditCardId: '' };
 
+const inputCls = 'w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:border-emerald-500 transition-colors placeholder:text-slate-600';
+const labelCls = 'block text-slate-400 text-sm font-medium mb-1';
+
+// SubForm fuera del componente padre para evitar desmontaje en cada render
+function SubForm({ values, onChange, onSubmit, onCancel, saving, title, icon, cards }: {
+  values: typeof EMPTY_FORM;
+  onChange: (key: keyof typeof EMPTY_FORM) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
+  onSubmit: (e: React.FormEvent) => void;
+  onCancel: () => void;
+  saving: boolean;
+  title: string;
+  icon: React.ReactNode;
+  cards: CardOption[];
+}) {
+  return (
+    <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl w-full max-w-md">
+      <div className="flex justify-between items-center p-6 border-b border-slate-700">
+        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+          {icon}
+          {title}
+        </h2>
+        <button onClick={onCancel} className="text-slate-400 hover:text-white"><X size={20} /></button>
+      </div>
+      <form onSubmit={e => void onSubmit(e)} className="p-6 space-y-4">
+        <div>
+          <label className={labelCls}>Nombre del servicio *</label>
+          <input type="text" required placeholder="Ej. Netflix, Spotify, Gimnasio" value={values.name} onChange={onChange('name')} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Monto (MXN) *</label>
+          <input type="number" required min="0.01" step="0.01" placeholder="0.00" value={values.amount} onChange={onChange('amount')} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Frecuencia *</label>
+          <select value={values.frequency} onChange={onChange('frequency')} className={inputCls}>
+            <option value="MONTHLY">Mensual</option>
+            <option value="BIMONTHLY">Bimestral</option>
+            <option value="YEARLY">Anual</option>
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Día de cobro (1–31) *</label>
+          <input type="number" required min="1" max="31" step="1" placeholder="Ej. 15" value={values.chargeDay} onChange={onChange('chargeDay')} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Tarjeta vinculada (opcional)</label>
+          <select value={values.creditCardId} onChange={onChange('creditCardId')} className={inputCls}>
+            <option value="">Sin tarjeta vinculada</option>
+            {cards.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex gap-3 pt-2">
+          <button type="button" onClick={onCancel}
+            className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-xl transition-all font-medium">
+            Cancelar
+          </button>
+          <button type="submit" disabled={saving}
+            className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-2.5 rounded-xl transition-all font-bold shadow-lg shadow-emerald-500/20 disabled:opacity-50 flex items-center justify-center gap-2">
+            {saving ? <><RefreshCw size={15} className="animate-spin" /> Guardando...</> : 'Guardar'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 export default function Subscriptions() {
   const [subs, setSubs] = useState<Sub[]>([]);
   const [cards, setCards] = useState<CardOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Modal crear
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Modal editar
   const [editTarget, setEditTarget] = useState<Sub | null>(null);
   const [editForm, setEditForm] = useState(EMPTY_FORM);
   const [isEditing, setIsEditing] = useState(false);
@@ -169,70 +235,6 @@ export default function Subscriptions() {
     }
   };
 
-  const inputCls = 'w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:border-emerald-500 transition-colors placeholder:text-slate-600';
-  const labelCls = 'block text-slate-400 text-sm font-medium mb-1';
-
-  const SubForm = ({ values, onChange, onSubmit, onCancel, saving, title, icon }: {
-    values: typeof EMPTY_FORM;
-    onChange: (key: keyof typeof EMPTY_FORM) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
-    onSubmit: (e: React.FormEvent) => void;
-    onCancel: () => void;
-    saving: boolean;
-    title: string;
-    icon: React.ReactNode;
-  }) => (
-    <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl w-full max-w-md">
-      <div className="flex justify-between items-center p-6 border-b border-slate-700">
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-          {icon}
-          {title}
-        </h2>
-        <button onClick={onCancel} className="text-slate-400 hover:text-white"><X size={20} /></button>
-      </div>
-      <form onSubmit={e => void onSubmit(e)} className="p-6 space-y-4">
-        <div>
-          <label className={labelCls}>Nombre del servicio *</label>
-          <input type="text" required placeholder="Ej. Netflix, Spotify, Gimnasio" value={values.name} onChange={onChange('name')} className={inputCls} />
-        </div>
-        <div>
-          <label className={labelCls}>Monto (MXN) *</label>
-          <input type="number" required min="0.01" step="0.01" placeholder="0.00" value={values.amount} onChange={onChange('amount')} className={inputCls} />
-        </div>
-        <div>
-          <label className={labelCls}>Frecuencia *</label>
-          <select value={values.frequency} onChange={onChange('frequency')} className={inputCls}>
-            <option value="MONTHLY">Mensual</option>
-            <option value="BIMONTHLY">Bimestral</option>
-            <option value="YEARLY">Anual</option>
-          </select>
-        </div>
-        <div>
-          <label className={labelCls}>Día de cobro (1–31) *</label>
-          <input type="number" required min="1" max="31" step="1" placeholder="Ej. 15" value={values.chargeDay} onChange={onChange('chargeDay')} className={inputCls} />
-        </div>
-        <div>
-          <label className={labelCls}>Tarjeta vinculada (opcional)</label>
-          <select value={values.creditCardId} onChange={onChange('creditCardId')} className={inputCls}>
-            <option value="">Sin tarjeta vinculada</option>
-            {cards.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
-        <div className="flex gap-3 pt-2">
-          <button type="button" onClick={onCancel}
-            className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-xl transition-all font-medium">
-            Cancelar
-          </button>
-          <button type="submit" disabled={saving}
-            className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-2.5 rounded-xl transition-all font-bold shadow-lg shadow-emerald-500/20 disabled:opacity-50 flex items-center justify-center gap-2">
-            {saving ? <><RefreshCw size={15} className="animate-spin" /> Guardando...</> : 'Guardar'}
-          </button>
-        </div>
-      </form>
-    </div>
-  );
-
   return (
     <div className="p-8 text-white font-sans max-w-5xl mx-auto">
       <div className="flex justify-between items-center mb-8">
@@ -327,7 +329,6 @@ export default function Subscriptions() {
         </div>
       )}
 
-      {/* Modal crear */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <SubForm
@@ -338,11 +339,11 @@ export default function Subscriptions() {
             saving={isSaving}
             title="Nueva Suscripción"
             icon={<CalendarClock className="text-emerald-500" size={20} />}
+            cards={cards}
           />
         </div>
       )}
 
-      {/* Modal editar */}
       {editTarget && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <SubForm
@@ -353,6 +354,7 @@ export default function Subscriptions() {
             saving={isEditing}
             title="Editar Suscripción"
             icon={<Pencil className="text-sky-400" size={18} />}
+            cards={cards}
           />
         </div>
       )}

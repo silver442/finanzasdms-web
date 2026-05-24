@@ -128,7 +128,7 @@ export default function Sidebar() {
   return (
     <aside className="w-64 bg-slate-800 border-r border-slate-700 flex flex-col h-full shadow-2xl z-10">
       <div className="p-6 border-b border-slate-700">
-        <Link to="/" className="text-2xl font-extrabold text-emerald-400 tracking-tight hover:text-emerald-300 transition-colors">
+        <Link to="/dashboard" className="text-2xl font-extrabold text-emerald-400 tracking-tight hover:text-emerald-300 transition-colors">
           FinanzasDMS
         </Link>
         {name && (

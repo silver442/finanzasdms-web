@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { Mail, ArrowLeft, CheckCircle } from 'lucide-react';
+import { Mail, ArrowLeft, CheckCircle, Landmark } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL;
 
@@ -25,7 +25,16 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-slate-900 flex flex-col">
+      <nav className="container mx-auto px-6 py-6 flex items-center">
+        <Link to="/" className="flex items-center gap-2">
+          <div className="p-2 bg-slate-800 rounded-lg border border-slate-700 shadow-md shadow-emerald-500/10">
+            <Landmark className="h-6 w-6 text-emerald-400" />
+          </div>
+          <span className="text-xl font-extrabold tracking-tight text-white">Finanzas<span className="text-emerald-400">DMS</span></span>
+        </Link>
+      </nav>
+      <div className="flex-1 flex items-center justify-center p-4">
       <div className="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md border border-slate-700">
 
         {sent ? (
@@ -98,6 +107,7 @@ export default function ForgotPassword() {
             </div>
           </>
         )}
+      </div>
       </div>
     </div>
   );

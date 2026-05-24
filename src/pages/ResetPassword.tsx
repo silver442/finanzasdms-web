@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { LockKeyhole, Eye, EyeOff, CheckCircle } from 'lucide-react';
+import { LockKeyhole, Eye, EyeOff, CheckCircle, Landmark } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL;
 
@@ -43,21 +43,37 @@ export default function ResetPassword() {
     }
   };
 
+  const logoNav = (
+    <nav className="container mx-auto px-6 py-6 flex items-center">
+      <Link to="/" className="flex items-center gap-2">
+        <div className="p-2 bg-slate-800 rounded-lg border border-slate-700 shadow-md shadow-emerald-500/10">
+          <Landmark className="h-6 w-6 text-emerald-400" />
+        </div>
+        <span className="text-xl font-extrabold tracking-tight text-white">Finanzas<span className="text-emerald-400">DMS</span></span>
+      </Link>
+    </nav>
+  );
+
   if (!token) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-        <div className="bg-slate-800 p-8 rounded-2xl w-full max-w-md border border-slate-700 text-center">
-          <p className="text-red-400 mb-4">Enlace inválido. Solicita uno nuevo.</p>
-          <Link to="/forgot-password" className="text-emerald-400 hover:text-emerald-300 text-sm">
-            Recuperar contraseña
-          </Link>
+      <div className="min-h-screen bg-slate-900 flex flex-col">
+        {logoNav}
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="bg-slate-800 p-8 rounded-2xl w-full max-w-md border border-slate-700 text-center">
+            <p className="text-red-400 mb-4">Enlace inválido. Solicita uno nuevo.</p>
+            <Link to="/forgot-password" className="text-emerald-400 hover:text-emerald-300 text-sm">
+              Recuperar contraseña
+            </Link>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-slate-900 flex flex-col">
+      {logoNav}
+      <div className="flex-1 flex items-center justify-center p-4">
       <div className="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md border border-slate-700">
 
         {done ? (
@@ -134,6 +150,7 @@ export default function ResetPassword() {
             </form>
           </>
         )}
+      </div>
       </div>
     </div>
   );

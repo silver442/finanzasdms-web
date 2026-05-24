@@ -1,7 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { ShoppingBag, CheckCircle, Loader2, Lock, AlertTriangle } from 'lucide-react';
+
+type ModuleRestriction = { canDeactivate: boolean; reason: string | null };
+type ModuleRestrictions = Partial<Record<keyof UserFlags, ModuleRestriction>>;
 
 type UserFlags = {
   hasCreditCardsModule: boolean;
@@ -55,8 +58,18 @@ export default function ModuleStore() {
   const [flags, setFlags] = useState<UserFlags>(getFlags);
   const [loading, setLoading] = useState<string | null>(null);
   const [confirmKey, setConfirmKey] = useState<keyof UserFlags | null>(null);
+  const [restrictions, setRestrictions] = useState<ModuleRestrictions>({});
   const role = getUserRole();
   const isAdmin = role === 'ADMIN';
+
+  useEffect(() => {
+    axios
+      .get<ModuleRestrictions>(`${import.meta.env.VITE_API_URL}/users/me/module-restrictions`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      })
+      .then((res) => setRestrictions(res.data))
+      .catch(() => { /* sin restricciones si falla */ });
+  }, []);
 
   const handleDeactivate = async (flagKey: keyof UserFlags) => {
     setLoading(flagKey);
@@ -131,6 +144,11 @@ export default function ModuleStore() {
             const canActivate = !isInstalled && (m.isReleased || isAdmin);
             const isAdminTest = canActivate && !m.isReleased && isAdmin;
             const isSoon = !isInstalled && !m.isReleased && !isAdmin;
+            const restriction = restrictions[m.flagKey];
+            const canDeactivate = !restriction || restriction.canDeactivate !== false;
+            const deactivateTooltip = !canDeactivate
+              ? (restriction?.reason ?? 'Debes liquidar tus préstamos activos antes de desactivar este módulo')
+              : undefined;
 
             return (
               <div
@@ -151,9 +169,10 @@ export default function ModuleStore() {
                       Instalado
                     </div>
                     <button
-                      onClick={() => setConfirmKey(m.flagKey)}
-                      disabled={loading === m.flagKey}
-                      className="text-slate-500 hover:text-red-400 text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={() => canDeactivate && setConfirmKey(m.flagKey)}
+                      disabled={loading === m.flagKey || !canDeactivate}
+                      title={deactivateTooltip}
+                      className="text-slate-500 hover:text-red-400 text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {loading === m.flagKey ? (
                         <Loader2 size={12} className="animate-spin" />

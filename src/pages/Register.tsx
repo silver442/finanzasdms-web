@@ -48,19 +48,24 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans text-white relative overflow-hidden">
+    <div className="min-h-screen bg-slate-900 flex flex-col font-sans text-white relative overflow-hidden">
       {/* Círculos decorativos de fondo */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
         <div className="absolute -top-1/4 -left-1/4 w-1/2 h-1/2 bg-emerald-500/10 rounded-full blur-[120px]"></div>
         <div className="absolute -bottom-1/4 -right-1/4 w-1/2 h-1/2 bg-blue-500/10 rounded-full blur-[120px]"></div>
       </div>
 
-      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <div className="flex justify-center mb-4">
-          <div className="p-3 bg-slate-800 rounded-2xl border border-slate-700 shadow-xl shadow-emerald-500/10">
-            <Landmark className="h-10 w-10 text-emerald-400" />
+      <nav className="container mx-auto px-6 py-6 flex items-center relative z-10">
+        <Link to="/" className="flex items-center gap-2">
+          <div className="p-2 bg-slate-800 rounded-lg border border-slate-700 shadow-md shadow-emerald-500/10">
+            <Landmark className="h-6 w-6 text-emerald-400" />
           </div>
-        </div>
+          <span className="text-xl font-extrabold tracking-tight text-white">Finanzas<span className="text-emerald-400">DMS</span></span>
+        </Link>
+      </nav>
+
+      <div className="flex-1 flex flex-col justify-center py-8 sm:px-6 lg:px-8">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
         <h2 className="mt-2 text-3xl font-extrabold tracking-tight">
           Crea tu cuenta en <span className="text-emerald-400">FinanzasDMS</span>
         </h2>
@@ -177,6 +182,7 @@ export default function Register() {
             </>
           )}
         </div>
+      </div>
       </div>
     </div>
   );
