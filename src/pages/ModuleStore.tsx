@@ -1,7 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { ShoppingBag, CheckCircle, Loader2, Lock } from 'lucide-react';
+import { ShoppingBag, CheckCircle, Loader2, Lock, AlertTriangle } from 'lucide-react';
+
+type ModuleRestriction = { canDeactivate: boolean; reason: string | null };
+type ModuleRestrictions = Partial<Record<keyof UserFlags, ModuleRestriction>>;
 
 type UserFlags = {
   hasCreditCardsModule: boolean;
@@ -54,8 +57,44 @@ const STORE_MODULES: { name: string; desc: string; flagKey: keyof UserFlags; isR
 export default function ModuleStore() {
   const [flags, setFlags] = useState<UserFlags>(getFlags);
   const [loading, setLoading] = useState<string | null>(null);
+  const [confirmKey, setConfirmKey] = useState<keyof UserFlags | null>(null);
+  const [restrictions, setRestrictions] = useState<ModuleRestrictions>({});
   const role = getUserRole();
   const isAdmin = role === 'ADMIN';
+
+  useEffect(() => {
+    axios
+      .get<ModuleRestrictions>(`${import.meta.env.VITE_API_URL}/users/me/module-restrictions`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      })
+      .then((res) => setRestrictions(res.data))
+      .catch(() => { /* sin restricciones si falla */ });
+  }, []);
+
+  const handleDeactivate = async (flagKey: keyof UserFlags) => {
+    setLoading(flagKey);
+    try {
+      await axios.patch(
+        `${import.meta.env.VITE_API_URL}/users/me/modules`,
+        { [flagKey]: false },
+        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } },
+      );
+
+      const raw = localStorage.getItem('user');
+      if (raw) {
+        const user = JSON.parse(raw) as Record<string, unknown>;
+        localStorage.setItem('user', JSON.stringify({ ...user, [flagKey]: false }));
+      }
+
+      setFlags((prev) => ({ ...prev, [flagKey]: false }));
+      window.dispatchEvent(new Event('user-flags-updated'));
+      toast.success('Módulo desactivado. Tus datos se mantienen intactos.');
+    } catch {
+      toast.error('No se pudo desactivar el módulo. Intenta de nuevo.');
+    } finally {
+      setLoading(null);
+    }
+  };
 
   const handleActivate = async (flagKey: keyof UserFlags) => {
     setLoading(flagKey);
@@ -83,6 +122,7 @@ export default function ModuleStore() {
   };
 
   return (
+    <>
     <div className="p-8 text-white">
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-10">
@@ -104,6 +144,11 @@ export default function ModuleStore() {
             const canActivate = !isInstalled && (m.isReleased || isAdmin);
             const isAdminTest = canActivate && !m.isReleased && isAdmin;
             const isSoon = !isInstalled && !m.isReleased && !isAdmin;
+            const restriction = restrictions[m.flagKey];
+            const canDeactivate = !restriction || restriction.canDeactivate !== false;
+            const deactivateTooltip = !canDeactivate
+              ? (restriction?.reason ?? 'Debes liquidar tus préstamos activos antes de desactivar este módulo')
+              : undefined;
 
             return (
               <div
@@ -118,9 +163,23 @@ export default function ModuleStore() {
                 </div>
 
                 {isInstalled ? (
-                  <div className="flex items-center gap-2 text-emerald-400 text-sm font-semibold">
-                    <CheckCircle size={16} />
-                    Instalado
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-emerald-400 text-sm font-semibold">
+                      <CheckCircle size={16} />
+                      Instalado
+                    </div>
+                    <button
+                      onClick={() => canDeactivate && setConfirmKey(m.flagKey)}
+                      disabled={loading === m.flagKey || !canDeactivate}
+                      title={deactivateTooltip}
+                      className="text-slate-500 hover:text-red-400 text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {loading === m.flagKey ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : (
+                        'Desactivar'
+                      )}
+                    </button>
                   </div>
                 ) : isSoon ? (
                   <div className="flex items-center gap-2 text-slate-500 text-sm font-semibold">
@@ -147,5 +206,40 @@ export default function ModuleStore() {
         </div>
       </div>
     </div>
+
+    {/* Modal de confirmación de desactivación */}
+    {confirmKey && (
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-2">
+              <AlertTriangle size={20} className="text-amber-400" />
+            </div>
+            <h3 className="text-white font-bold text-lg">¿Desactivar módulo?</h3>
+          </div>
+          <p className="text-slate-400 text-sm mb-6">
+            ¿Seguro que deseas ocultar este módulo? Tus datos guardados se mantendrán intactos y podrás reactivarlo en cualquier momento.
+          </p>
+          <div className="flex gap-3 justify-end">
+            <button
+              onClick={() => setConfirmKey(null)}
+              className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-300 hover:text-white hover:bg-slate-700 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => {
+                void handleDeactivate(confirmKey);
+                setConfirmKey(null);
+              }}
+              className="px-4 py-2 rounded-lg text-sm font-bold bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500 hover:border-red-500 hover:text-white transition-all"
+            >
+              Sí, desactivar
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

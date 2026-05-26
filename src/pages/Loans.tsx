@@ -188,15 +188,15 @@ export default function Loans() {
     <div className="p-8 text-white font-sans max-w-7xl mx-auto">
 
       {/* ── Header ── */}
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-col md:flex-row items-start md:items-center gap-4 mb-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-emerald-400 flex items-center gap-3">
+          <h1 className="text-2xl md:text-3xl font-extrabold text-emerald-400 flex items-center gap-3">
             <Landmark size={32} />
             Préstamos y Pagos Fijos
           </h1>
           <p className="text-slate-400 mt-2">Control de amortizaciones y compras a plazos</p>
         </div>
-        <div className="flex gap-3 items-center">
+        <div className="flex gap-3 items-center flex-wrap w-full md:w-auto">
           <button
             onClick={() => navigate('/profile')}
             className={`flex items-center gap-2 border px-4 py-2.5 rounded-xl font-semibold text-sm transition-all ${getLevelStyle(level)}`}
@@ -311,7 +311,7 @@ export default function Loans() {
                   </div>
                 ) : (
                   <div className="flex-1 p-6 overflow-x-auto">
-                    <table className="w-full text-left text-sm whitespace-nowrap">
+                    <table className="w-full min-w-max text-left text-sm whitespace-nowrap">
                       <thead>
                         <tr className="text-slate-400 border-b border-slate-700">
                           <th className="pb-3 font-semibold">N°</th>

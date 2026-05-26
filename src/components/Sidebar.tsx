@@ -85,7 +85,9 @@ const navCls = ({ isActive }: { isActive: boolean }) =>
       : 'text-slate-400 hover:bg-slate-700/50 hover:text-white'
   }`;
 
-export default function Sidebar() {
+type SidebarProps = { isOpen: boolean; onClose: () => void; };
+
+export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const navigate = useNavigate();
   const role = getUserRole();
   const name = getUserName();
@@ -126,9 +128,9 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="w-64 bg-slate-800 border-r border-slate-700 flex flex-col h-full shadow-2xl z-10">
+    <aside className={`fixed md:relative inset-y-0 left-0 z-40 md:z-10 w-64 bg-slate-800 border-r border-slate-700 flex flex-col h-full shadow-2xl transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
       <div className="p-6 border-b border-slate-700">
-        <Link to="/" className="text-2xl font-extrabold text-emerald-400 tracking-tight hover:text-emerald-300 transition-colors">
+        <Link to="/dashboard" className="text-2xl font-extrabold text-emerald-400 tracking-tight hover:text-emerald-300 transition-colors">
           FinanzasDMS
         </Link>
         {name && (
@@ -157,7 +159,7 @@ export default function Sidebar() {
             {userModules
               .filter((m) => !m.requiredFlag || flags[m.requiredFlag])
               .map(({ name, path, icon: Icon }) => (
-                <NavLink key={path} to={path} className={navCls}>
+                <NavLink key={path} to={path} className={navCls} onClick={onClose}>
                   <Icon size={20} className="shrink-0" />
                   {name}
                 </NavLink>
@@ -166,7 +168,7 @@ export default function Sidebar() {
         )}
 
         {/* ── TIENDA DE MÓDULOS ── */}
-        <NavLink to="/tienda" className={navCls}>
+        <NavLink to="/tienda" className={navCls} onClick={onClose}>
           <ShoppingBag size={20} className="shrink-0 text-violet-400" />
           <span className="text-violet-300">Tienda de Módulos</span>
         </NavLink>
@@ -191,7 +193,7 @@ export default function Sidebar() {
             {openSections.admin && (
               <div className="space-y-1">
                 {adminModules.map(({ name, path, icon: Icon }) => (
-                  <NavLink key={path} to={path} className={navCls}>
+                  <NavLink key={path} to={path} className={navCls} onClick={onClose}>
                     <Icon size={20} className="shrink-0" />
                     {name}
                     {path === '/admin/payments' && pendingCount > 0 && (

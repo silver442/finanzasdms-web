@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
-import { PhoneCall, AlertTriangle } from 'lucide-react';
+import { PhoneCall, AlertTriangle, Menu } from 'lucide-react';
 import Sidebar from './Sidebar';
 
 const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER;
@@ -54,6 +55,7 @@ function BlockedScreen() {
 }
 
 export default function ProtectedRoute() {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const token = localStorage.getItem('token');
 
   if (!token) {
@@ -67,10 +69,35 @@ export default function ProtectedRoute() {
 
   return (
     <div className="flex h-screen bg-slate-900 overflow-hidden">
-      <Sidebar />
-      <main className="flex-1 overflow-y-auto">
-        <Outlet />
-      </main>
+
+      {/* Overlay móvil */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-30 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Top Bar — solo móvil */}
+        <header className="md:hidden flex items-center gap-3 px-4 py-3 bg-slate-800 border-b border-slate-700 shrink-0">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="text-slate-400 hover:text-white transition-colors"
+            aria-label="Abrir menú"
+          >
+            <Menu size={22} />
+          </button>
+          <span className="text-lg font-extrabold text-emerald-400 tracking-tight">FinanzasDMS</span>
+        </header>
+
+        <main className="flex-1 overflow-y-auto">
+          <Outlet />
+        </main>
+      </div>
+
     </div>
   );
 }
