@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import {
-  TrendingUp, ExternalLink, Star, Zap, X, Send, Copy,
+  TrendingUp, ExternalLink, Star, Zap, X, Send, Copy, Bitcoin,
 } from 'lucide-react';
 
 interface ReferralCard {
@@ -102,7 +102,7 @@ export default function Investments() {
         <div className="flex-1">
           <p className="text-emerald-300 font-bold">¿Ya invertiste? Súbete de nivel en FinanzasDMS</p>
           <p className="text-emerald-400/70 text-sm mt-0.5">
-            Envía tu comprobante y gana <strong>+20 puntos de confianza</strong> para avanzar en el sistema de niveles.
+            Envía tu comprobante y gana <strong>+10 puntos de confianza</strong> para avanzar en el sistema de niveles.
           </p>
         </div>
         <button
@@ -170,6 +170,28 @@ export default function Investments() {
               </div>
             );
           })}
+
+          {/* Cripto — Próximamente */}
+          <div className="relative bg-slate-800/50 border border-slate-700/50 rounded-2xl p-5 flex flex-col gap-4 overflow-hidden">
+            <div className="absolute inset-0 bg-black/60 rounded-2xl flex flex-col items-center justify-center gap-3 z-10">
+              <span className="bg-violet-500/20 border border-violet-500/40 text-violet-300 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                Próximamente
+              </span>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="w-11 h-11 rounded-xl bg-slate-700 flex items-center justify-center shrink-0">
+                <Bitcoin size={22} className="text-orange-400" />
+              </div>
+              <div>
+                <h3 className="text-white font-extrabold text-base">Cripto</h3>
+                <p className="text-xs text-orange-400 font-semibold">Portafolio de criptomonedas</p>
+              </div>
+            </div>
+            <p className="text-slate-400 text-xs">Próximamente podrás registrar y rastrear tu portafolio cripto.</p>
+            <button disabled className="flex items-center justify-center gap-2 bg-slate-700 border border-slate-600 text-slate-500 px-4 py-2.5 rounded-xl font-bold text-sm cursor-not-allowed">
+              Ver Cripto
+            </button>
+          </div>
         </div>
       )}
 
@@ -191,7 +213,7 @@ export default function Investments() {
             {/* Modal body */}
             <div className="p-6 space-y-4">
               <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 text-sm">
-                <p className="text-emerald-300 font-bold mb-0.5">+20 puntos de confianza</p>
+                <p className="text-emerald-300 font-bold mb-0.5">+10 puntos de confianza</p>
                 <p className="text-emerald-400/70">
                   Al reportar tu inversión, recibirás puntos que te ayudarán a subir de nivel y obtener mejores condiciones de crédito.
                 </p>

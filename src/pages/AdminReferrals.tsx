@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { TrendingUp, Plus, Trash2, X, ExternalLink, Copy } from 'lucide-react';
+import { TrendingUp, Plus, Trash2, X, ExternalLink, Copy, Pencil } from 'lucide-react';
 
 interface ReferralCard {
   id: string;
@@ -33,6 +33,10 @@ export default function AdminReferrals() {
 
   const [deleteTarget, setDeleteTarget] = useState<ReferralCard | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const [editTarget, setEditTarget] = useState<ReferralCard | null>(null);
+  const [editForm, setEditForm] = useState(emptyForm);
+  const [isEditing, setIsEditing] = useState(false);
 
   const fetchCards = useCallback(async () => {
     try {
@@ -79,6 +83,26 @@ export default function AdminReferrals() {
       toast.error('Error al eliminar la tarjeta');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleEdit = async () => {
+    if (!editTarget) return;
+    const { brand, title, description, code, link } = editForm;
+    if (!brand.trim() || !title.trim() || !description.trim() || !code.trim() || !link.trim()) {
+      toast.error('Completa todos los campos');
+      return;
+    }
+    setIsEditing(true);
+    try {
+      await axios.patch(`${API}/referral-cards/${editTarget.id}`, editForm, { headers: authHeaders() });
+      toast.success('Tarjeta actualizada correctamente');
+      setEditTarget(null);
+      void fetchCards();
+    } catch {
+      toast.error('Error al actualizar la tarjeta');
+    } finally {
+      setIsEditing(false);
     }
   };
 
@@ -145,13 +169,22 @@ export default function AdminReferrals() {
                   </a>
                 </div>
               </div>
-              <button
-                onClick={() => setDeleteTarget(card)}
-                className="shrink-0 flex items-center gap-1.5 bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/30 hover:border-red-500 px-3 py-2 rounded-lg font-semibold text-sm transition-all"
-              >
-                <Trash2 size={15} />
-                Eliminar
-              </button>
+              <div className="flex flex-col gap-2 shrink-0">
+                <button
+                  onClick={() => { setEditTarget(card); setEditForm({ brand: card.brand, title: card.title, description: card.description, code: card.code, link: card.link }); }}
+                  className="flex items-center gap-1.5 bg-amber-500/10 hover:bg-amber-500 text-amber-400 hover:text-white border border-amber-500/30 hover:border-amber-500 px-3 py-2 rounded-lg font-semibold text-sm transition-all"
+                >
+                  <Pencil size={15} />
+                  Editar
+                </button>
+                <button
+                  onClick={() => setDeleteTarget(card)}
+                  className="flex items-center gap-1.5 bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/30 hover:border-red-500 px-3 py-2 rounded-lg font-semibold text-sm transition-all"
+                >
+                  <Trash2 size={15} />
+                  Eliminar
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -252,6 +285,107 @@ export default function AdminReferrals() {
                 className="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2 rounded-lg font-bold transition-colors disabled:opacity-50"
               >
                 {isCreating ? 'Guardando...' : 'Crear Tarjeta'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Editar tarjeta ── */}
+      {editTarget && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-lg">
+            <div className="flex justify-between items-center p-6 border-b border-slate-700">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <Pencil size={18} className="text-amber-400" />
+                Editar Tarjeta
+              </h3>
+              <button onClick={() => setEditTarget(null)} className="text-slate-400 hover:text-white transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-slate-300 font-medium mb-1.5">
+                    Marca <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.brand}
+                    onChange={e => setEditForm(f => ({ ...f, brand: e.target.value }))}
+                    className={inputCls}
+                    placeholder="Ej: Bitso, Nu, Flink..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-300 font-medium mb-1.5">
+                    Título / Beneficio <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.title}
+                    onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))}
+                    className={inputCls}
+                    placeholder="Gana 8% APY en USDT"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm text-slate-300 font-medium mb-1.5">
+                  Descripción <span className="text-red-400">*</span>
+                </label>
+                <textarea
+                  value={editForm.description}
+                  onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
+                  className={`${inputCls} resize-none h-24`}
+                  placeholder="Explica la ventaja para el usuario..."
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-slate-300 font-medium mb-1.5">
+                    Código de Referido <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.code}
+                    onChange={e => setEditForm(f => ({ ...f, code: e.target.value }))}
+                    className={inputCls}
+                    placeholder="REFXXX123"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-300 font-medium mb-1.5">
+                    URL de la Plataforma <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="url"
+                    value={editForm.link}
+                    onChange={e => setEditForm(f => ({ ...f, link: e.target.value }))}
+                    className={inputCls}
+                    placeholder="https://..."
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-slate-700 flex gap-3 justify-end">
+              <button
+                onClick={() => setEditTarget(null)}
+                className="px-4 py-2 rounded-lg text-slate-300 hover:text-white transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => void handleEdit()}
+                disabled={isEditing}
+                className="bg-amber-500 hover:bg-amber-600 text-white px-5 py-2 rounded-lg font-bold transition-colors disabled:opacity-50"
+              >
+                {isEditing ? 'Guardando...' : 'Guardar Cambios'}
               </button>
             </div>
           </div>
