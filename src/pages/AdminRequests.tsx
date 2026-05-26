@@ -42,7 +42,8 @@ interface AdminLoan {
   id: string;
   concept: string;
   amount: string | number;
-  termMonths: number;
+  termQuantity: number;
+  termUnit: string;
   interestRate?: string | number;
   startDate: string;
   referralCode?: string;
@@ -89,12 +90,12 @@ export default function AdminRequests() {
 
   // Edit conditions modal state
   const [editTarget, setEditTarget] = useState<AdminLoan | null>(null);
-  const [editForm, setEditForm] = useState({ amount: '', termMonths: '', interestRate: '' });
+  const [editForm, setEditForm] = useState({ amount: '', termQuantity: '', interestRate: '' });
   const [isSaving, setIsSaving] = useState(false);
 
   const fetchRequests = useCallback(async () => {
     try {
-      const { data } = await axios.get<{ status: string; user: LoanUser; id: string; concept: string; amount: string | number; termMonths: number; startDate: string; referralCode?: string }[]>(
+      const { data } = await axios.get<{ status: string; user: LoanUser; id: string; concept: string; amount: string | number; termQuantity: number; termUnit: string; startDate: string; referralCode?: string }[]>(
         `${API}/loans/all`,
         { headers: authHeaders() },
       );
@@ -155,7 +156,7 @@ export default function AdminRequests() {
     if (!editTarget) return;
     const payload: Record<string, number> = {};
     if (editForm.amount !== '') payload.amount = parseFloat(editForm.amount);
-    if (editForm.termMonths !== '') payload.termMonths = parseInt(editForm.termMonths);
+    if (editForm.termQuantity !== '') payload.termQuantity = parseInt(editForm.termQuantity);
     if (editForm.interestRate !== '') payload.interestRate = parseFloat(editForm.interestRate);
 
     if (Object.keys(payload).length === 0) { setEditTarget(null); return; }
@@ -239,7 +240,7 @@ export default function AdminRequests() {
             const isOwnLoan = loan.user.id === adminId;
             const { income, expenses, free } = capacity(loan);
             const totalFlat = Number(loan.amount) + Number(loan.amount) * (Number(loan.user.currentRate ?? 50) / 100);
-            const monthlyEst = loan.termMonths > 0 ? totalFlat / loan.termMonths : 0;
+            const monthlyEst = loan.termQuantity > 0 ? totalFlat / loan.termQuantity : 0;
             const canAfford = free >= monthlyEst;
 
             return (
@@ -250,7 +251,7 @@ export default function AdminRequests() {
                   <div>
                     <h2 className="text-lg font-bold text-white mb-0.5">{loan.concept}</h2>
                     <p className="text-sm text-slate-400">
-                      {fmt(loan.amount)} · {loan.termMonths} meses
+                      {fmt(loan.amount)} · {loan.termQuantity} {loan.termUnit === 'SEMANAS' ? 'semanas' : 'meses'}
                     </p>
                     {loan.referralCode && (
                       <span className="text-xs text-emerald-400 font-mono mt-1 inline-block">
@@ -399,7 +400,7 @@ export default function AdminRequests() {
                           setEditTarget(loan);
                           setEditForm({
                             amount: String(Number(loan.amount)),
-                            termMonths: String(loan.termMonths),
+                            termQuantity: String(loan.termQuantity),
                             interestRate: '',
                           });
                         }}
@@ -454,7 +455,7 @@ export default function AdminRequests() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Plazo</span>
-                  <span className="text-white">{approveTarget.termMonths} meses</span>
+                  <span className="text-white">{approveTarget.termQuantity} {approveTarget.termUnit === 'SEMANAS' ? 'semanas' : 'meses'}</span>
                 </div>
                 {approveTarget.disbursementAccount && (
                   <>
@@ -501,7 +502,7 @@ export default function AdminRequests() {
                   </p>
                   <p className="text-white">
                     Cuota mensual: <strong className="text-emerald-400">
-                      {fmt(Number(approveTarget.amount) * (1 + parseFloat(rateInput) / 100) / approveTarget.termMonths)}
+                      {fmt(Number(approveTarget.amount) * (1 + parseFloat(rateInput) / 100) / approveTarget.termQuantity)}
                     </strong>
                   </p>
                 </div>
@@ -579,7 +580,7 @@ export default function AdminRequests() {
                   onChange={e => setEditForm(f => ({ ...f, amount: e.target.value }))}
                   className={inputCls}
                   min="100"
-                  step="100"
+                  step="0.01"
                 />
                 {editValidation.amountError
                   ? <p className="text-red-400 text-xs mt-1">{editValidation.amountError}</p>
@@ -593,8 +594,8 @@ export default function AdminRequests() {
                 <label className="text-sm text-slate-300 font-medium block mb-1">Plazo (meses)</label>
                 <input
                   type="number"
-                  value={editForm.termMonths}
-                  onChange={e => setEditForm(f => ({ ...f, termMonths: e.target.value }))}
+                  value={editForm.termQuantity}
+                  onChange={e => setEditForm(f => ({ ...f, termQuantity: e.target.value }))}
                   className={inputCls}
                   min="1"
                   max="24"
@@ -611,7 +612,7 @@ export default function AdminRequests() {
                   className={inputCls}
                   min="0"
                   max="100"
-                  step="0.5"
+                  step="0.01"
                 />
                 {editValidation.rateError
                   ? <p className="text-red-400 text-xs mt-1">{editValidation.rateError}</p>

@@ -30,10 +30,11 @@ interface Loan {
   concept: string;
   amount: string | number;
   interestRate: string | number;
-  termMonths: number;
+  termQuantity: number;
+  termUnit: string;
   startDate: string;
   updatedAt: string;
-  status: 'REQUESTED' | 'ACTIVE' | 'PAID' | 'DEFAULTED' | 'REJECTED';
+  status: 'REQUESTED' | 'ACTIVE' | 'PAID' | 'DEFAULTED' | 'REJECTED' | 'CANCELADO' | 'ESPERANDO_CONFIRMACION';
   installments: Installment[];
 }
 
@@ -134,6 +135,26 @@ export default function Loans() {
     () => loans.filter(l => l.status === 'ACTIVE' || l.status === 'REQUESTED').length >= personalLimit,
     [loans, personalLimit],
   );
+
+  const handleCancelLoan = async (loanId: string) => {
+    try {
+      await axios.patch(`${API}/loans/${loanId}/cancel`, {}, { headers: authHeaders() });
+      toast.success('Solicitud cancelada');
+      void fetchLoans();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? 'Error al cancelar');
+    }
+  };
+
+  const handleAcceptConditions = async (loanId: string) => {
+    try {
+      await axios.patch(`${API}/loans/${loanId}/accept-conditions`, {}, { headers: authHeaders() });
+      toast.success('¡Condiciones aceptadas! Tu préstamo está activo.');
+      void fetchLoans();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? 'Error al aceptar condiciones');
+    }
+  };
 
   const handlePayInstallment = async () => {
     if (!payTarget) return;
@@ -269,18 +290,20 @@ export default function Loans() {
             const isPaid = loan.status === 'PAID';
             const isRequested = loan.status === 'REQUESTED';
             const isRejected = loan.status === 'REJECTED';
+            const isEsperandoConfirmacion = loan.status === 'ESPERANDO_CONFIRMACION';
 
             return (
-              <div key={loan.id} className={`bg-slate-800 rounded-2xl border shadow-xl overflow-hidden flex flex-col ${isPaid ? 'border-emerald-500/30' : isRejected ? 'border-red-500/30' : 'border-slate-700'}`}>
+              <div key={loan.id} className={`bg-slate-800 rounded-2xl border shadow-xl overflow-hidden flex flex-col ${isPaid ? 'border-emerald-500/30' : isRejected ? 'border-red-500/30' : isEsperandoConfirmacion ? 'border-amber-500/30' : 'border-slate-700'}`}>
                 <div className="p-6 border-b border-slate-700 bg-slate-900/40">
                   <h2 className="text-xl font-bold text-white mb-1 flex items-center gap-2">
                     {loan.concept}
                     {isPaid && <span className="bg-emerald-500/20 text-emerald-400 text-xs px-2 py-0.5 rounded border border-emerald-500/30">Liquidado</span>}
                     {isRequested && <span className="bg-amber-500/20 text-amber-400 text-xs px-2 py-0.5 rounded border border-amber-500/30">En revisión</span>}
                     {isRejected && <span className="bg-red-500/20 text-red-400 text-xs px-2 py-0.5 rounded border border-red-500/30">Rechazado</span>}
+                    {isEsperandoConfirmacion && <span className="bg-amber-500/20 text-amber-300 text-xs px-2 py-0.5 rounded border border-amber-500/30">⚠️ Confirmar condiciones</span>}
                   </h2>
                   <p className="text-sm text-slate-400">
-                    Capital: {formatCurrency(loan.amount)} · {loan.termMonths} meses · {Number(loan.interestRate)}% anual
+                    Capital: {formatCurrency(loan.amount)} · {loan.termQuantity} {loan.termUnit === 'SEMANAS' ? 'semanas' : 'meses'} · Tasa Anualizado: {Number(loan.interestRate)}%
                   </p>
                   <p className="text-xs text-slate-500 mt-0.5">Inicio: {formatDate(loan.startDate)}</p>
                 </div>
@@ -298,6 +321,36 @@ export default function Loans() {
                         📲 Enviar INE por WhatsApp
                       </a>
                     )}
+                    <button
+                      onClick={() => void handleCancelLoan(loan.id)}
+                      className="mt-2 inline-flex items-center gap-2 text-red-400 hover:text-white bg-red-500/10 hover:bg-red-500 border border-red-500/30 hover:border-red-500 px-4 py-2 rounded-xl text-sm font-bold transition-all"
+                    >
+                      <X size={14} /> Cancelar Solicitud
+                    </button>
+                  </div>
+                ) : isEsperandoConfirmacion ? (
+                  <div className="flex-1 p-6 flex flex-col gap-4">
+                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
+                      <p className="text-amber-300 font-bold text-sm mb-1">⚠️ Tu préstamo fue aprobado — Revisa las condiciones</p>
+                      <p className="text-amber-400/80 text-xs">Las condiciones pudieron haber sido modificadas por el administrador. Revisa el monto, plazo y tasa antes de aceptar.</p>
+                    </div>
+                    <p className="text-slate-300 text-sm">
+                      Capital: {formatCurrency(loan.amount)} · {loan.termQuantity} {loan.termUnit === 'SEMANAS' ? 'semanas' : 'meses'} · Tasa Anualizado: {Number(loan.interestRate)}%
+                    </p>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => void handleAcceptConditions(loan.id)}
+                        className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-all"
+                      >
+                        ✓ Aceptar Condiciones
+                      </button>
+                      <button
+                        onClick={() => void handleCancelLoan(loan.id)}
+                        className="flex-1 bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/30 hover:border-red-500 px-4 py-2.5 rounded-xl font-bold text-sm transition-all"
+                      >
+                        ✗ Rechazar
+                      </button>
+                    </div>
                   </div>
                 ) : isRejected ? (
                   <div className="flex-1 p-6 flex flex-col items-center justify-center gap-3 py-10">

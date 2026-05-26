@@ -28,7 +28,8 @@ interface ActiveLoan {
   concept: string;
   amount: string | number;
   interestRate: string | number;
-  termMonths: number;
+  termQuantity: number;
+  termUnit: string;
   startDate: string;
   user: LoanUser;
   installments: Installment[];
@@ -177,7 +178,7 @@ export default function AdminActiveLoans() {
                       <h2 className="text-lg font-bold text-white truncate">{loan.concept}</h2>
                       <span className="bg-sky-500/20 text-sky-400 text-xs px-2 py-0.5 rounded border border-sky-500/30 font-semibold shrink-0">Activo</span>
                     </div>
-                    <p className="text-sm text-slate-400">{loan.termMonths} meses · Tasa {Number(loan.interestRate).toFixed(0)}%</p>
+                    <p className="text-sm text-slate-400">{loan.termQuantity} {loan.termUnit === 'SEMANAS' ? 'semanas' : 'meses'} · Tasa {Number(loan.interestRate).toFixed(0)}%</p>
                   </div>
                   <button
                     onClick={() => setDeleteTarget(loan)}

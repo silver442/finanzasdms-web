@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { Landmark, User, Mail, Lock, ArrowRight, Loader2, CheckCircle } from 'lucide-react';
+import { Landmark, User, Mail, Lock, ArrowRight, Loader2, CheckCircle, Eye, EyeOff } from 'lucide-react';
 
 export default function Register() {
   const [isLoading, setIsLoading] = useState(false);
   const [registered, setRegistered] = useState(false);
+  const [showPwd, setShowPwd] = useState(false);
+  const [showConfirmPwd, setShowConfirmPwd] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -138,11 +140,19 @@ export default function Register() {
                       <Lock className="h-5 w-5 text-slate-500" />
                     </div>
                     <input
-                      type="password" required
+                      type={showPwd ? 'text' : 'password'} required
                       value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})}
-                      className="block w-full pl-10 pr-3 py-2.5 border border-slate-600 rounded-xl bg-slate-900/50 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                      className="block w-full pl-10 pr-10 py-2.5 border border-slate-600 rounded-xl bg-slate-900/50 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
                       placeholder="Mínimo 8 caracteres"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPwd(v => !v)}
+                      className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-200 transition-colors"
+                      tabIndex={-1}
+                    >
+                      {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
                   </div>
                 </div>
 
@@ -153,11 +163,19 @@ export default function Register() {
                       <Lock className="h-5 w-5 text-slate-500" />
                     </div>
                     <input
-                      type="password" required
+                      type={showConfirmPwd ? 'text' : 'password'} required
                       value={formData.confirmPassword} onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
-                      className="block w-full pl-10 pr-3 py-2.5 border border-slate-600 rounded-xl bg-slate-900/50 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                      className="block w-full pl-10 pr-10 py-2.5 border border-slate-600 rounded-xl bg-slate-900/50 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
                       placeholder="Repite tu contraseña"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPwd(v => !v)}
+                      className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-200 transition-colors"
+                      tabIndex={-1}
+                    >
+                      {showConfirmPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
                   </div>
                 </div>
 

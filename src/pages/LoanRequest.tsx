@@ -513,7 +513,8 @@ export default function LoanRequest() {
         {
           concept: form.concept,
           amount,
-          termMonths,
+          termQuantity: termMonths,
+          termUnit: 'MESES',
           phone: form.phone,
           income,
           expenses,
@@ -601,6 +602,7 @@ export default function LoanRequest() {
                     className={`${inputCls} ${isOverLimit ? 'border-red-500 focus:border-red-500' : ''}`}
                     placeholder="0.00"
                     min="1"
+                    step="0.01"
                   />
                 </div>
                 <div>

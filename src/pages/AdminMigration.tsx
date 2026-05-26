@@ -38,7 +38,8 @@ const EMPTY_FORM = {
   concept: '',
   amount: '',
   interestRate: '',
-  termMonths: '',
+  termQuantity: '',
+  termUnit: 'MESES' as 'MESES' | 'SEMANAS',
   startDate: '',
   referralCode: '',
   paidInstallmentsCount: '',
@@ -69,21 +70,30 @@ export default function AdminMigration() {
       setForm(prev => ({ ...prev, [key]: e.target.value }));
 
   // ── Valores derivados ──────────────────────────────────────────
-  const amount      = parseFloat(form.amount) || 0;
-  const rate        = parseFloat(form.interestRate) || 0;
-  const months      = parseInt(form.termMonths) || 0;
-  const hasTable    = amount > 0 && months > 0 && form.startDate !== '';
+  const amount       = parseFloat(form.amount) || 0;
+  const rate         = parseFloat(form.interestRate) || 0;
+  const termQty      = parseInt(form.termQuantity) || 0;
+  const hasTable     = amount > 0 && termQty > 0 && form.startDate !== '';
 
-  const freqConfig: Record<string, { periods: number; dayStep: number; label: string }> = {
-    MENSUAL:   { periods: months,      dayStep: 0,  label: 'mensual'   },
-    QUINCENAL: { periods: months * 2,  dayStep: 15, label: 'quincenal' },
-    SEMANAL:   { periods: months * 4,  dayStep: 7,  label: 'semanal'   },
-  };
+  const freqConfig: Record<string, { periods: number; dayStep: number; label: string }> =
+    form.termUnit === 'SEMANAS'
+      ? {
+          SEMANAL:   { periods: termQty,                    dayStep: 7,  label: 'semanal'   },
+          QUINCENAL: { periods: Math.round(termQty / 2),    dayStep: 15, label: 'quincenal' },
+          MENSUAL:   { periods: Math.round(termQty / 4),    dayStep: 0,  label: 'mensual'   },
+        }
+      : {
+          MENSUAL:   { periods: termQty,      dayStep: 0,  label: 'mensual'   },
+          QUINCENAL: { periods: termQty * 2,  dayStep: 15, label: 'quincenal' },
+          SEMANAL:   { periods: termQty * 4,  dayStep: 7,  label: 'semanal'   },
+        };
   const { periods, dayStep, label: freqLabel } = freqConfig[form.paymentFrequency] ?? freqConfig['MENSUAL'];
 
   const paidCount   = Math.min(parseInt(form.paidInstallmentsCount) || 0, periods);
 
-  const totalDebt   = amount + amount * (rate / 100);
+  const termInMonths = form.termUnit === 'SEMANAS' ? termQty / 4 : termQty;
+  const timeFactor   = termInMonths >= 12 ? termInMonths / 12 : 1;
+  const totalDebt   = amount + amount * (rate / 100) * timeFactor;
   const periodPay   = periods > 0 ? totalDebt / periods : 0;
   const paidAmount  = periodPay * paidCount;
   const pending     = totalDebt - paidAmount;
@@ -117,7 +127,7 @@ export default function AdminMigration() {
     e.preventDefault();
     if (!form.userId)    { toast.error('Selecciona un usuario'); return; }
     if (!form.startDate) { toast.error('Ingresa la fecha de inicio'); return; }
-    if (paidCount > months) { toast.error('Las cuotas pagadas no pueden superar el plazo'); return; }
+    if (paidCount > periods) { toast.error('Las cuotas pagadas no pueden superar el plazo'); return; }
 
     setIsSubmitting(true);
     try {
@@ -128,7 +138,8 @@ export default function AdminMigration() {
           concept: form.concept,
           amount,
           interestRate: rate,
-          termMonths: months,
+          termQuantity: termQty,
+          termUnit: form.termUnit,
           startDate: new Date(form.startDate + 'T12:00:00').toISOString(),
           paymentFrequency: form.paymentFrequency,
           ...(form.referralCode ? { referralCode: form.referralCode } : {}),
@@ -227,13 +238,21 @@ export default function AdminMigration() {
             <div>
               <label className={labelCls}>Tasa de Interés Total (%)</label>
               <input type="number" value={form.interestRate} onChange={set('interestRate')}
-                placeholder="50" min="0" step="0.5" className={inputCls} required />
+                placeholder="50" min="0" step="0.01" className={inputCls} required />
             </div>
 
             <div>
-              <label className={labelCls}>Plazo (Meses)</label>
-              <input type="number" value={form.termMonths} onChange={set('termMonths')}
+              <label className={labelCls}>Cantidad de Plazo</label>
+              <input type="number" value={form.termQuantity} onChange={set('termQuantity')}
                 placeholder="12" min="1" step="1" className={inputCls} required />
+            </div>
+
+            <div>
+              <label className={labelCls}>Unidad del Plazo</label>
+              <select value={form.termUnit} onChange={set('termUnit')} className={inputCls}>
+                <option value="MESES">Meses</option>
+                <option value="SEMANAS">Semanas</option>
+              </select>
             </div>
 
             <div>

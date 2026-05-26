@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import {
@@ -199,6 +199,7 @@ function PortfolioDashboardWidget({ data }: { data: ModuleSummary['portfolio'] |
 
 function LoansDashboardWidget({ data }: { data: ModuleSummary['loans'] | null }) {
   return (
+    <Link to="/loans" className="block hover:opacity-90 transition-opacity">
     <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 flex flex-col gap-5">
       <div className="flex items-center gap-3">
         <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3">
@@ -206,7 +207,7 @@ function LoansDashboardWidget({ data }: { data: ModuleSummary['loans'] | null })
         </div>
         <div>
           <p className="font-bold text-white">Préstamos</p>
-          <p className="text-slate-400 text-xs">Créditos familiares</p>
+          <p className="text-slate-400 text-xs">Créditos</p>
         </div>
       </div>
 
@@ -237,6 +238,7 @@ function LoansDashboardWidget({ data }: { data: ModuleSummary['loans'] | null })
         </div>
       )}
     </div>
+    </Link>
   );
 }
 
