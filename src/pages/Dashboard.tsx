@@ -465,17 +465,19 @@ export default function Dashboard() {
 
       {/* CORE: siempre visible */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-        <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg">
+        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 shadow-2xl p-6 rounded-2xl">
           <h2 className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-2">Activos (Cuentas)</h2>
           <p className="text-3xl font-bold text-white">{fmt(summary.totalAssets)}</p>
         </div>
-        <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg">
+        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 shadow-2xl p-6 rounded-2xl">
           <h2 className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-2">Pasivos (Deudas)</h2>
           <p className="text-3xl font-bold text-red-400">{fmt(summary.totalLiabilities)}</p>
         </div>
-        <div className="bg-emerald-500 p-6 rounded-2xl border border-emerald-400 shadow-lg shadow-emerald-500/20">
-          <h2 className="text-emerald-100 text-sm font-semibold uppercase tracking-wider mb-2">Patrimonio Neto</h2>
-          <p className="text-4xl font-extrabold text-white">{fmt(summary.netWorth)}</p>
+        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 shadow-2xl p-6 rounded-2xl">
+          <h2 className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-2">Patrimonio Neto</h2>
+          <p className={`text-4xl font-extrabold ${summary.netWorth < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+            {fmt(summary.netWorth)}
+          </p>
         </div>
       </div>
 
