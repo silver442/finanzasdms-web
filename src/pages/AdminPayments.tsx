@@ -53,11 +53,23 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
+function getCurrentAdminId(): string | null {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split('.')[1])) as { sub?: string };
+    return payload.sub ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export default function AdminPayments() {
   const [requests, setRequests] = useState<PaymentRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
+  const [currentAdminId] = useState<string | null>(getCurrentAdminId);
 
   const fetchRequests = useCallback(async () => {
     try {
@@ -190,14 +202,20 @@ export default function AdminPayments() {
                       <XCircle size={15} />
                       Rechazar
                     </button>
-                    <button
-                      onClick={() => void handleApprove(req.id)}
-                      disabled={isProcessing}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-40"
-                    >
-                      <CheckCircle2 size={15} />
-                      {isProcessing ? 'Procesando...' : 'Aprobar'}
-                    </button>
+                    {req.user.id !== currentAdminId ? (
+                      <button
+                        onClick={() => void handleApprove(req.id)}
+                        disabled={isProcessing}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-40"
+                      >
+                        <CheckCircle2 size={15} />
+                        {isProcessing ? 'Procesando...' : 'Aprobar'}
+                      </button>
+                    ) : (
+                      <span className="px-3 py-2 rounded-xl bg-slate-700/50 border border-slate-600 text-slate-400 text-xs font-semibold">
+                        Tu préstamo
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>

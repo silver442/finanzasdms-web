@@ -10,6 +10,8 @@ import Portfolio from './pages/Portfolio';
 import PortfolioDetail from './pages/PortfolioDetail';
 import Crypto from './pages/Crypto';
 import Loans from './pages/Loans';
+import LoanDetail from './pages/LoanDetail';
+import AdminLoanDetail from './pages/AdminLoanDetail';
 import Register from './pages/Register';
 import Landing from './pages/Landing';
 import AdminRequests from './pages/AdminRequests';
@@ -81,6 +83,7 @@ function App() {
             <Route path="/loans" element={<Loans />} />
             <Route path="/loans/simulator" element={<LoanSimulator />} />
             <Route path="/loans/request" element={<LoanRequest />} />
+            <Route path="/loans/:id" element={<LoanDetail />} />
           </Route>
           <Route path="/portfolio" element={<Portfolio />} />
           <Route path="/portfolio/:id" element={<PortfolioDetail />} />
@@ -90,6 +93,7 @@ function App() {
           </Route>
           <Route path="/admin/requests" element={<AdminRequests />} />
           <Route path="/admin/active-loans" element={<AdminActiveLoans />} />
+          <Route path="/admin/loans/:id" element={<AdminLoanDetail />} />
           <Route path="/admin/migration" element={<AdminMigration />} />
           <Route path="/admin/payments" element={<AdminPayments />} />
           <Route path="/admin/banks" element={<AdminBanks />} />

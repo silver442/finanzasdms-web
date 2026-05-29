@@ -9,6 +9,7 @@ interface AdminBank {
   bankName: string;
   clabe: string;
   accountHolder: string;
+  userId?: string;
 }
 
 const EMPTY = { bankName: '', clabe: '', accountHolder: '' };
@@ -18,9 +19,21 @@ function authHeaders() {
   return { Authorization: `Bearer ${localStorage.getItem('token')}` };
 }
 
+function getCurrentAdminId(): string | null {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split('.')[1])) as { sub?: string };
+    return payload.sub ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export default function AdminBanks() {
   const [banks, setBanks] = useState<AdminBank[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentAdminId] = useState<string | null>(getCurrentAdminId);
 
   // Create form
   const [showCreate, setShowCreate] = useState(false);
@@ -181,16 +194,18 @@ export default function AdminBanks() {
                       <p className="text-white">{bank.accountHolder}</p>
                     </div>
                   </div>
-                  <div className="flex gap-2 shrink-0">
-                    <button onClick={() => startEdit(bank)}
-                      className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white transition-colors">
-                      <Pencil size={15} />
-                    </button>
-                    <button onClick={() => setDeleteTarget(bank)}
-                      className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors border border-red-500/20">
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
+                  {(!bank.userId || bank.userId === currentAdminId) && (
+                    <div className="flex gap-2 shrink-0">
+                      <button onClick={() => startEdit(bank)}
+                        className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white transition-colors">
+                        <Pencil size={15} />
+                      </button>
+                      <button onClick={() => setDeleteTarget(bank)}
+                        className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors border border-red-500/20">
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

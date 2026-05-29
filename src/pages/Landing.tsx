@@ -140,7 +140,7 @@ export default function Landing() {
           </h1>
 
           <p className="text-lg md:text-2xl text-slate-400 mb-12 max-w-3xl mx-auto leading-relaxed">
-            Una plataforma diseñada para gestionar préstamos, gamificar tu historial crediticio y desbloquear módulos financieros exclusivos. Todo respaldado por confianza y tecnología.
+            No es solo una hoja de cálculo. Es tu centro de mando  diseñada para gestionar préstamos, gamificar tu historial crediticio y desbloquear módulos financieros exclusivos. 
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-5 w-full sm:w-auto mb-24">

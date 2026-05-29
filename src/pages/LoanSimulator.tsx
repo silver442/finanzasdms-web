@@ -227,7 +227,7 @@ export default function LoanSimulator() {
             </h3>
             {rows.length > 0 && (
               <span className="text-xs text-slate-500 bg-slate-900 px-2.5 py-0.5 rounded-full">
-                {rows.length} cuotas {FREQ_CONFIG[freq].label}s
+                {rows.length} cuotas {FREQ_CONFIG[freq].label}es
               </span>
             )}
           </div>
