@@ -1,12 +1,27 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { Plus, CalendarClock, Trash2, Pencil, RefreshCw, X } from 'lucide-react';
+import { Plus, CalendarClock, Trash2, Pencil, RefreshCw, X, Users, Share2 } from 'lucide-react';
 
 interface CardRef {
   name: string;
   color?: string;
+}
+
+interface SharedMember {
+  id: string;
+  email: string;
+  status: 'PENDING' | 'ACCEPTED' | 'DECLINED';
+  hasPaid: boolean;
+  user: { name: string | null; email: string } | null;
+}
+
+interface SharedInfo {
+  id: string;
+  members: SharedMember[];
+  costPerMember: number;
 }
 
 interface Sub {
@@ -17,6 +32,7 @@ interface Sub {
   chargeDay: number;
   creditCard?: CardRef;
   creditCardId?: string;
+  sharedSubscription?: SharedInfo | null;
 }
 
 interface CardOption {
@@ -112,6 +128,7 @@ function SubForm({ values, onChange, onSubmit, onCancel, saving, title, icon, ca
 }
 
 export default function Subscriptions() {
+  const navigate = useNavigate();
   const [subs, setSubs] = useState<Sub[]>([]);
   const [cards, setCards] = useState<CardOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -126,10 +143,24 @@ export default function Subscriptions() {
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // Modal de compartir
+  const [shareTarget, setShareTarget] = useState<Sub | null>(null);
+  const [shareEmailInput, setShareEmailInput] = useState('');
+  const [shareEmails, setShareEmails] = useState<string[]>([]);
+  const [isSharingNew, setIsSharingNew] = useState(false);
+
   const fetchSubs = useCallback(async () => {
     try {
-      const { data } = await axios.get<Sub[]>(`${API}/scheduled-expenses`, { headers: authHeaders() });
-      setSubs(data);
+      const [subsRes, sharedRes] = await Promise.all([
+        axios.get<Sub[]>(`${API}/scheduled-expenses`, { headers: authHeaders() }),
+        axios.get<{ id: string; scheduledExpenseId: string; members: SharedMember[]; costPerMember: number }[]>(
+          `${API}/shared-subscriptions/mine`, { headers: authHeaders() }
+        ).catch(() => ({ data: [] })),
+      ]);
+      const sharedMap = new Map(
+        sharedRes.data.map((s) => [s.scheduledExpenseId, { id: s.id, members: s.members, costPerMember: s.costPerMember }])
+      );
+      setSubs(subsRes.data.map((s) => ({ ...s, sharedSubscription: sharedMap.get(s.id) ?? null })));
     } catch {
       toast.error('No se pudieron cargar las suscripciones');
     } finally {
@@ -222,6 +253,49 @@ export default function Subscriptions() {
     }
   };
 
+  const openShare = (sub: Sub) => {
+    setShareTarget(sub);
+    setShareEmails([]);
+    setShareEmailInput('');
+  };
+
+  const addShareEmail = () => {
+    const email = shareEmailInput.trim().toLowerCase();
+    if (!email.includes('@')) { toast.error('Email no válido'); return; }
+    if (shareEmails.includes(email)) { toast.error('Email ya agregado'); return; }
+    setShareEmails((prev) => [...prev, email]);
+    setShareEmailInput('');
+  };
+
+  const handleShare = async () => {
+    if (!shareTarget) return;
+    if (shareEmails.length === 0) { toast.error('Agrega al menos un email'); return; }
+    setIsSharingNew(true);
+    try {
+      if (shareTarget.sharedSubscription) {
+        await axios.post(
+          `${API}/shared-subscriptions/${shareTarget.sharedSubscription.id}/members`,
+          { emails: shareEmails },
+          { headers: authHeaders() },
+        );
+        toast.success('Miembros agregados');
+      } else {
+        await axios.post(
+          `${API}/shared-subscriptions`,
+          { scheduledExpenseId: shareTarget.id, emails: shareEmails },
+          { headers: authHeaders() },
+        );
+        toast.success(`"${shareTarget.name}" ahora está compartida`);
+      }
+      setShareTarget(null);
+      void fetchSubs();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? 'Error al compartir la suscripción');
+    } finally {
+      setIsSharingNew(false);
+    }
+  };
+
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`¿Eliminar la suscripción "${name}"?`)) return;
     setDeletingId(id);
@@ -239,20 +313,29 @@ export default function Subscriptions() {
   return (
     <div className="p-8 text-white font-sans max-w-5xl mx-auto">
       <div className="flex flex-col md:flex-row items-start md:items-center gap-4 mb-8">
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl md:text-3xl font-extrabold text-emerald-400 flex items-center gap-3">
             <CalendarClock size={32} />
             Suscripciones
           </h1>
           <p className="text-slate-400 mt-2">Gastos recurrentes vinculados a tus tarjetas de crédito</p>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 w-full md:w-auto"
-        >
-          <Plus size={20} />
-          Nueva Suscripción
-        </button>
+        <div className="flex gap-3 w-full md:w-auto">
+          <button
+            onClick={() => navigate('/subscriptions/shared')}
+            className="flex-1 md:flex-none bg-slate-700 hover:bg-slate-600 text-slate-200 px-5 py-2.5 rounded-xl font-bold transition-all flex items-center justify-center gap-2"
+          >
+            <Users size={18} />
+            Compartidas
+          </button>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="flex-1 md:flex-none bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
+          >
+            <Plus size={20} />
+            Nueva
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -276,7 +359,8 @@ export default function Subscriptions() {
                   <th className="px-5 py-4 font-semibold text-center">Frecuencia</th>
                   <th className="px-5 py-4 font-semibold text-center">Día de Cobro</th>
                   <th className="px-5 py-4 font-semibold">Tarjeta</th>
-                  <th className="px-5 py-4 w-20"></th>
+                  <th className="px-5 py-4 font-semibold text-center">Compartida</th>
+                  <th className="px-5 py-4 w-24"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700/50">
@@ -304,7 +388,23 @@ export default function Subscriptions() {
                       )}
                     </td>
                     <td className="px-5 py-4 text-center">
+                      {sub.sharedSubscription ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full bg-violet-500/20 text-violet-400">
+                          <Users size={11} /> {sub.sharedSubscription.members.length}
+                        </span>
+                      ) : (
+                        <span className="text-slate-600 text-sm">—</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-4 text-center">
                       <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={() => openShare(sub)}
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 transition-all"
+                          title="Compartir suscripción"
+                        >
+                          <Share2 size={15} />
+                        </button>
                         <button
                           onClick={() => openEdit(sub)}
                           className="p-1.5 rounded-lg text-slate-500 hover:text-sky-400 hover:bg-sky-500/10 transition-all"
@@ -357,6 +457,108 @@ export default function Subscriptions() {
             icon={<Pencil className="text-sky-400" size={18} />}
             cards={cards}
           />
+        </div>
+      )}
+
+      {shareTarget && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl w-[95%] md:max-w-lg max-h-[85vh] flex flex-col">
+            <div className="flex justify-between items-center p-4 md:p-6 border-b border-slate-700 shrink-0">
+              <div>
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Share2 className="text-violet-400" size={20} />
+                  Compartir &quot;{shareTarget.name}&quot;
+                </h2>
+                <p className="text-slate-400 text-sm mt-1">
+                  Monto total: <strong className="text-red-400">{fmt(shareTarget.amount)}</strong> · {FREQ_LABEL[shareTarget.frequency] ?? shareTarget.frequency}
+                </p>
+              </div>
+              <button onClick={() => setShareTarget(null)} className="text-slate-400 hover:text-white"><X size={20} /></button>
+            </div>
+            <div className="overflow-y-auto flex-1 p-4 md:p-6 space-y-5">
+              <div>
+                <label className={labelCls}>Agregar miembro por email</label>
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    placeholder="email@ejemplo.com"
+                    value={shareEmailInput}
+                    onChange={(e) => setShareEmailInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addShareEmail(); } }}
+                    className={inputCls}
+                  />
+                  <button
+                    type="button"
+                    onClick={addShareEmail}
+                    className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-3 rounded-lg font-medium transition-all shrink-0"
+                  >
+                    <Plus size={18} />
+                  </button>
+                </div>
+              </div>
+
+              {shareEmails.length > 0 && (
+                <div>
+                  <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-2">Por invitar</p>
+                  <div className="space-y-2">
+                    {shareEmails.map((email) => (
+                      <div key={email} className="flex items-center justify-between bg-slate-900/50 rounded-xl px-4 py-2.5">
+                        <span className="text-sm text-slate-300">{email}</span>
+                        <button onClick={() => setShareEmails((prev) => prev.filter((e) => e !== email))} className="text-slate-600 hover:text-red-400 transition-all">
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {shareTarget.sharedSubscription && shareTarget.sharedSubscription.members.length > 0 && (
+                <div>
+                  <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-2">Miembros actuales</p>
+                  <div className="space-y-2">
+                    {shareTarget.sharedSubscription.members.map((m) => (
+                      <div key={m.id} className="flex items-center justify-between bg-slate-900/50 rounded-xl px-4 py-2.5">
+                        <span className="text-sm text-slate-300">{m.user?.name ?? m.email}</span>
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                          m.status === 'ACCEPTED' ? 'bg-emerald-500/20 text-emerald-400' :
+                          m.status === 'DECLINED' ? 'bg-red-500/20 text-red-400' :
+                          'bg-yellow-500/20 text-yellow-400'
+                        }`}>{m.status === 'ACCEPTED' ? 'Aceptó' : m.status === 'DECLINED' ? 'Rechazó' : 'Pendiente'}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {shareTarget.sharedSubscription.members.filter((m) => m.status === 'ACCEPTED').length > 0 && (
+                    <div className="mt-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
+                      <p className="text-sm text-emerald-400 font-semibold">
+                        Costo por persona: {fmt(shareTarget.sharedSubscription.costPerMember)}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Tú + {shareTarget.sharedSubscription.members.filter((m) => m.status === 'ACCEPTED').length} miembro(s) aceptaron
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="flex gap-3 p-4 md:p-6 border-t border-slate-700 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShareTarget(null)}
+                className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl transition-all font-medium"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleShare()}
+                disabled={isSharingNew || shareEmails.length === 0}
+                className="flex-1 bg-violet-500 hover:bg-violet-400 text-white py-3 rounded-xl transition-all font-bold shadow-lg shadow-violet-500/20 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isSharingNew ? <><RefreshCw size={15} className="animate-spin" /> Guardando...</> : <><Users size={16} /> Compartir</>}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

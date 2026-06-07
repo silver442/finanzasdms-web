@@ -6,6 +6,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import CreditCards from './pages/CreditCards';
 import CreditCardDetail from './pages/CreditCardDetail';
 import Subscriptions from './pages/Subscriptions';
+import SharedSubscriptions from './pages/SharedSubscriptions';
 import Portfolio from './pages/Portfolio';
 import PortfolioDetail from './pages/PortfolioDetail';
 import Crypto from './pages/Crypto';
@@ -78,6 +79,7 @@ function App() {
           </Route>
           <Route element={<ModuleRoute flag="hasSubscriptionsModule" />}>
             <Route path="/subscriptions" element={<Subscriptions />} />
+            <Route path="/subscriptions/shared" element={<SharedSubscriptions />} />
           </Route>
           <Route element={<ModuleRoute flag="hasLoansModule" />}>
             <Route path="/loans" element={<Loans />} />
