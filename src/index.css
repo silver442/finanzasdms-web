@@ -1,4 +1,91 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
+
+@theme {
+  /* Colores de marca */
+  --color-brand-green:        #059669;
+  --color-brand-green-light:  #10B981;
+  --color-brand-green-dark:   #047857;
+  --color-brand-violet:       #7C3AED;
+  --color-brand-violet-light: #8B5CF6;
+  --color-brand-violet-dark:  #6D28D9;
+
+  /* Superficies — gris carbón azulado elegante */
+  --color-surface-base:         #0F172A;
+  --color-surface-950:          #0C1221;
+  --color-surface-900:          #0F172A;
+  --color-surface-card:         #162032;
+  --color-surface-elevated:     #1E2D3D;
+  --color-surface-800:          #1E293B;
+  --color-surface-border:       #1A2744;
+  --color-surface-border-hover: #243452;
+
+  /* Texto */
+  --color-text-primary:   #F1F5F9;
+  --color-text-secondary: #94A3B8;
+  --color-text-muted:     #64748B;
+
+  /* Semánticos */
+  --color-danger:  #EF4444;
+  --color-warning: #F59E0B;
+  --color-success: #10B981;
+  --color-info:    #3B82F6;
+
+  /* Tipografía */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Sombras de marca — más sutiles */
+  --shadow-green:  0 0 40px rgb(5 150 105 / 0.15);
+  --shadow-violet: 0 0 40px rgb(124 58 237 / 0.15);
+  --shadow-card:   0 4px 32px rgb(0 0 0 / 0.5);
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: #0F172A;
+  color: #F1F5F9;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* ── Glassmorphism system ── */
+.glass {
+  background: rgba(22, 32, 50, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+}
+
+.glass-elevated {
+  background: rgba(30, 45, 61, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Ambient radial glow (atmosférico, no compite con el contenido) ── */
+.ambient-bg {
+  position: relative;
+}
+
+.ambient-bg::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 70% 55% at 10% 5%,  rgba(5, 150, 105, 0.07) 0%, transparent 100%),
+    radial-gradient(ellipse 55% 45% at 90% 90%, rgba(124, 58, 237, 0.06) 0%, transparent 100%),
+    radial-gradient(ellipse 40% 35% at 60% 45%, rgba(14, 165, 233, 0.04) 0%, transparent 100%);
+}
 
 input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(1);

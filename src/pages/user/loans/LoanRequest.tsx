@@ -1,0 +1,1091 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { Fragment, useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { toast } from 'sonner';
+import {
+  ArrowLeft, Plus, AlertTriangle, Check,
+  ChevronRight, ChevronLeft, Send, CalendarCheck, X,
+  MessageCircle, ShieldAlert, CheckCircle2, HelpCircle,
+} from 'lucide-react';
+
+type Frequency = 'Semanal' | 'Quincenal' | 'Mensual';
+
+const FREQ_CONFIG: Record<Frequency, { periodsPerMonth: number; dayStep: number; label: string }> = {
+  Mensual:   { periodsPerMonth: 1, dayStep: 0,  label: 'mensual'   },
+  Quincenal: { periodsPerMonth: 2, dayStep: 15, label: 'quincenal' },
+  Semanal:   { periodsPerMonth: 4, dayStep: 7,  label: 'semanal'   },
+};
+
+function getAvailableFrequencies(level: string): Frequency[] {
+  if (level === 'NOVATO_1') return ['Semanal'];
+  if (level === 'NOVATO_2' || level === 'NOVATO_3') return ['Semanal', 'Quincenal'];
+  return ['Semanal', 'Quincenal', 'Mensual'];
+}
+
+const TOOLTIP_LEVEL_TEXT = 'Tu límite y tasa están determinados por tu nivel actual. Sube de nivel realizando tus pagos puntualmente.';
+
+function InfoTooltip({ text }: { text: string }) {
+  return (
+    <span className="relative inline-flex group ml-1 align-middle">
+      <HelpCircle size={13} className="text-text-muted group-hover:text-text-primary cursor-help transition-colors" />
+      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-56 bg-surface-elevated border border-surface-border text-text-200 text-xs rounded-lg px-3 py-2 leading-snug shadow-xl z-50 pointer-events-none text-center">
+        {text}
+      </span>
+    </span>
+  );
+}
+
+const CLABE_BANK_CODES: Record<string, string> = {
+  '002': 'Citibanamex', '006': 'Bancomext', '009': 'Banobras',
+  '012': 'BBVA', '014': 'Santander', '021': 'HSBC',
+  '030': 'Bajío', '036': 'Inbursa', '042': 'Mifel',
+  '044': 'ScotiaBank', '058': 'Banregio', '059': 'Invex',
+  '062': 'Afirme', '072': 'Banorte', '127': 'Azteca',
+  '128': 'Autofin', '130': 'Compartamos', '132': 'Multiva',
+  '133': 'Actinver', '134': 'Walmart', '137': 'Bancoppel',
+  '138': 'ABC Capital', '141': 'Volkswagen', '143': 'CIBanco',
+  '147': 'Bankaool', '600': 'Monexcb', '601': 'GBM',
+  '610': 'HEY BANCO', '616': 'Fideam', '621': 'Actinver CB',
+  '646': 'STP', '706': 'Arcus', '722': 'Mercado Pago',
+  '723': 'Cuenca', '728': 'SPIN by OXXO',
+};
+
+const API = import.meta.env.VITE_API_URL;
+const DEFAULT_CREDIT_LIMIT = 1000;
+const DEFAULT_RATE = 50;
+const TERM_OPTIONS = [1, 2, 3, 6, 9, 12, 18, 24];
+const HOUSING_OPTIONS = ['Propia', 'Rentada', 'Familiar'];
+const WHATSAPP_URL = `https://wa.me/${import.meta.env.VITE_WHATSAPP_NUMBER}?text=Verificaci%C3%B3n+de+identidad+FinanzasDMS`;
+
+const MEXICO_STATES = [
+  'Aguascalientes', 'Baja California', 'Baja California Sur', 'Campeche',
+  'Chiapas', 'Chihuahua', 'Ciudad de México', 'Coahuila de Zaragoza',
+  'Colima', 'Durango', 'Estado de México', 'Guanajuato', 'Guerrero',
+  'Hidalgo', 'Jalisco', 'Michoacán de Ocampo', 'Morelos', 'Nayarit',
+  'Nuevo León', 'Oaxaca', 'Puebla', 'Querétaro', 'Quintana Roo',
+  'San Luis Potosí', 'Sinaloa', 'Sonora', 'Tabasco', 'Tamaulipas',
+  'Tlaxcala', 'Veracruz de Ignacio de la Llave', 'Yucatán', 'Zacatecas',
+];
+
+const COLOMBIA_DEPARTMENTS = [
+  'Amazonas', 'Antioquia', 'Arauca', 'Atlántico', 'Bogotá D.C.', 'Bolívar',
+  'Boyacá', 'Caldas', 'Caquetá', 'Casanare', 'Cauca', 'Cesar', 'Chocó',
+  'Córdoba', 'Cundinamarca', 'Guainía', 'Guaviare', 'Huila', 'La Guajira',
+  'Magdalena', 'Meta', 'Nariño', 'Norte de Santander', 'Putumayo', 'Quindío',
+  'Risaralda', 'San Andrés y Providencia', 'Santander', 'Sucre', 'Tolima',
+  'Valle del Cauca', 'Vaupés', 'Vichada',
+];
+
+const COUNTRIES = ['México', 'Colombia', 'Otro'];
+const STEP_LABELS = ['Datos del Préstamo', 'Información Personal', 'Resumen Final'];
+
+const TERMS_CONTENT = (
+  <div className="space-y-4 text-sm text-text-primary leading-relaxed">
+    <h3 className="text-base font-bold text-white">TÉRMINOS Y CONDICIONES DE SERVICIO – FINANZASDMS</h3>
+    <p>
+      El presente documento establece las condiciones bajo las cuales se otorgan créditos a través de
+      la plataforma FinanzasDMS. Al aceptar estos términos, el usuario manifiesta su conformidad con
+      lo siguiente:
+    </p>
+
+    <div>
+      <p><strong className="text-white">Naturaleza del Servicio:</strong> FinanzasDMS es una
+      plataforma de gestión de microcréditos personales. El otorgamiento de cualquier préstamo está
+      sujeto a la evaluación de riesgo y disponibilidad de cupos.</p>
+    </div>
+
+    <div>
+      <p><strong className="text-white">Tasas de Interés:</strong> La tasa de interés es anual y se
+      calcula de forma proporcional al tiempo del préstamo. En plazos menores a 12 meses, se aplicará
+      el cobro equivalente a una anualidad completa como comisión mínima de apertura y gestión.</p>
+    </div>
+
+    <div>
+      <p><strong className="text-white">Sistema de Niveles y Límites:</strong> El usuario acepta que
+      su límite de crédito y tasa de interés dependen de su nivel de confianza (Novato, Cumplidor,
+      Socio o Elite), el cual se calcula con base en su historial de pagos y puntos acumulados en la
+      plataforma.</p>
+    </div>
+
+    <div>
+      <p className="font-semibold text-white mb-2">Política de Pagos y Morosidad:</p>
+      <ul className="list-disc list-inside space-y-2 pl-2">
+        <li>
+          <strong className="text-white">Degradación:</strong> El usuario acepta que, por cada 5 días
+          de retraso en una cuota, su nivel de confianza bajará un escalón automáticamente.
+        </li>
+        <li>
+          <strong className="text-white">Interés Moratorio:</strong> A partir del día 11 de retraso,
+          se generará un recargo administrativo de $10.00 MXN diarios que se sumará al saldo pendiente
+          de la cuota vencida.
+        </li>
+        <li>
+          <strong className="text-white">Bloqueo:</strong> Si el retraso supera los 60 días naturales,
+          la cuenta será bloqueada permanentemente.
+        </li>
+        <li>
+          <strong className="text-white">Reestructuración:</strong> En caso de realizar pagos parciales
+          o excedentes, el sistema recalculará automáticamente las cuotas restantes para ajustar el
+          saldo deudor, manteniendo las fechas de vencimiento originales.
+        </li>
+      </ul>
+    </div>
+  </div>
+);
+
+const PRIVACY_CONTENT = (
+  <div className="space-y-4 text-sm text-text-primary leading-relaxed">
+    <h3 className="text-base font-bold text-white">AVISO DE PRIVACIDAD SIMPLIFICADO</h3>
+    <p>
+      FinanzasDMS, plataforma operada desde Monterrey, Nuevo León, México, es responsable del
+      tratamiento de sus datos personales, los cuales serán utilizados exclusivamente para las
+      finalidades aquí descritas.
+    </p>
+
+    <div>
+      <p><strong className="text-white">Datos Recabados:</strong> Para la evaluación de su solicitud
+      de crédito, recolectamos: nombre completo, teléfono, correo electrónico, datos financieros
+      básicos, ubicación geográfica y clave interbancaria (CLABE) para desembolso.</p>
+    </div>
+
+    <div>
+      <p className="font-semibold text-white mb-2">Finalidad del Tratamiento:</p>
+      <p className="mb-2">Sus datos serán utilizados para:</p>
+      <ul className="list-disc list-inside space-y-1.5 pl-2">
+        <li>Evaluar su solvencia crediticia y capacidad de pago.</li>
+        <li>Identificar la categoría de su perfil.</li>
+        <li>
+          Gestionar la cobranza, transferencias de fondos y aplicar las penalizaciones
+          correspondientes en caso de mora.
+        </li>
+      </ul>
+    </div>
+
+    <div>
+      <p><strong className="text-white">Protección de Evidencia:</strong> Las capturas de pantalla o
+      archivos de comprobantes de pago subidos a la plataforma serán utilizados únicamente para la
+      conciliación administrativa de su cuenta.</p>
+    </div>
+
+    <div>
+      <p><strong className="text-white">Transferencia de Datos:</strong> Sus datos no serán
+      compartidos, vendidos ni transferidos a terceros con fines de lucro o marketing.</p>
+    </div>
+
+    <div>
+      <p><strong className="text-white">Derechos ARCO:</strong> Usted tiene derecho al Acceso,
+      Rectificación, Cancelación u Oposición del manejo de sus datos. Para ejercer estos derechos o
+      solicitar la eliminación de su cuenta, deberá contactar directamente a la administración a
+      través de nuestros canales oficiales.</p>
+    </div>
+  </div>
+);
+
+function getUserLevel(): string {
+  try {
+    const raw = localStorage.getItem('user');
+    if (!raw) return 'NOVATO_1';
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    return typeof parsed.level === 'string' ? parsed.level : 'NOVATO_1';
+  } catch { return 'NOVATO_1'; }
+}
+
+function authHeaders() {
+  return { Authorization: `Bearer ${localStorage.getItem('token')}` };
+}
+
+function getUserDefaults() {
+  try {
+    const raw = localStorage.getItem('user');
+    if (!raw) return { creditLimit: DEFAULT_CREDIT_LIMIT, currentRate: DEFAULT_RATE };
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    return {
+      creditLimit: Number(parsed.creditLimit ?? DEFAULT_CREDIT_LIMIT) || DEFAULT_CREDIT_LIMIT,
+      currentRate: Number(parsed.currentRate ?? DEFAULT_RATE) || DEFAULT_RATE,
+    };
+  } catch {
+    return { creditLimit: DEFAULT_CREDIT_LIMIT, currentRate: DEFAULT_RATE };
+  }
+}
+
+function getFamilyCode(): string | null {
+  try {
+    const raw = localStorage.getItem('user');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const code = parsed.familyCode;
+    return typeof code === 'string' && code.length > 0 ? code : null;
+  } catch {
+    return null;
+  }
+}
+
+const inputCls =
+  'w-full bg-surface-base border border-surface-border text-white rounded-lg px-4 py-3 focus:outline-none focus:border-brand-green transition-colors placeholder-slate-600';
+
+const sectionHeader = 'text-xs font-bold text-text-secondary uppercase tracking-wider mb-4';
+
+// ── Stepper ───────────────────────────────────────────────────────────────────
+function Stepper({ current }: { current: number }) {
+  return (
+    <div className="flex items-center justify-center mb-8">
+      {STEP_LABELS.map((label, idx) => {
+        const num = idx + 1;
+        const done = current > num;
+        const active = current === num;
+        return (
+          <Fragment key={num}>
+            <div className="flex flex-col items-center gap-1.5" style={{ minWidth: 88 }}>
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm border-2 transition-all duration-300 ${
+                done
+                  ? 'bg-brand-green border-brand-green text-white'
+                  : active
+                    ? 'bg-brand-green border-brand-green-400 text-white shadow-lg shadow-brand-green/40 ring-4 ring-emerald-500/20'
+                    : 'bg-surface-card border-surface-border text-text-muted'
+              }`}>
+                {done ? <Check size={15} strokeWidth={2.5} /> : num}
+              </div>
+              <span className={`text-xs font-medium text-center leading-tight ${current >= num ? 'text-white' : 'text-text-muted'}`}>
+                {label}
+              </span>
+            </div>
+            {idx < STEP_LABELS.length - 1 && (
+              <div className={`h-0.5 w-16 sm:w-20 mx-1 mb-5 rounded-full transition-all duration-500 flex-shrink-0 ${
+                current > idx + 1 ? 'bg-brand-green' : 'bg-surface-elevated'
+              }`} />
+            )}
+          </Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Legal Modal (Terms / Privacy) ─────────────────────────────────────────────
+function LegalModal({
+  title,
+  body,
+  onClose,
+}: {
+  title: string;
+  body: React.ReactNode;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+      <div className="bg-surface-card border border-surface-border rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[85vh]">
+        <div className="flex justify-between items-center p-5 border-b border-surface-border shrink-0">
+          <h3 className="text-base font-bold text-white">{title}</h3>
+          <button onClick={onClose} className="text-text-secondary hover:text-white transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+        <div className="overflow-y-auto p-5 flex-1">
+          {body}
+        </div>
+        <div className="p-5 border-t border-surface-border shrink-0">
+          <button
+            onClick={onClose}
+            className="w-full bg-brand-green hover:bg-brand-green-light text-white py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-brand-green/20"
+          >
+            Entendido, cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── WhatsApp Verification Modal ────────────────────────────────────────────────
+function WhatsAppModal({ onClose }: { onClose: () => void }) {
+  const navigate = useNavigate();
+  const [sent, setSent] = useState(false);
+
+  const handleSend = () => {
+    window.open(WHATSAPP_URL, '_blank');
+    setSent(true);
+  };
+
+  const handleClose = () => {
+    onClose();
+    navigate('/loans');
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+      <div className="bg-surface-card border border-brand-violet/30 rounded-2xl shadow-2xl w-[95%] md:max-w-lg max-h-[85vh] flex flex-col">
+        <div className="overflow-y-auto flex-1 p-4 md:p-6 text-center">
+          {sent ? (
+            <>
+              <div className="w-14 h-14 rounded-2xl bg-brand-green/10 border border-brand-green/30 flex items-center justify-center mx-auto mb-4">
+                <CheckCircle2 size={28} className="text-brand-green-light" />
+              </div>
+              <h3 className="text-lg font-extrabold text-white mb-2">
+                ¡WhatsApp enviado!
+              </h3>
+              <p className="text-text-primary text-sm leading-relaxed mb-2">
+                Tu solicitud de préstamo ya fue registrada y está en revisión.
+              </p>
+              <p className="text-text-secondary text-sm leading-relaxed mb-6">
+                Te contactaremos por WhatsApp para verificar tu identidad y activar el crédito.
+              </p>
+              <button
+                onClick={handleClose}
+                className="w-full py-3 rounded-xl bg-brand-green hover:bg-brand-green-light text-white font-bold transition-all shadow-lg shadow-brand-green/20"
+              >
+                Ir a Mis Préstamos
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="w-14 h-14 rounded-2xl bg-brand-green/10 border border-brand-green/30 flex items-center justify-center mx-auto mb-4">
+                <CheckCircle2 size={28} className="text-brand-green-light" />
+              </div>
+              <h3 className="text-lg font-extrabold text-white mb-2">
+                ¡Solicitud enviada!
+              </h3>
+              <p className="text-text-primary text-sm leading-relaxed mb-2">
+                Tu préstamo fue registrado correctamente y está en revisión.
+              </p>
+              <p className="text-text-secondary text-sm leading-relaxed mb-6">
+                Para agilizar el proceso, envíanos una foto de tu <strong className="text-white">INE</strong> por WhatsApp para verificar tu identidad.
+              </p>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={handleSend}
+                  className="flex items-center justify-center gap-2 bg-brand-green hover:bg-brand-green-light text-white py-3 rounded-xl font-bold transition-all shadow-lg shadow-brand-green/20"
+                >
+                  <MessageCircle size={18} />
+                  Enviar WhatsApp
+                </button>
+                <button
+                  onClick={handleClose}
+                  className="py-3 rounded-xl border border-surface-border text-text-primary hover:text-white hover:border-surface-500 transition-colors font-medium text-sm"
+                >
+                  Ir a Mis Préstamos
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+export default function LoanRequest() {
+  const navigate = useNavigate();
+  const { creditLimit, currentRate } = useMemo(() => getUserDefaults(), []);
+
+  const isFamiliar = Boolean(getFamilyCode());
+  const availableTerms = isFamiliar ? [1, 2, 3, 6, 9, 12, 18, 24] : [1, 2, 3, 6];
+  const userLevel = useMemo(() => getUserLevel(), []);
+  const availableFreqs = useMemo(() => getAvailableFrequencies(userLevel), [userLevel]);
+
+  const [step, setStep] = useState(1);
+  const [freq, setFreq] = useState<Frequency>(() => {
+    const freqs = getAvailableFrequencies(getUserLevel());
+    return freqs[freqs.length - 1];
+  });
+  const [form, setForm] = useState({
+    concept: '',
+    amount: '',
+    termMonths: '6',
+    phone: '',
+    income: '',
+    expenses: '',
+    housingStatus: 'Rentada',
+    country: '',
+    state: '',
+    referralCode: '',
+    disbursementAccount: '',
+  });
+  useEffect(() => {
+    if (!isFamiliar && parseInt(form.termMonths, 10) > 6) {
+      setForm(f => ({ ...f, termMonths: '6' }));
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [acceptPrivacy, setAcceptPrivacy] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+
+  // ── Derived financial values ──────────────────────────────────────────────
+  const amountN = parseFloat(form.amount) || 0;
+  const termN = parseInt(form.termMonths, 10) || 0;
+  const isOverLimit = creditLimit > 0 && amountN > creditLimit;
+  const timeFactor = termN >= 12 ? termN / 12 : 1;
+  const interest = amountN > 0 && termN > 0 ? amountN * (currentRate / 100) * timeFactor : 0;
+  const total = amountN + interest;
+  const monthly = termN > 0 ? total / termN : 0;
+  const effectiveRate = currentRate * timeFactor;
+
+  const fmt = (v: number) =>
+    new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
+
+  const fmtDate = (d: Date) =>
+    d.toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
+
+  const { periodsPerMonth, dayStep } = FREQ_CONFIG[freq];
+  const periodPayment = termN > 0 ? total / (termN * periodsPerMonth) : 0;
+  const totalPeriods = termN * periodsPerMonth;
+
+  const rows = useMemo(() => {
+    if (amountN <= 0 || termN <= 0 || monthly <= 0) return [];
+    const today = new Date();
+    return Array.from({ length: totalPeriods }, (_, i) => {
+      let dueDate: Date;
+      if (freq === 'Mensual') {
+        dueDate = new Date(today.getFullYear(), today.getMonth() + i + 1, today.getDate());
+      } else {
+        dueDate = new Date(today);
+        dueDate.setDate(dueDate.getDate() + (i + 1) * dayStep);
+      }
+      const remainingBalance = Math.max(0, total - periodPayment * (i + 1));
+      return { number: i + 1, dueDate, amountDue: periodPayment, remainingBalance };
+    });
+  }, [amountN, termN, monthly, total, freq, totalPeriods, periodPayment, dayStep]);
+
+  const endDate = rows.length > 0 ? rows[rows.length - 1].dueDate : null;
+
+  // ── Step validation ───────────────────────────────────────────────────────
+  const maxTerm = isFamiliar ? 24 : 6;
+  const step1Valid = form.concept.trim().length > 0 && amountN > 0 && !isOverLimit && termN > 0 && termN <= maxTerm;
+  const phoneValid = /^\d{10}$/.test(form.phone);
+  const clabeValid = form.disbursementAccount.length === 18;
+  const step2Valid = phoneValid && parseFloat(form.income) > 0 && parseFloat(form.expenses) > 0 && clabeValid;
+  const isSubmitEnabled = acceptTerms && acceptPrivacy && !isSubmitting;
+
+  const detectedBank = form.disbursementAccount.length >= 3
+    ? CLABE_BANK_CODES[form.disbursementAccount.slice(0, 3)] ?? null
+    : null;
+
+  // ── Location helpers ──────────────────────────────────────────────────────
+  const stateOptions =
+    form.country === 'México' ? MEXICO_STATES :
+    form.country === 'Colombia' ? COLOMBIA_DEPARTMENTS :
+    null;
+
+  const stateLabel =
+    form.country === 'Colombia' ? 'Departamento' :
+    form.country === 'Otro' ? 'Estado / Región' :
+    'Estado';
+
+  const statePlaceholder =
+    form.country === 'Colombia' ? 'Selecciona tu departamento' :
+    form.country === 'México' ? 'Selecciona tu estado' :
+    form.country === 'Otro' ? 'Ingresa tu estado o región' :
+    'Selecciona primero tu país';
+
+  const handleCountryChange = (country: string) => {
+    setForm(f => ({ ...f, country, state: '' }));
+  };
+
+  // ── Submit ────────────────────────────────────────────────────────────────
+  const handleSubmit = async () => {
+    const amount = parseFloat(form.amount);
+    const termMonths = parseInt(form.termMonths, 10);
+    const income = parseFloat(form.income);
+    const expenses = parseFloat(form.expenses);
+
+    if (!form.concept.trim() || isNaN(amount) || amount <= 0 || isNaN(termMonths) || termMonths < 1) {
+      toast.error('Completa correctamente el concepto, monto y plazo');
+      return;
+    }
+    if (!form.phone.trim() || isNaN(income) || income <= 0 || isNaN(expenses) || expenses <= 0) {
+      toast.error('Completa el teléfono, ingresos y gastos');
+      return;
+    }
+    if (isOverLimit) {
+      toast.error('El monto supera tu límite de crédito');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await axios.post(
+        `${API}/loans/request`,
+        {
+          concept: form.concept,
+          amount,
+          termQuantity: termMonths,
+          termUnit: 'MESES',
+          phone: form.phone,
+          income,
+          expenses,
+          housingStatus: form.housingStatus,
+          state: form.state,
+          country: form.country,
+          referralCode: form.referralCode || undefined,
+          disbursementAccount: form.disbursementAccount || undefined,
+          paymentFrequency: freq === 'Semanal' ? 'SEMANAL' : freq === 'Quincenal' ? 'QUINCENAL' : 'MENSUAL',
+        },
+        { headers: authHeaders() },
+      );
+      if (!getFamilyCode()) {
+        // Solicitud guardada — mostrar modal para que el usuario se verifique por WhatsApp
+        setShowWhatsAppModal(true);
+      } else {
+        toast.success('¡Solicitud enviada! El equipo revisará tu caso en breve.');
+        navigate('/loans');
+      }
+    } catch (e: any) {
+      const msg = e?.response?.data?.message;
+      toast.error(Array.isArray(msg) ? (msg as string[])[0] : (msg as string | undefined) ?? 'Error al solicitar préstamo');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // ── Render ────────────────────────────────────────────────────────────────
+  return (
+    <div className="p-8 text-white font-sans">
+      <button
+        onClick={() => navigate('/loans')}
+        className="flex items-center gap-2 text-text-secondary hover:text-white transition-colors mb-8 font-medium"
+      >
+        <ArrowLeft size={18} />
+        Volver a Mis Préstamos
+      </button>
+
+      <div className="mb-6">
+        <h1 className="text-2xl font-extrabold text-white flex items-center gap-3">
+          <Plus size={24} className="text-brand-green-light" />
+          Solicitar Préstamo
+        </h1>
+        <p className="text-text-secondary mt-1 text-sm">Completa la información para enviar tu solicitud</p>
+      </div>
+
+      <div className="max-w-4xl mx-auto">
+        <Stepper current={step} />
+
+        {/* ════════════ PASO 1: Datos del Préstamo ════════════ */}
+        {step === 1 && (
+          <div className="max-w-xl mx-auto">
+            <div className="bg-surface-card border border-surface-border rounded-2xl p-6 space-y-5">
+              <div className="flex flex-wrap gap-2">
+                <span className="bg-surface-base border border-surface-border rounded-lg px-3 py-1.5 text-xs font-semibold text-text-primary">
+                  Límite: <span className="text-white">{fmt(creditLimit)}</span><InfoTooltip text={TOOLTIP_LEVEL_TEXT} />
+                </span>
+                <span className="bg-surface-base border border-surface-border rounded-lg px-3 py-1.5 text-xs font-semibold text-text-primary">
+                  Tasa: <span className="text-brand-green-light">{currentRate}% anual</span><InfoTooltip text={TOOLTIP_LEVEL_TEXT} />
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-sm text-text-primary font-medium mb-1.5">
+                  Concepto <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.concept}
+                  onChange={e => setForm(f => ({ ...f, concept: e.target.value }))}
+                  className={inputCls}
+                  placeholder="¿Para qué necesitas el préstamo?"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-text-primary font-medium mb-1.5">
+                    Monto (MXN) <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={form.amount}
+                    onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
+                    className={`${inputCls} ${isOverLimit ? 'border-red-500 focus:border-red-500' : ''}`}
+                    placeholder="0.00"
+                    min="1"
+                    step="0.01"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-text-primary font-medium mb-1.5">
+                    Plazo <span className="text-red-400">*</span>
+                  </label>
+                  <select
+                    value={form.termMonths}
+                    onChange={e => setForm(f => ({ ...f, termMonths: e.target.value }))}
+                    className={`${inputCls} cursor-pointer`}
+                  >
+                    {availableTerms.map(m => (
+                      <option key={m} value={m}>{m} {m === 1 ? 'mes' : 'meses'}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm text-text-primary font-medium mb-1.5">
+                  Frecuencia de Pago
+                </label>
+                <select
+                  value={freq}
+                  onChange={e => setFreq(e.target.value as Frequency)}
+                  className={`${inputCls} cursor-pointer`}
+                >
+                  {availableFreqs.map(f => (
+                    <option key={f} value={f}>{f}</option>
+                  ))}
+                </select>
+              </div>
+
+              {isOverLimit && (
+                <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3">
+                  <AlertTriangle size={15} className="text-red-400 shrink-0" />
+                  <p className="text-sm text-red-300">
+                    El monto supera tu límite de <strong>{fmt(creditLimit)}</strong>
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm text-text-primary font-medium mb-1.5">
+                  Código de Referido <span className="text-text-muted font-normal">(opcional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.referralCode}
+                  onChange={e => setForm(f => ({ ...f, referralCode: e.target.value }))}
+                  className={inputCls}
+                  placeholder="REFXXX"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-1">
+                <button
+                  onClick={() => navigate('/loans')}
+                  className="px-5 py-3 rounded-xl border border-surface-border text-text-primary hover:text-white hover:border-surface-500 transition-colors font-medium"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => { if (step1Valid) setStep(2); }}
+                  disabled={!step1Valid}
+                  className="flex-1 bg-brand-green hover:bg-brand-green-light text-white px-6 py-3 rounded-xl font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-brand-green/20 flex items-center justify-center gap-2"
+                >
+                  Siguiente
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ════════════ PASO 2: Información Personal ════════════ */}
+        {step === 2 && (
+          <div className="max-w-xl mx-auto">
+            <div className="bg-surface-card border border-surface-border rounded-2xl p-6 space-y-5">
+
+              <div>
+                <p className={sectionHeader}>Datos de Contacto e Ingresos</p>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm text-text-primary font-medium mb-1.5">
+                        Teléfono <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="tel"
+                        value={form.phone}
+                        onChange={e => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                          setForm(f => ({ ...f, phone: val }));
+                        }}
+                        className={inputCls}
+                        placeholder="8112345678"
+                        inputMode="numeric"
+                      />
+                      {form.phone.length > 0 && form.phone.length < 10 && (
+                        <p className="text-xs text-brand-violet mt-1">
+                          Faltan {10 - form.phone.length} dígitos
+                        </p>
+                      )}
+                      {form.phone.length === 10 && (
+                        <p className="text-xs text-brand-green-light mt-1 flex items-center gap-1">
+                          <Check size={11} /> Teléfono válido
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm text-text-primary font-medium mb-1.5">
+                        Ingresos Mensuales (MXN) <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        value={form.income}
+                        onChange={e => setForm(f => ({ ...f, income: e.target.value }))}
+                        className={inputCls}
+                        placeholder="0.00"
+                        min="0"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm text-text-primary font-medium mb-1.5">
+                        Gastos Mensuales (MXN) <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        value={form.expenses}
+                        onChange={e => setForm(f => ({ ...f, expenses: e.target.value }))}
+                        className={inputCls}
+                        placeholder="0.00"
+                        min="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-text-primary font-medium mb-1.5">Estado de Vivienda</label>
+                      <select
+                        value={form.housingStatus}
+                        onChange={e => setForm(f => ({ ...f, housingStatus: e.target.value }))}
+                        className={`${inputCls} cursor-pointer`}
+                      >
+                        {HOUSING_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* CLABE de depósito */}
+              <div>
+                <p className={sectionHeader}>Cuenta de Desembolso</p>
+                <div>
+                  <label className="block text-sm text-text-primary font-medium mb-1.5">
+                    CLABE Interbancaria de Depósito <span className="text-red-400">*</span>
+                    <span className="text-text-muted font-normal ml-1">(18 dígitos, a donde recibirás el préstamo)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={form.disbursementAccount}
+                    onChange={e => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 18);
+                      setForm(f => ({ ...f, disbursementAccount: val }));
+                    }}
+                    className={inputCls}
+                    placeholder="000000000000000000"
+                    maxLength={18}
+                    inputMode="numeric"
+                  />
+                  {form.disbursementAccount.length > 0 && form.disbursementAccount.length < 18 && (
+                    <p className="text-xs text-brand-violet mt-1">
+                      Faltan {18 - form.disbursementAccount.length} dígitos
+                    </p>
+                  )}
+                  {form.disbursementAccount.length === 18 && (
+                    <p className="text-xs text-brand-green-light mt-1 flex items-center gap-1">
+                      <Check size={11} /> CLABE completa
+                      {detectedBank && <span className="ml-1">— <strong>{detectedBank}</strong></span>}
+                    </p>
+                  )}
+                  {form.disbursementAccount.length >= 3 && form.disbursementAccount.length < 18 && !detectedBank && (
+                    <p className="text-xs text-text-muted mt-1">Banco no identificado</p>
+                  )}
+                  {form.disbursementAccount.length >= 3 && form.disbursementAccount.length < 18 && detectedBank && (
+                    <p className="text-xs text-brand-green-light mt-1 flex items-center gap-1">
+                      <Check size={11} /> Banco detectado: <strong>{detectedBank}</strong>
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <p className={sectionHeader}>Ubicación</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm text-text-primary font-medium mb-1.5">País</label>
+                    <select
+                      value={form.country}
+                      onChange={e => handleCountryChange(e.target.value)}
+                      className={`${inputCls} cursor-pointer`}
+                    >
+                      <option value="">Selecciona tu país</option>
+                      {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-text-primary font-medium mb-1.5">{stateLabel}</label>
+                    {!form.country ? (
+                      <input
+                        type="text"
+                        disabled
+                        className={`${inputCls} opacity-40 cursor-not-allowed`}
+                        placeholder="Selecciona primero tu país"
+                      />
+                    ) : stateOptions ? (
+                      <select
+                        value={form.state}
+                        onChange={e => setForm(f => ({ ...f, state: e.target.value }))}
+                        className={`${inputCls} cursor-pointer`}
+                      >
+                        <option value="">{statePlaceholder}</option>
+                        {stateOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={form.state}
+                        onChange={e => setForm(f => ({ ...f, state: e.target.value }))}
+                        className={inputCls}
+                        placeholder={statePlaceholder}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-1">
+                <button
+                  onClick={() => setStep(1)}
+                  className="flex items-center gap-1.5 px-5 py-3 rounded-xl border border-surface-border text-text-primary hover:text-white hover:border-surface-500 transition-colors font-medium"
+                >
+                  <ChevronLeft size={18} />
+                  Anterior
+                </button>
+                <button
+                  onClick={() => { if (step2Valid) setStep(3); }}
+                  disabled={!step2Valid}
+                  className="flex-1 bg-brand-green hover:bg-brand-green-light text-white px-6 py-3 rounded-xl font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-brand-green/20 flex items-center justify-center gap-2"
+                >
+                  Ver Resumen
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ════════════ PASO 3: Resumen Final ════════════ */}
+        {step === 3 && (
+          <div className="grid grid-cols-1 xl:grid-cols-[1fr_300px] gap-6 items-start">
+
+            {/* Tabla de amortización */}
+            <div className="bg-surface-card border border-surface-border rounded-2xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-surface-border flex items-center justify-between">
+                <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">
+                  Tabla de Amortización
+                </h3>
+                <span className="text-xs text-text-muted bg-surface-base px-2.5 py-0.5 rounded-full">
+                  {rows.length} cuotas {FREQ_CONFIG[freq].label}s
+                </span>
+              </div>
+              <div className="overflow-auto max-h-[480px]">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-surface-card z-10 shadow-sm">
+                    <tr className="border-b border-surface-border text-xs text-text-muted uppercase tracking-wider">
+                      <th className="text-center px-4 py-3 w-10">#</th>
+                      <th className="text-left px-4 py-3">Vencimiento</th>
+                      <th className="text-right px-4 py-3">Cuota</th>
+                      <th className="text-right px-4 py-3">Saldo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map(row => (
+                      <tr
+                        key={row.number}
+                        className={`border-b border-surface-border/50 transition-colors ${
+                          row.number === rows.length
+                            ? 'bg-brand-green/5 hover:bg-brand-green/10'
+                            : 'hover:bg-surface-elevated/20'
+                        }`}
+                      >
+                        <td className="px-4 py-2.5 text-center">
+                          <span className="text-xs text-text-muted tabular-nums">{row.number}</span>
+                        </td>
+                        <td className={`px-4 py-2.5 text-xs tabular-nums ${
+                          row.number === rows.length ? 'text-brand-green-light font-semibold' : 'text-text-primary'
+                        }`}>
+                          {fmtDate(row.dueDate)}
+                          {row.number === rows.length && (
+                            <span className="ml-1.5 text-[10px] bg-brand-green/20 text-brand-green-light px-1.5 py-0.5 rounded-full font-bold">
+                              FIN
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 text-right text-white font-semibold tabular-nums">
+                          {fmt(row.amountDue)}
+                        </td>
+                        <td className={`px-4 py-2.5 text-right tabular-nums font-semibold ${
+                          row.remainingBalance === 0 ? 'text-brand-green-light' : 'text-text-primary'
+                        }`}>
+                          {fmt(row.remainingBalance)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="border-t-2 border-surface-border">
+                    <tr className="bg-surface-base/60">
+                      <td colSpan={2} className="px-4 py-3 text-xs font-bold text-text-secondary uppercase tracking-wider">
+                        Total del Préstamo
+                      </td>
+                      <td className="px-4 py-3 text-right text-brand-green-light font-extrabold tabular-nums">
+                        {fmt(total)}
+                      </td>
+                      <td className="px-4 py-3 text-right text-brand-green-light font-extrabold tabular-nums">
+                        {fmt(0)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+
+            {/* Panel derecho: Resumen + Legal + Acciones */}
+            <div className="sticky top-6 space-y-4">
+
+              {/* Desglose financiero */}
+              <div className="bg-surface-card border border-surface-border rounded-2xl p-5 space-y-3">
+                <p className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-1">
+                  Desglose del Préstamo
+                </p>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-text-secondary">Concepto</span>
+                    <span className="text-white font-medium text-right max-w-[140px] truncate" title={form.concept}>
+                      {form.concept}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-text-secondary">Plazo</span>
+                    <span className="text-white font-medium">
+                      {termN} {termN === 1 ? 'mes' : 'meses'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-text-secondary">Capital</span>
+                    <span className="text-white font-semibold tabular-nums">{fmt(amountN)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-text-secondary">
+                      Interés ({effectiveRate.toFixed(0)}%{termN < 12 ? ' mín.' : ''})
+                    </span>
+                    <span className="text-brand-violet font-semibold tabular-nums">{fmt(interest)}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-surface-border pt-2">
+                    <span className="text-text-primary font-semibold">Total a pagar</span>
+                    <span className="text-white font-bold tabular-nums">{fmt(total)}</span>
+                  </div>
+                </div>
+                <div className="bg-brand-green/10 border border-brand-green/20 rounded-xl px-4 py-3 flex justify-between items-center">
+                  <span className="text-brand-green-light font-semibold text-sm">Cuota {FREQ_CONFIG[freq].label}</span>
+                  <span className="text-brand-green-light font-extrabold text-lg tabular-nums">{fmt(periodPayment)}</span>
+                </div>
+                {endDate && (
+                  <div className="bg-surface-base/60 border border-brand-green/30 rounded-xl px-4 py-3 flex items-center gap-3">
+                    <CalendarCheck size={20} className="text-brand-green-light shrink-0" />
+                    <div>
+                      <p className="text-xs text-brand-green-light font-semibold uppercase tracking-wide">
+                        Fecha de Finalización
+                      </p>
+                      <p className="text-sm font-extrabold text-white mt-0.5">{fmtDate(endDate)}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Checkboxes legales */}
+              <div className="bg-surface-card border border-surface-border rounded-2xl p-5 space-y-3">
+                <p className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-1">
+                  Autorización Legal
+                </p>
+
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={acceptTerms}
+                    onChange={e => setAcceptTerms(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded border-surface-border text-brand-green bg-surface-base shrink-0 cursor-pointer"
+                  />
+                  <span className="text-sm text-text-primary leading-snug group-hover:text-white transition-colors">
+                    Acepto los{' '}
+                    <button
+                      type="button"
+                      onClick={e => { e.stopPropagation(); setShowTermsModal(true); }}
+                      className="text-blue-400 hover:text-blue-300 underline underline-offset-2 transition-colors"
+                    >
+                      Términos y Condiciones
+                    </button>
+                    {' '}del préstamo.
+                  </span>
+                </label>
+
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={acceptPrivacy}
+                    onChange={e => setAcceptPrivacy(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded border-surface-border text-brand-green bg-surface-base shrink-0 cursor-pointer"
+                  />
+                  <span className="text-sm text-text-primary leading-snug group-hover:text-white transition-colors">
+                    Autorizo el tratamiento de mis datos personales según el{' '}
+                    <button
+                      type="button"
+                      onClick={e => { e.stopPropagation(); setShowPrivacyModal(true); }}
+                      className="text-blue-400 hover:text-blue-300 underline underline-offset-2 transition-colors"
+                    >
+                      Aviso de Privacidad
+                    </button>
+                    .
+                  </span>
+                </label>
+
+                {(!acceptTerms || !acceptPrivacy) && (
+                  <p className="text-xs text-text-muted italic">
+                    Debes aceptar ambas condiciones para continuar.
+                  </p>
+                )}
+              </div>
+
+              {/* Acciones */}
+              <div className="space-y-3">
+                <button
+                  onClick={() => setStep(2)}
+                  className="w-full flex items-center justify-center gap-1.5 px-5 py-3 rounded-xl border border-surface-border text-text-primary hover:text-white hover:border-surface-500 transition-colors font-medium"
+                >
+                  <ChevronLeft size={18} />
+                  Anterior
+                </button>
+                <button
+                  onClick={() => void handleSubmit()}
+                  disabled={!isSubmitEnabled}
+                  className="w-full bg-brand-green hover:bg-brand-green-light text-white px-6 py-3.5 rounded-xl font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-brand-green/20 flex items-center justify-center gap-2"
+                >
+                  <Send size={16} />
+                  {isSubmitting ? 'Enviando...' : 'Confirmar y Enviar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Modales Legales ── */}
+      {showTermsModal && (
+        <LegalModal
+          title="Términos y Condiciones"
+          body={TERMS_CONTENT}
+          onClose={() => setShowTermsModal(false)}
+        />
+      )}
+      {showPrivacyModal && (
+        <LegalModal
+          title="Aviso de Privacidad"
+          body={PRIVACY_CONTENT}
+          onClose={() => setShowPrivacyModal(false)}
+        />
+      )}
+      {showWhatsAppModal && (
+        <WhatsAppModal onClose={() => setShowWhatsAppModal(false)} />
+      )}
+    </div>
+  );
+}
