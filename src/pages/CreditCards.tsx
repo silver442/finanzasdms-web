@@ -40,10 +40,31 @@ function debtColor(current: number | string, limit: number | string) {
   return           { dot: 'bg-red-400',     text: 'text-red-400',     label: 'Alto',      bar: 'bg-red-400'     };
 }
 
-const PALETTE = ['#10B981', '#3B82F6', '#8B5CF6', '#F59E0B', '#EF4444', '#06B6D4'];
+
+function calcNextCutoff(cutoffDay: number): Date | null {
+  if (cutoffDay < 1 || cutoffDay > 31) return null;
+  const today = new Date();
+  let d = new Date(today.getFullYear(), today.getMonth(), cutoffDay);
+  if (d <= today) {
+    d = new Date(today.getFullYear(), today.getMonth() + 1, cutoffDay);
+  }
+  return d;
+}
+
+function calcPeriodStart(nextCutoff: Date): Date {
+  const d = new Date(nextCutoff);
+  d.setMonth(d.getMonth() - 1);
+  return d;
+}
+
+function calcPaymentDeadline(cutoffDate: Date): Date {
+  const d = new Date(cutoffDate);
+  d.setDate(d.getDate() + 20);
+  return d;
+}
 
 const EMPTY_FORM = { name: '', creditLimit: '', cutoffDay: '', initialDebt: '', color: '#10B981' };
-const EMPTY_EDIT = { name: '', creditLimit: '', cutoffDay: '', color: '#10B981' };
+const EMPTY_EDIT = { name: '', creditLimit: '', cutoffDay: '', color: '#10B981', currentBalance: '' };
 
 export default function CreditCards() {
   const [cards, setCards] = useState<CreditCardItem[]>([]);
@@ -83,6 +104,21 @@ export default function CreditCards() {
     (e: React.ChangeEvent<HTMLInputElement>) =>
       setEditForm(prev => ({ ...prev, [key]: e.target.value }));
 
+  // Preview de periodo en formulario crear
+  const formCutoffDay = parseInt(form.cutoffDay);
+  const formNextCutoff = !isNaN(formCutoffDay) ? calcNextCutoff(formCutoffDay) : null;
+  const formPeriodStart = formNextCutoff ? calcPeriodStart(formNextCutoff) : null;
+  const formPaymentDeadline = formNextCutoff ? calcPaymentDeadline(formNextCutoff) : null;
+  const formAvailable = form.creditLimit && form.initialDebt
+    ? Math.max(0, parseFloat(form.creditLimit) - parseFloat(form.initialDebt || '0'))
+    : form.creditLimit ? parseFloat(form.creditLimit) : null;
+
+  // Preview de periodo en formulario editar
+  const editCutoffDay = parseInt(editForm.cutoffDay);
+  const editNextCutoff = !isNaN(editCutoffDay) ? calcNextCutoff(editCutoffDay) : null;
+  const editPeriodStart = editNextCutoff ? calcPeriodStart(editNextCutoff) : null;
+  const editPaymentDeadline = editNextCutoff ? calcPaymentDeadline(editNextCutoff) : null;
+
   const handleAddCard = async (e: React.FormEvent) => {
     e.preventDefault();
     const cutoffDay = parseInt(form.cutoffDay);
@@ -120,22 +156,26 @@ export default function CreditCards() {
       creditLimit: String(Number(card.creditLimit)),
       cutoffDay: String(card.cutoffDay),
       color: card.color ?? '#10B981',
+      currentBalance: String(Number(card.currentBalance)),
     });
   };
 
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editTarget) return;
-    const payload: Record<string, string | number> = {};
-    if (editForm.name && editForm.name !== editTarget.name) payload.name = editForm.name;
-    if (editForm.color && editForm.color !== (editTarget.color ?? '#10B981')) payload.color = editForm.color;
-    if (editForm.creditLimit) payload.creditLimit = parseFloat(editForm.creditLimit);
-    if (editForm.cutoffDay) payload.cutoffDay = parseInt(editForm.cutoffDay);
-    if (Object.keys(payload).length === 0) { setEditTarget(null); return; }
-
     setIsEditing(true);
     try {
-      await axios.patch(`${API}/credit-cards/${editTarget.id}`, payload, { headers: authHeaders() });
+      await axios.patch(
+        `${API}/credit-cards/${editTarget.id}`,
+        {
+          name: editForm.name || undefined,
+          color: editForm.color || undefined,
+          creditLimit: editForm.creditLimit ? parseFloat(editForm.creditLimit) : undefined,
+          cutoffDay: editForm.cutoffDay ? parseInt(editForm.cutoffDay) : undefined,
+          currentBalance: editForm.currentBalance !== '' ? parseFloat(editForm.currentBalance) : undefined,
+        },
+        { headers: authHeaders() },
+      );
       toast.success('Tarjeta actualizada');
       setEditTarget(null);
       void fetchCards();
@@ -164,6 +204,7 @@ export default function CreditCards() {
 
   const inputCls = 'w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-4 py-3 focus:outline-none focus:border-emerald-500 transition-colors placeholder:text-slate-600';
   const labelCls = 'block text-slate-400 text-sm font-medium mb-1';
+
 
   return (
     <div className="p-8 text-white font-sans max-w-6xl mx-auto">
@@ -313,7 +354,7 @@ export default function CreditCards() {
       {/* ── Modal: Agregar Tarjeta ── */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl w-[95%] md:max-w-lg max-h-[85vh] flex flex-col">
+          <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl w-[95%] md:max-w-lg max-h-[90vh] flex flex-col">
             <div className="flex justify-between items-center p-4 md:p-6 border-b border-slate-700 shrink-0">
               <h2 className="text-xl font-bold text-white flex items-center gap-2">
                 <CreditCard className="text-emerald-500" size={20} />
@@ -338,7 +379,7 @@ export default function CreditCards() {
 
               <div>
                 <label className={labelCls}><span className="flex items-center gap-1.5"><CreditCard size={13} /> Nombre *</span></label>
-                <input type="text" required placeholder="Ej. Nu, Hey Banco" value={form.name} onChange={set('name')} className={inputCls} />
+                <input type="text" required placeholder="Ej. Nu, Hey Banco, Santander Amex" value={form.name} onChange={set('name')} className={inputCls} />
               </div>
               <div>
                 <label className={labelCls}><span className="flex items-center gap-1.5"><DollarSign size={13} /> Línea de Crédito *</span></label>
@@ -347,29 +388,65 @@ export default function CreditCards() {
               <div>
                 <label className={labelCls}><span className="flex items-center gap-1.5"><Calendar size={13} /> Día de Corte (1–31) *</span></label>
                 <input type="number" required min="1" max="31" step="1" placeholder="Ej. 15" value={form.cutoffDay} onChange={set('cutoffDay')} className={inputCls} />
-                <p className="text-xs text-slate-500 mt-1">La fecha límite de pago se calcula automáticamente (+20 días)</p>
+                {formNextCutoff && formPeriodStart && formPaymentDeadline && (
+                  <div className="mt-2 bg-slate-900/60 rounded-lg px-3 py-2 text-xs space-y-1 border border-slate-700">
+                    <div className="flex justify-between text-slate-400">
+                      <span>Período actual</span>
+                      <span className="text-white font-medium">
+                        {fmtDate(formPeriodStart.toISOString())} → {fmtDate(formNextCutoff.toISOString())}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-slate-400">
+                      <span>Corte del período</span>
+                      <span className="text-amber-400 font-medium">{fmtDate(formNextCutoff.toISOString())}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-400">
+                      <span>Fecha límite de pago</span>
+                      <span className="text-emerald-400 font-medium">{fmtDate(formPaymentDeadline.toISOString())}</span>
+                    </div>
+                  </div>
+                )}
               </div>
+
               {isExisting && (
-                <div className="pt-1">
-                  <label className={labelCls}><span className="flex items-center gap-1.5"><DollarSign size={13} /> Saldo actual al corte anterior *</span></label>
-                  <input type="number" required min="0" step="0.01" placeholder="0.00" value={form.initialDebt} onChange={set('initialDebt')}
-                    className="w-full bg-slate-900 border border-emerald-500/40 text-white rounded-lg px-4 py-3 focus:outline-none focus:border-emerald-500 transition-colors placeholder:text-slate-600" />
+                <div className="space-y-3 pt-1 border-t border-slate-700">
+                  <p className="text-xs text-slate-500">Ingresa la deuda que ya tienes en esta tarjeta.</p>
+                  <div>
+                    <label className={labelCls}><span className="flex items-center gap-1.5"><DollarSign size={13} /> Saldo que debes *</span></label>
+                    <input
+                      type="number" required min="0" step="0.01" placeholder="0.00"
+                      value={form.initialDebt} onChange={set('initialDebt')}
+                      className="w-full bg-slate-900 border border-emerald-500/40 text-white rounded-lg px-4 py-3 focus:outline-none focus:border-emerald-500 transition-colors placeholder:text-slate-600"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}><span className="flex items-center gap-1.5"><DollarSign size={13} /> Crédito disponible</span></label>
+                    <input
+                      type="text" readOnly
+                      value={formAvailable !== null && form.creditLimit ? fmt(formAvailable) : '—'}
+                      className="w-full bg-slate-900/40 border border-slate-700 text-emerald-400 font-bold rounded-lg px-4 py-3 cursor-not-allowed"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">Línea de crédito menos saldo que debes.</p>
+                  </div>
                 </div>
               )}
+
               <div>
                 <label className={labelCls}>Color de tarjeta</label>
-                <div className="flex gap-2">
-                  {PALETTE.map(c => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setForm(prev => ({ ...prev, color: c }))}
-                      className="w-8 h-8 rounded-full transition-transform hover:scale-110"
-                      style={{ backgroundColor: c, outline: form.color === c ? `3px solid white` : 'none', outlineOffset: '2px' }}
-                    />
-                  ))}
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={form.color}
+                    onChange={e => setForm(prev => ({ ...prev, color: e.target.value }))}
+                    className="h-10 w-16 rounded cursor-pointer bg-slate-900 border border-slate-600 p-0.5"
+                  />
+                  <span className="px-3 py-1 rounded-full text-xs font-bold border"
+                    style={{ backgroundColor: form.color + '33', color: form.color, borderColor: form.color + '66' }}>
+                    {form.name || 'Tarjeta'}
+                  </span>
                 </div>
               </div>
+
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => { setIsModalOpen(false); setForm(EMPTY_FORM); setIsExisting(false); }}
                   className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl transition-all font-medium">
@@ -388,39 +465,63 @@ export default function CreditCards() {
       {/* ── Modal: Editar Tarjeta ── */}
       {editTarget && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl w-[95%] md:max-w-lg max-h-[85vh] flex flex-col">
+          <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl w-[95%] md:max-w-lg max-h-[90vh] flex flex-col">
             <div className="flex justify-between items-center p-4 md:p-6 border-b border-slate-700 shrink-0">
               <h2 className="text-xl font-bold text-white flex items-center gap-2">
                 <Pencil className="text-sky-400" size={18} />
-                Editar Tarjeta
+                Editar — {editTarget.name}
               </h2>
               <button onClick={() => setEditTarget(null)} className="text-slate-400 hover:text-white"><X size={20} /></button>
             </div>
             <form onSubmit={e => void handleEdit(e)} className="overflow-y-auto flex-1 p-4 md:p-6 space-y-4">
               <div>
-                <label className={labelCls}>Nombre</label>
+                <label className={labelCls}><span className="flex items-center gap-1.5"><CreditCard size={13} /> Nombre</span></label>
                 <input type="text" value={editForm.name} onChange={setEdit('name')} className={inputCls} />
               </div>
               <div>
-                <label className={labelCls}>Línea de Crédito</label>
+                <label className={labelCls}><span className="flex items-center gap-1.5"><DollarSign size={13} /> Línea de Crédito</span></label>
                 <input type="number" min="1" step="0.01" value={editForm.creditLimit} onChange={setEdit('creditLimit')} className={inputCls} />
               </div>
               <div>
-                <label className={labelCls}>Día de Corte (1–31)</label>
+                <label className={labelCls}><span className="flex items-center gap-1.5"><Calendar size={13} /> Día de Corte (1–31)</span></label>
                 <input type="number" min="1" max="31" step="1" value={editForm.cutoffDay} onChange={setEdit('cutoffDay')} className={inputCls} />
+                {editNextCutoff && editPeriodStart && editPaymentDeadline && (
+                  <div className="mt-2 bg-slate-900/60 rounded-lg px-3 py-2 text-xs space-y-1 border border-slate-700">
+                    <div className="flex justify-between text-slate-400">
+                      <span>Período actual</span>
+                      <span className="text-white font-medium">
+                        {fmtDate(editPeriodStart.toISOString())} → {fmtDate(editNextCutoff.toISOString())}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-slate-400">
+                      <span>Corte del período</span>
+                      <span className="text-amber-400 font-medium">{fmtDate(editNextCutoff.toISOString())}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-400">
+                      <span>Fecha límite de pago</span>
+                      <span className="text-emerald-400 font-medium">{fmtDate(editPaymentDeadline.toISOString())}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className={labelCls}><span className="flex items-center gap-1.5"><DollarSign size={13} /> Saldo actual (deuda)</span></label>
+                <input type="number" min="0" step="0.01" value={editForm.currentBalance} onChange={setEdit('currentBalance')} className={inputCls} />
+                <p className="text-xs text-slate-500 mt-1">Ajusta si necesitas corregir el saldo registrado.</p>
               </div>
               <div>
                 <label className={labelCls}>Color de tarjeta</label>
-                <div className="flex gap-2">
-                  {PALETTE.map(c => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setEditForm(prev => ({ ...prev, color: c }))}
-                      className="w-8 h-8 rounded-full transition-transform hover:scale-110"
-                      style={{ backgroundColor: c, outline: editForm.color === c ? `3px solid white` : 'none', outlineOffset: '2px' }}
-                    />
-                  ))}
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={editForm.color}
+                    onChange={e => setEditForm(prev => ({ ...prev, color: e.target.value }))}
+                    className="h-10 w-16 rounded cursor-pointer bg-slate-900 border border-slate-600 p-0.5"
+                  />
+                  <span className="px-3 py-1 rounded-full text-xs font-bold border"
+                    style={{ backgroundColor: editForm.color + '33', color: editForm.color, borderColor: editForm.color + '66' }}>
+                    {editForm.name || editTarget?.name || 'Tarjeta'}
+                  </span>
                 </div>
               </div>
               <div className="flex gap-3 pt-2">

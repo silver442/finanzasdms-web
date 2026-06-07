@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { X, CreditCard as CreditCardIcon, Banknote } from 'lucide-react';
+import { X, CreditCard as CreditCardIcon, Banknote, Pencil, Trash2, RefreshCw } from 'lucide-react';
 
 interface CardTx {
   id: string;
@@ -45,13 +45,24 @@ const fmt = (v: number | string) =>
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: '2-digit' });
 
-const EMPTY_FORM = {
+const EMPTY_EXPENSE_FORM = {
   description: '',
   amount: '',
   months: '3',
   paidMonths: '0',
   date: new Date().toISOString().split('T')[0],
 };
+
+
+function calcNextCutoff(cutoffDay: number): Date | null {
+  if (cutoffDay < 1 || cutoffDay > 31) return null;
+  const today = new Date();
+  let d = new Date(today.getFullYear(), today.getMonth(), cutoffDay);
+  if (d <= today) {
+    d = new Date(today.getFullYear(), today.getMonth() + 1, cutoffDay);
+  }
+  return d;
+}
 
 export default function CreditCardDetail() {
   const { id } = useParams<{ id: string }>();
@@ -65,13 +76,28 @@ export default function CreditCardDetail() {
   // Modal agregar gasto
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [txType, setTxType] = useState<'ORDINARY' | 'MSI'>('ORDINARY');
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] = useState(EMPTY_EXPENSE_FORM);
   const [saving, setSaving] = useState(false);
 
   // Modal pago
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [payAmount, setPayAmount] = useState('');
   const [paying, setPaying] = useState(false);
+
+  // Modal editar tarjeta (Info General)
+  const [isEditCardOpen, setIsEditCardOpen] = useState(false);
+  const [editCardForm, setEditCardForm] = useState({
+    name: '', creditLimit: '', cutoffDay: '', color: '#10B981', currentBalance: '',
+  });
+  const [savingCard, setSavingCard] = useState(false);
+
+  // Modal editar/eliminar transacción
+  const [txEditTarget, setTxEditTarget] = useState<CardTx | null>(null);
+  const [txEditForm, setTxEditForm] = useState({
+    amount: '', description: '', type: 'ORDINARY' as 'ORDINARY' | 'MSI', months: '1', date: '',
+  });
+  const [savingTx, setSavingTx] = useState(false);
+  const [deletingTx, setDeletingTx] = useState(false);
 
   const fetchCard = useCallback(async () => {
     try {
@@ -93,6 +119,101 @@ export default function CreditCardDetail() {
 
   useEffect(() => { void fetchCard(); }, [fetchCard]);
   useEffect(() => { if (card) void fetchSubs(card.id); }, [card, fetchSubs]);
+
+  const openEditCard = () => {
+    if (!card) return;
+    setEditCardForm({
+      name: card.name,
+      creditLimit: String(Number(card.creditLimit)),
+      cutoffDay: String(card.cutoffDay),
+      color: card.color ?? '#10B981',
+      currentBalance: String(Number(card.currentBalance)),
+    });
+    setIsEditCardOpen(true);
+  };
+
+  const handleEditCard = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!card) return;
+    setSavingCard(true);
+    try {
+      await axios.patch(
+        `${API}/credit-cards/${card.id}`,
+        {
+          name: editCardForm.name || undefined,
+          color: editCardForm.color || undefined,
+          creditLimit: editCardForm.creditLimit ? parseFloat(editCardForm.creditLimit) : undefined,
+          cutoffDay: editCardForm.cutoffDay ? parseInt(editCardForm.cutoffDay) : undefined,
+          currentBalance: editCardForm.currentBalance !== '' ? parseFloat(editCardForm.currentBalance) : undefined,
+        },
+        { headers: authHeaders() },
+      );
+      toast.success('Tarjeta actualizada');
+      setIsEditCardOpen(false);
+      await fetchCard();
+    } catch {
+      toast.error('Error al actualizar la tarjeta');
+    } finally {
+      setSavingCard(false);
+    }
+  };
+
+  const openEditTx = (tx: CardTx) => {
+    setTxEditTarget(tx);
+    setTxEditForm({
+      amount: String(Number(tx.amount)),
+      description: tx.description,
+      type: tx.type,
+      months: String(tx.months),
+      date: tx.date.split('T')[0],
+    });
+  };
+
+  const handleUpdateTx = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!txEditTarget) return;
+    setSavingTx(true);
+    try {
+      await axios.patch(
+        `${API}/credit-cards/transactions/${txEditTarget.id}`,
+        {
+          amount: parseFloat(txEditForm.amount),
+          description: txEditForm.description,
+          type: txEditForm.type,
+          months: txEditForm.type === 'MSI' ? parseInt(txEditForm.months) : undefined,
+          date: txEditForm.date,
+        },
+        { headers: authHeaders() },
+      );
+      toast.success('Movimiento actualizado');
+      setTxEditTarget(null);
+      await fetchCard();
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 400) {
+        toast.error((err.response.data as { message: string }).message ?? 'Error al actualizar');
+      } else {
+        toast.error('Error al actualizar el movimiento');
+      }
+    } finally {
+      setSavingTx(false);
+    }
+  };
+
+  const handleDeleteTx = async () => {
+    if (!txEditTarget) return;
+    if (!confirm('¿Eliminar este movimiento? El saldo se ajustará automáticamente.')) return;
+    setDeletingTx(true);
+    try {
+      await axios.delete(`${API}/credit-cards/transactions/${txEditTarget.id}`, { headers: authHeaders() });
+      toast.success('Movimiento eliminado');
+      setTxEditTarget(null);
+      await fetchCard();
+    } catch {
+      toast.error('Error al eliminar el movimiento');
+    } finally {
+      setDeletingTx(false);
+    }
+  };
 
   const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,7 +253,7 @@ export default function CreditCardDetail() {
         { headers: authHeaders() },
       );
       setIsModalOpen(false);
-      setForm({ ...EMPTY_FORM, date: new Date().toISOString().split('T')[0] });
+      setForm({ ...EMPTY_EXPENSE_FORM, date: new Date().toISOString().split('T')[0] });
       setTxType('ORDINARY');
       await fetchCard();
     } catch (err) {
@@ -182,7 +303,6 @@ export default function CreditCardDetail() {
   const currentPeriod = ordinaryTxs.filter(t => new Date(t.date) >= prevCutoff);
   const prevPeriod = ordinaryTxs.filter(t => new Date(t.date) < prevCutoff);
 
-  // Cálculos MSI en tiempo real (para preview y validación)
   const originalAmount = parseFloat(form.amount) || 0;
   const totalMonths = parseInt(form.months) || 1;
   const paidMonths = parseInt(form.paidMonths) || 0;
@@ -190,15 +310,22 @@ export default function CreditCardDetail() {
   const monthlyPayment = totalMonths > 0 ? originalAmount / totalMonths : 0;
   const computedDebt = monthlyPayment * remainingMonths;
 
-  // Validación de límite en tiempo real
   const enteredOrdinary = parseFloat(form.amount) || 0;
   const exceedsLimit =
     txType === 'ORDINARY'
       ? enteredOrdinary > available
       : computedDebt > available;
 
+  // Preview de periodo en formulario editar tarjeta
+  const editCutoffDay = parseInt(editCardForm.cutoffDay);
+  const editNextCutoff = !isNaN(editCutoffDay) ? calcNextCutoff(editCutoffDay) : null;
+  const editPeriodStart = editNextCutoff ? (() => { const d = new Date(editNextCutoff); d.setMonth(d.getMonth() - 1); return d; })() : null;
+  const editPaymentDeadline = editNextCutoff ? (() => { const d = new Date(editNextCutoff); d.setDate(d.getDate() + 20); return d; })() : null;
+
   const thCls = 'p-3 font-semibold text-slate-400';
   const inputCls = 'w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-4 py-2 focus:outline-none focus:border-emerald-500';
+  const labelCls = 'block text-slate-400 text-sm font-medium mb-1';
+
 
   return (
     <div className="p-8 text-white font-sans max-w-7xl mx-auto relative">
@@ -211,7 +338,7 @@ export default function CreditCardDetail() {
         </button>
         <h1 className="text-3xl font-extrabold text-emerald-400 flex items-center gap-3">
           <CreditCardIcon size={28} style={{ color: card.color ?? '#10B981' }} />
-          {card.name}
+          Detalle {card.name}
         </h1>
       </div>
 
@@ -219,9 +346,16 @@ export default function CreditCardDetail() {
         {/* ── Columna izquierda ── */}
         <div className="space-y-6">
           <div className="bg-slate-800 rounded-2xl border border-slate-700 p-6 shadow-lg">
-            <h2 className="text-xl font-bold text-white mb-4 border-b border-slate-700 pb-2">
-              Información General
-            </h2>
+            <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
+              <h2 className="text-xl font-bold text-white">Información General</h2>
+              <button
+                onClick={openEditCard}
+                className="p-1.5 rounded-lg text-slate-500 hover:text-sky-400 hover:bg-sky-500/10 transition-all"
+                title="Editar tarjeta"
+              >
+                <Pencil size={16} />
+              </button>
+            </div>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-slate-400">Línea de Crédito</span>
@@ -232,19 +366,25 @@ export default function CreditCardDetail() {
                 <span className="font-medium text-slate-300">Día {card.cutoffDay}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Próx. Corte</span>
-                <span className="font-medium text-slate-300">{fmtDate(card.nextCutoffDate)}</span>
+                <span className="text-slate-400">Período actual</span>
+                <span className="font-medium text-slate-300 text-right text-xs">
+                  {fmtDate(prevCutoff.toISOString())} → {fmtDate(card.nextCutoffDate)}
+                </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Límite de Pago</span>
+                <span className="text-slate-400">Corte del período</span>
+                <span className="font-medium text-amber-400">{fmtDate(card.nextCutoffDate)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Fecha límite de pago</span>
                 <span className="font-medium text-emerald-400">{fmtDate(card.paymentDeadline)}</span>
               </div>
               <div className="pt-3 border-t border-slate-700 flex justify-between">
-                <span className="text-slate-400">Deuda Total</span>
+                <span className="text-slate-400">Saldo que debes</span>
                 <span className="font-bold text-red-400">{fmt(currentBalance)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Saldo Disponible</span>
+                <span className="text-slate-400">Crédito disponible</span>
                 <span className={`font-bold ${available > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                   {fmt(available)}
                 </span>
@@ -280,7 +420,7 @@ export default function CreditCardDetail() {
                 </thead>
                 <tbody className="divide-y divide-slate-700/50">
                   {msi.map(t => (
-                    <tr key={t.id} className="hover:bg-slate-700/30">
+                    <tr key={t.id} className="hover:bg-slate-700/30 cursor-pointer" onClick={() => openEditTx(t)}>
                       <td className="p-3 text-white capitalize">
                         <div>{t.description}</div>
                         <div className="text-slate-500">{fmtDate(t.date)}</div>
@@ -307,9 +447,9 @@ export default function CreditCardDetail() {
           <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-lg">
             <div className="bg-slate-900/50 p-4 border-b border-slate-700 flex justify-between items-center">
               <div>
-                <h2 className="text-lg font-bold text-white">Movimientos del Periodo Actual</h2>
+                <h2 className="text-lg font-bold text-white">Movimientos del Período Actual</h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Desde {fmtDate(prevCutoff.toISOString())} · corte {fmtDate(card.nextCutoffDate)}
+                  {fmtDate(prevCutoff.toISOString())} → corte {fmtDate(card.nextCutoffDate)}
                 </p>
               </div>
               <button
@@ -335,7 +475,12 @@ export default function CreditCardDetail() {
                 ) : (
                   <>
                     {currentPeriod.map(t => (
-                      <tr key={t.id} className="hover:bg-slate-700/30">
+                      <tr
+                        key={t.id}
+                        className="hover:bg-slate-700/40 cursor-pointer transition-colors"
+                        onClick={() => openEditTx(t)}
+                        title="Click para editar o eliminar"
+                      >
                         <td className="p-3 text-slate-300">{fmtDate(t.date)}</td>
                         <td className="p-3 text-white capitalize">{t.description}</td>
                         <td className="p-3 text-right font-medium text-red-400">{fmt(t.amount)}</td>
@@ -362,7 +507,7 @@ export default function CreditCardDetail() {
           {/* Periodo Anterior */}
           <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-lg">
             <div className="bg-slate-900/50 p-4 border-b border-slate-700">
-              <h2 className="text-lg font-bold text-white">Movimientos del Periodo Anterior</h2>
+              <h2 className="text-lg font-bold text-white">Movimientos del Período Anterior</h2>
               <p className="text-xs text-slate-500 mt-0.5">Antes del {fmtDate(prevCutoff.toISOString())}</p>
             </div>
             <table className="w-full text-left text-sm">
@@ -378,7 +523,12 @@ export default function CreditCardDetail() {
                   <tr><td colSpan={3} className="p-6 text-center text-slate-500">Sin movimientos anteriores.</td></tr>
                 ) : (
                   prevPeriod.map(t => (
-                    <tr key={t.id} className="hover:bg-slate-700/30">
+                    <tr
+                      key={t.id}
+                      className="hover:bg-slate-700/40 cursor-pointer transition-colors"
+                      onClick={() => openEditTx(t)}
+                      title="Click para editar o eliminar"
+                    >
                       <td className="p-3 text-slate-300">{fmtDate(t.date)}</td>
                       <td className="p-3 text-white capitalize">{t.description}</td>
                       <td className="p-3 text-right font-medium text-slate-400">{fmt(t.amount)}</td>
@@ -402,7 +552,6 @@ export default function CreditCardDetail() {
               </button>
             </div>
 
-            {/* Toggle tipo */}
             <div className="flex bg-slate-900 rounded-xl p-1 mb-5">
               {(['ORDINARY', 'MSI'] as const).map(t => (
                 <button
@@ -451,7 +600,6 @@ export default function CreditCardDetail() {
                     <p className="text-slate-500 text-xs mt-1">Déjalo en 0 si es una compra nueva.</p>
                   </div>
 
-                  {/* Preview calculado */}
                   {originalAmount > 0 && remainingMonths > 0 && (
                     <div className={`rounded-xl p-3 text-sm space-y-1 ${exceedsLimit ? 'bg-red-500/10 border border-red-500/30' : 'bg-slate-900/60'}`}>
                       <div className="flex justify-between text-slate-400">
@@ -530,6 +678,143 @@ export default function CreditCardDetail() {
                 </button>
                 <button type="submit" disabled={paying || !payAmount} className="flex-1 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white py-2.5 rounded-xl font-bold transition-all">
                   {paying ? 'Procesando...' : 'Confirmar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal editar tarjeta ── */}
+      {isEditCardOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl w-[95%] md:max-w-lg max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center p-4 md:p-6 border-b border-slate-700 shrink-0">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <Pencil className="text-sky-400" size={18} />
+                Editar — {card.name}
+              </h2>
+              <button onClick={() => setIsEditCardOpen(false)} className="text-slate-400 hover:text-white"><X size={20} /></button>
+            </div>
+            <form onSubmit={e => void handleEditCard(e)} className="overflow-y-auto flex-1 p-4 md:p-6 space-y-4">
+              <div>
+                <label className={labelCls}>Nombre</label>
+                <input type="text" value={editCardForm.name} onChange={e => setEditCardForm(p => ({ ...p, name: e.target.value }))} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Línea de Crédito</label>
+                <input type="number" min="1" step="0.01" value={editCardForm.creditLimit} onChange={e => setEditCardForm(p => ({ ...p, creditLimit: e.target.value }))} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Día de Corte (1–31)</label>
+                <input type="number" min="1" max="31" step="1" value={editCardForm.cutoffDay} onChange={e => setEditCardForm(p => ({ ...p, cutoffDay: e.target.value }))} className={inputCls} />
+                {editNextCutoff && editPeriodStart && editPaymentDeadline && (
+                  <div className="mt-2 bg-slate-900/60 rounded-lg px-3 py-2 text-xs space-y-1 border border-slate-700">
+                    <div className="flex justify-between text-slate-400">
+                      <span>Período actual</span>
+                      <span className="text-white font-medium">
+                        {fmtDate(editPeriodStart.toISOString())} → {fmtDate(editNextCutoff.toISOString())}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-slate-400">
+                      <span>Fecha límite de pago</span>
+                      <span className="text-emerald-400 font-medium">{fmtDate(editPaymentDeadline.toISOString())}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className={labelCls}>Saldo actual (deuda)</label>
+                <input type="number" min="0" step="0.01" value={editCardForm.currentBalance} onChange={e => setEditCardForm(p => ({ ...p, currentBalance: e.target.value }))} className={inputCls} />
+                <p className="text-xs text-slate-500 mt-1">Ajusta si necesitas corregir el saldo registrado.</p>
+              </div>
+              <div>
+                <label className={labelCls}>Color de tarjeta</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={editCardForm.color}
+                    onChange={e => setEditCardForm(p => ({ ...p, color: e.target.value }))}
+                    className="h-10 w-16 rounded cursor-pointer bg-slate-900 border border-slate-600 p-0.5"
+                  />
+                  <span className="px-3 py-1 rounded-full text-xs font-bold border"
+                    style={{ backgroundColor: editCardForm.color + '33', color: editCardForm.color, borderColor: editCardForm.color + '66' }}>
+                    {editCardForm.name || card.name}
+                  </span>
+                </div>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setIsEditCardOpen(false)}
+                  className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl font-medium transition-all">
+                  Cancelar
+                </button>
+                <button type="submit" disabled={savingCard}
+                  className="flex-1 bg-sky-500 hover:bg-sky-600 text-white py-3 rounded-xl font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                  {savingCard ? <><RefreshCw size={15} className="animate-spin" /> Guardando...</> : 'Guardar Cambios'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal editar/eliminar transacción ── */}
+      {txEditTarget && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl w-full max-w-md">
+            <div className="flex justify-between items-center p-5 border-b border-slate-700">
+              <h2 className="text-xl font-bold text-white">Editar Movimiento</h2>
+              <button onClick={() => setTxEditTarget(null)} className="text-slate-400 hover:text-white transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={e => void handleUpdateTx(e)} className="p-5 space-y-4">
+              <div>
+                <label className={labelCls}>Fecha</label>
+                <input type="date" required value={txEditForm.date} onChange={e => setTxEditForm(p => ({ ...p, date: e.target.value }))} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Descripción</label>
+                <input type="text" required value={txEditForm.description} onChange={e => setTxEditForm(p => ({ ...p, description: e.target.value }))} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Monto (MXN)</label>
+                <input type="number" step="0.01" min="0.01" required value={txEditForm.amount} onChange={e => setTxEditForm(p => ({ ...p, amount: e.target.value }))} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Tipo</label>
+                <div className="flex bg-slate-900 rounded-xl p-1">
+                  {(['ORDINARY', 'MSI'] as const).map(t => (
+                    <button key={t} type="button" onClick={() => setTxEditForm(p => ({ ...p, type: t }))}
+                      className={`flex-1 py-2 rounded-lg text-sm font-bold transition-colors ${txEditForm.type === t ? 'bg-emerald-500 text-white' : 'text-slate-400 hover:text-white'}`}>
+                      {t === 'ORDINARY' ? 'Ordinario' : 'MSI'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {txEditForm.type === 'MSI' && (
+                <div>
+                  <label className={labelCls}>Meses</label>
+                  <input type="number" min="1" max="48" required value={txEditForm.months} onChange={e => setTxEditForm(p => ({ ...p, months: e.target.value }))} className={inputCls} />
+                </div>
+              )}
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => void handleDeleteTx()}
+                  disabled={deletingTx}
+                  className="flex items-center gap-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 px-4 py-2.5 rounded-xl font-medium transition-all disabled:opacity-50"
+                >
+                  <Trash2 size={15} />
+                  {deletingTx ? 'Eliminando...' : 'Eliminar'}
+                </button>
+                <button type="button" onClick={() => setTxEditTarget(null)}
+                  className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-xl font-medium transition-all">
+                  Cancelar
+                </button>
+                <button type="submit" disabled={savingTx}
+                  className="flex-1 bg-sky-500 hover:bg-sky-600 text-white py-2.5 rounded-xl font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                  {savingTx ? <><RefreshCw size={15} className="animate-spin" />Guardando...</> : 'Guardar'}
                 </button>
               </div>
             </form>
