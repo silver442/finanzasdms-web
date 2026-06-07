@@ -511,7 +511,7 @@ export default function LoanDetail() {
                 <div className="p-6 border-t border-slate-700 flex gap-3 justify-end flex-wrap">
                   <button onClick={() => setPayTarget(null)} className="px-4 py-2 rounded-lg text-slate-300 hover:text-white transition-colors">Cancelar</button>
                   <a
-                    href="https://wa.me/528127257007?text=Hola,%20necesito%20reportar%20un%20pago"
+                    href={`https://wa.me/${import.meta.env.VITE_WHATSAPP_NUMBER}?text=${encodeURIComponent('Hola, necesito reportar un pago')}`}
                     target="_blank" rel="noopener noreferrer"
                     className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600/20 border border-green-600/30 text-green-400 hover:bg-green-600/30 text-sm font-semibold transition-colors"
                   >
