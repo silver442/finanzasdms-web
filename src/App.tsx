@@ -1,39 +1,40 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Toaster } from 'sonner';
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import ProtectedRoute from './components/ProtectedRoute'; 
-import CreditCards from './pages/CreditCards';
-import CreditCardDetail from './pages/CreditCardDetail';
-import Subscriptions from './pages/Subscriptions';
-import Portfolio from './pages/Portfolio';
-import PortfolioDetail from './pages/PortfolioDetail';
-import Crypto from './pages/Crypto';
-import Loans from './pages/Loans';
-import LoanDetail from './pages/LoanDetail';
-import AdminLoanDetail from './pages/AdminLoanDetail';
-import Register from './pages/Register';
-import Landing from './pages/Landing';
-import AdminRequests from './pages/AdminRequests';
-import AdminActiveLoans from './pages/AdminActiveLoans';
-import AdminMigration from './pages/AdminMigration';
-import AdminPayments from './pages/AdminPayments';
-import AdminBanks from './pages/AdminBanks';
-import Profile from './pages/Profile';
-import AdminHome from './pages/AdminHome';
-import AdminReferrals from './pages/AdminReferrals';
-import AdminUsers from './pages/AdminUsers';
-import Investments from './pages/Investments';
-import LoanSimulator from './pages/LoanSimulator';
-import LoanRequest from './pages/LoanRequest';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
-import VerifyEmail from './pages/VerifyEmail';
-import AccountMonitor from './pages/AccountMonitor';
-import ModuleStore from './pages/ModuleStore';
-import Privacy from './pages/Privacy';
-import Terms from './pages/Terms';
-import Contact from './pages/Contact';
+import Landing from './pages/public/Landing';
+import Login from './pages/public/Login';
+import Register from './pages/public/Register';
+import ForgotPassword from './pages/public/ForgotPassword';
+import ResetPassword from './pages/public/ResetPassword';
+import VerifyEmail from './pages/public/VerifyEmail';
+import Privacy from './pages/public/Privacy';
+import Terms from './pages/public/Terms';
+import Contact from './pages/public/Contact';
+import ProtectedRoute from './components/ProtectedRoute';
+import Dashboard from './pages/user/Dashboard';
+import Profile from './pages/user/Profile';
+import AccountMonitor from './pages/user/AccountMonitor';
+import ModuleStore from './pages/user/ModuleStore';
+import Crypto from './pages/user/Crypto';
+import Investments from './pages/user/Investments';
+import CreditCards from './pages/user/credit-cards/CreditCards';
+import CreditCardDetail from './pages/user/credit-cards/CreditCardDetail';
+import Subscriptions from './pages/user/subscriptions/Subscriptions';
+import SharedSubscriptions from './pages/user/subscriptions/SharedSubscriptions';
+import Loans from './pages/user/loans/Loans';
+import LoanDetail from './pages/user/loans/LoanDetail';
+import LoanSimulator from './pages/user/loans/LoanSimulator';
+import LoanRequest from './pages/user/loans/LoanRequest';
+import Portfolio from './pages/user/portfolio/Portfolio';
+import PortfolioDetail from './pages/user/portfolio/PortfolioDetail';
+import AdminHome from './pages/admin/AdminHome';
+import AdminRequests from './pages/admin/AdminRequests';
+import AdminActiveLoans from './pages/admin/AdminActiveLoans';
+import AdminLoanDetail from './pages/admin/AdminLoanDetail';
+import AdminPayments from './pages/admin/AdminPayments';
+import AdminBanks from './pages/admin/AdminBanks';
+import AdminMigration from './pages/admin/AdminMigration';
+import AdminReferrals from './pages/admin/AdminReferrals';
+import AdminUsers from './pages/admin/AdminUsers';
 
 type FlagKey = 'hasCreditCardsModule' | 'hasLoansModule' | 'hasCryptoModule' | 'hasStockMarketModule' | 'hasCompoundInterestModule' | 'hasSubscriptionsModule' | 'hasMakeMoneyModule';
 
@@ -78,6 +79,7 @@ function App() {
           </Route>
           <Route element={<ModuleRoute flag="hasSubscriptionsModule" />}>
             <Route path="/subscriptions" element={<Subscriptions />} />
+            <Route path="/subscriptions/shared" element={<SharedSubscriptions />} />
           </Route>
           <Route element={<ModuleRoute flag="hasLoansModule" />}>
             <Route path="/loans" element={<Loans />} />

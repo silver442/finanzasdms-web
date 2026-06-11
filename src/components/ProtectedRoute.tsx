@@ -20,17 +20,17 @@ function BlockedScreen() {
   )}`;
 
   return (
-    <div className="fixed inset-0 bg-slate-900 flex items-center justify-center z-50 p-6">
-      <div className="max-w-md w-full bg-slate-800 border border-red-500/40 rounded-2xl p-8 text-center shadow-2xl shadow-red-500/10">
+    <div className="fixed inset-0 bg-surface-base flex items-center justify-center z-50 p-6">
+      <div className="max-w-md w-full bg-surface-card border border-red-500/40 rounded-2xl p-8 text-center shadow-2xl shadow-red-500/10">
         <div className="flex justify-center mb-5">
           <div className="bg-red-500/10 border border-red-500/30 rounded-full p-4">
             <AlertTriangle className="w-10 h-10 text-red-400" />
           </div>
         </div>
 
-        <h1 className="text-2xl font-bold text-white mb-3">Cuenta Bloqueada por Morosidad</h1>
+        <h1 className="text-2xl font-bold text-text-primary mb-3">Cuenta Bloqueada por Morosidad</h1>
 
-        <p className="text-slate-300 leading-relaxed mb-6">
+        <p className="text-text-secondary leading-relaxed mb-6">
           Tu cuenta ha sido bloqueada debido a pagos vencidos. Por favor, comunícate{' '}
           <span className="text-red-400 font-semibold">urgentemente</span> con un Administrador a
           nuestro WhatsApp para regularizar tu situación.
@@ -40,13 +40,13 @@ function BlockedScreen() {
           href={whatsappUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-3 bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg shadow-emerald-500/20 text-base"
+          className="inline-flex items-center gap-3 bg-brand-green hover:bg-brand-green-light text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg shadow-brand-green/30 text-base"
         >
           <PhoneCall className="w-5 h-5" />
           Contactar por WhatsApp
         </a>
 
-        <p className="text-slate-500 text-sm mt-5">
+        <p className="text-text-muted text-sm mt-5">
           Una vez regularizada tu situación, el administrador desbloqueará tu acceso.
         </p>
       </div>
@@ -68,7 +68,7 @@ export default function ProtectedRoute() {
   }
 
   return (
-    <div className="flex h-screen bg-slate-900 overflow-hidden">
+    <div className="flex h-screen bg-surface-base overflow-hidden">
 
       {/* Overlay móvil */}
       {sidebarOpen && (
@@ -82,15 +82,15 @@ export default function ProtectedRoute() {
 
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Bar — solo móvil */}
-        <header className="md:hidden flex items-center gap-3 px-4 py-3 bg-slate-800 border-b border-slate-700 shrink-0">
+        <header className="md:hidden flex items-center gap-3 px-4 py-3 bg-surface-card border-b border-surface-border shrink-0">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="text-slate-400 hover:text-white transition-colors"
+            className="text-text-secondary hover:text-text-primary transition-colors"
             aria-label="Abrir menú"
           >
             <Menu size={22} />
           </button>
-          <span className="text-lg font-extrabold text-emerald-400 tracking-tight">FinanzasDMS</span>
+          <span className="text-lg font-extrabold text-brand-green tracking-tight">FinanzasDMS</span>
         </header>
 
         <main className="flex-1 overflow-y-auto">
