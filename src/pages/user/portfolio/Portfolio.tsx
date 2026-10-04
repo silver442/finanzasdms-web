@@ -131,7 +131,6 @@ export default function Portfolio() {
   const totalDeposited = items.reduce((acc, item) => acc + Number(item.deposited), 0);
   const totalRealValue = items.reduce((acc, item) => acc + Number(item.realValue), 0);
   const totalGain = totalRealValue - totalDeposited;
-  const totalYield = totalDeposited > 0 ? totalGain / totalDeposited : 0;
 
   const badgeStyle = (color: string) => ({
     backgroundColor: color + '33',
@@ -405,7 +404,6 @@ export default function Portfolio() {
                     const deposited = Number(item.deposited);
                     const realValue = Number(item.realValue);
                     const gain = isCash ? 0 : realValue - deposited;
-                    const yieldPercent = isCash ? 0 : (deposited > 0 ? gain / deposited : 0);
                     const isPositive = gain >= 0;
                     const label = ENUM_TO_LABEL[item.type] ?? item.type;
                     const color = item.color ?? '#10B981';
