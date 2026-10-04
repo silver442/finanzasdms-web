@@ -68,24 +68,24 @@ export default function ProtectedRoute() {
   }
 
   return (
-    <div className="flex h-screen bg-surface-base overflow-hidden">
+    <div className="flex h-dvh bg-surface-base overflow-hidden">
 
       {/* Overlay móvil */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/60 z-30 md:hidden"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 md:hidden transition-opacity"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Top Bar — solo móvil */}
-        <header className="md:hidden flex items-center gap-3 px-4 py-3 bg-surface-card border-b border-surface-border shrink-0">
+        <header className="md:hidden sticky top-0 z-20 flex items-center gap-2 px-4 pt-[env(safe-area-inset-top)] h-14 box-content bg-surface-card/60 backdrop-blur-md border-b border-surface-border shadow-sm shadow-black/30 shrink-0">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="text-text-secondary hover:text-text-primary transition-colors"
+            className="p-2 -ml-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-elevated/60 transition-colors"
             aria-label="Abrir menú"
           >
             <Menu size={22} />
@@ -93,7 +93,7 @@ export default function ProtectedRoute() {
           <span className="text-lg font-extrabold text-brand-green tracking-tight">FinanzasDMS</span>
         </header>
 
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)]">
           <Outlet />
         </main>
       </div>

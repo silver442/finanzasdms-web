@@ -5,7 +5,7 @@ import {
   Activity, LayoutDashboard, CreditCard, CalendarClock, Landmark, PieChart, Bitcoin,
   LogOut, ShieldCheck, ClipboardList, Briefcase, DatabaseZap, ClipboardCheck,
   TrendingUp, BarChart2, Users, ChevronDown, ShoppingBag,
-  Zap, Shield, Star, Crown,
+  Zap, Shield, Star, Crown, X,
 } from 'lucide-react';
 
 // ─── Config de niveles (espejo exacto de levels.config.ts del backend) ────────
@@ -131,7 +131,7 @@ const adminModules = [
 ];
 
 const navCls = ({ isActive }: { isActive: boolean }) =>
-  `flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all ${
+  `flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all active:scale-[0.98] ${
     isActive
       ? 'bg-brand-green/10 text-brand-green-light border border-brand-green/20 shadow-inner'
       : 'text-text-secondary hover:bg-surface-elevated hover:text-text-primary'
@@ -262,13 +262,22 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   };
 
   return (
-    <aside className={`fixed md:relative inset-y-0 left-0 z-40 md:z-10 w-64 bg-surface-card border-r border-surface-border flex flex-col h-full shadow-2xl transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+    <aside className={`fixed md:relative inset-y-0 left-0 z-40 md:z-10 w-72 max-w-[85vw] md:w-64 shrink-0 bg-surface-card/90 backdrop-blur-md md:bg-surface-card border-r border-surface-border flex flex-col h-dvh md:h-full pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] md:pt-0 md:pb-0 shadow-2xl md:shadow-none transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
 
       {/* ── Cabecera ── */}
       <div className="p-6 border-b border-surface-border">
-        <Link to="/dashboard" className="text-2xl font-extrabold text-brand-green tracking-tight hover:text-brand-green-light transition-colors">
-          FinanzasDMS
-        </Link>
+        <div className="flex items-center justify-between gap-2">
+          <Link to="/dashboard" onClick={onClose} className="text-2xl font-extrabold text-brand-green tracking-tight hover:text-brand-green-light transition-colors">
+            FinanzasDMS
+          </Link>
+          <button
+            onClick={onClose}
+            className="md:hidden p-2 -mr-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-elevated/60 transition-colors"
+            aria-label="Cerrar menú"
+          >
+            <X size={20} />
+          </button>
+        </div>
         {name && (
           <p className="text-text-secondary text-sm mt-1 truncate">
             <span className="text-text-muted">Hola,</span> {name}

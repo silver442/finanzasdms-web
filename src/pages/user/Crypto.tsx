@@ -260,12 +260,28 @@ export default function Crypto() {
   const totalProfit = totalCurrentValue - totalInvested;
   const totalYield = totalInvested > 0 ? totalProfit / totalInvested : 0;
 
+  // Métricas por posición — compartidas por la tabla (md+) y las tarjetas (móvil)
+  const getPositionMetrics = (p: CryptoPosition) => {
+    const quantity = Number(p.quantity);
+    const averageBuyPrice = Number(p.averageBuyPrice);
+    const invested = Number(p.allocatedCapital);
+    const currentPrice = livePrices[p.symbol] ?? averageBuyPrice;
+    const currentValue = quantity * currentPrice;
+    const profit = currentValue - invested;
+    const percentChange = averageBuyPrice > 0 ? (currentPrice - averageBuyPrice) / averageBuyPrice : 0;
+    const isPositive = profit >= 0;
+    const lastTrade = p.trades[0];
+    const trend = trends[p.symbol];
+    const TrendIcon = trend ? TREND_ICONS[trend] : null;
+    return { quantity, averageBuyPrice, currentPrice, profit, percentChange, isPositive, lastTrade, trend, TrendIcon };
+  };
+
   return (
-    <div className="p-8 text-white font-sans max-w-7xl mx-auto relative">
-      <div className="flex justify-between items-start mb-8">
+    <div className="p-4 sm:p-6 md:p-8 text-white font-sans max-w-7xl mx-auto relative">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6 md:mb-8">
         <div>
-          <h1 className="text-3xl font-extrabold text-brand-green-light flex items-center gap-3">
-            <Bitcoin size={32} />
+          <h1 className="text-2xl md:text-3xl font-extrabold text-brand-green-light flex items-center gap-3">
+            <Bitcoin className="w-7 h-7 md:w-8 md:h-8" />
             Portafolio Cripto
           </h1>
           <div className="flex gap-4 mt-2 text-sm">
@@ -278,26 +294,26 @@ export default function Crypto() {
 
         <button
           onClick={() => { setNewOp({ symbol: '', type: 'BUY', price: '', totalUsd: '', quantity: '', date: new Date().toISOString().split('T')[0] }); setLastEditedField(null); setIsModalOpen(true); }}
-          className="flex items-center gap-2 px-5 py-2 bg-brand-green hover:bg-brand-green-light text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-brand-green/20"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 sm:py-2 bg-brand-green hover:bg-brand-green-light text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-brand-green/20"
         >
           <Bitcoin size={18} /> Registrar operación
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-surface-card/60 backdrop-blur-md p-5 rounded-2xl border border-white/5 shadow-card">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-6 mb-6 md:mb-8">
+        <div className="bg-surface-card/60 backdrop-blur-md p-4 md:p-5 rounded-2xl border border-white/5 shadow-card">
           <h2 className="text-text-secondary text-xs font-semibold uppercase tracking-wider mb-2 flex items-center gap-2"><Wallet size={14} /> Total Invertido</h2>
-          <p className="text-2xl font-bold text-text-primary">{formatCurrency(totalInvested)}</p>
+          <p className="text-xl md:text-2xl font-bold text-text-primary">{formatCurrency(totalInvested)}</p>
         </div>
 
-        <div className="bg-surface-card/60 backdrop-blur-md p-5 rounded-2xl border border-white/5 shadow-card">
+        <div className="bg-surface-card/60 backdrop-blur-md p-4 md:p-5 rounded-2xl border border-white/5 shadow-card">
           <h2 className="text-text-secondary text-xs font-semibold uppercase tracking-wider mb-2 flex items-center gap-2"><PieChartIcon size={14} /> Valor Actual</h2>
-          <p className="text-2xl font-bold text-text-primary">{formatCurrency(totalCurrentValue)}</p>
+          <p className="text-xl md:text-2xl font-bold text-text-primary">{formatCurrency(totalCurrentValue)}</p>
         </div>
 
-        <div className={`p-5 rounded-2xl border backdrop-blur-md shadow-card ${totalProfit >= 0 ? 'bg-brand-green/[6%] border-brand-green/20' : 'bg-red-500/[6%] border-red-500/20'}`}>
+        <div className={`p-4 md:p-5 rounded-2xl border backdrop-blur-md shadow-card ${totalProfit >= 0 ? 'bg-brand-green/[6%] border-brand-green/20' : 'bg-red-500/[6%] border-red-500/20'}`}>
           <h2 className={`text-xs font-semibold uppercase tracking-wider mb-2 ${totalProfit >= 0 ? 'text-brand-green-light' : 'text-red-400'}`}>Rendimiento</h2>
-          <p className={`text-3xl font-extrabold ${totalProfit >= 0 ? 'text-brand-green-light' : 'text-red-400'}`}>
+          <p className={`text-2xl md:text-3xl font-extrabold ${totalProfit >= 0 ? 'text-brand-green-light' : 'text-red-400'}`}>
             {totalProfit >= 0 ? '+' : ''}{formatPercent(totalYield)}
           </p>
           <p className={`text-xs font-medium mt-1 ${totalProfit >= 0 ? 'text-brand-green-light/70' : 'text-red-400/70'}`}>
@@ -306,7 +322,74 @@ export default function Crypto() {
         </div>
       </div>
 
-      <div className="bg-surface-card/60 backdrop-blur-md rounded-2xl border border-white/5 shadow-card overflow-hidden">
+      {/* ── Posiciones: tarjetas apiladas (móvil) ── */}
+      <div className="md:hidden space-y-3">
+        {isLoading ? (
+          <div className="bg-surface-card/60 backdrop-blur-md rounded-2xl border border-white/5 shadow-card p-6 text-center text-sm text-text-muted">Cargando portafolio...</div>
+        ) : positions.length === 0 ? (
+          <div className="bg-surface-card/60 backdrop-blur-md rounded-2xl border border-white/5 shadow-card p-6 text-center text-sm text-text-muted">Aún no tienes operaciones registradas</div>
+        ) : (
+          positions.map((p) => {
+            const { quantity, averageBuyPrice, currentPrice, profit, percentChange, isPositive, lastTrade, trend, TrendIcon } = getPositionMetrics(p);
+
+            return (
+              <div key={p.symbol} className="bg-surface-card/60 backdrop-blur-md rounded-2xl border border-white/5 shadow-card p-4">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div className="flex items-center gap-2 font-bold text-text-primary min-w-0">
+                    <div className="w-8 h-8 shrink-0 rounded-full bg-surface-elevated flex items-center justify-center text-sm text-brand-green-light">
+                      {p.symbol.charAt(0)}
+                    </div>
+                    <span className="truncate">{p.symbol}</span>
+                  </div>
+                  {trend && TrendIcon ? (
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold shrink-0 ${TREND_BADGE_STYLES[trend]}`}>
+                      <TrendIcon size={12} />
+                      {trend}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-text-muted">—</span>
+                  )}
+                </div>
+
+                <div className="flex items-end justify-between gap-3 pb-3 mb-3 border-b border-white/5">
+                  <div className="min-w-0">
+                    <p className="text-xs text-text-muted">Precio actual</p>
+                    <p className="text-xl font-bold text-text-primary truncate">
+                      {livePrices[p.symbol] ? formatCurrency(currentPrice) : '...'}
+                    </p>
+                  </div>
+                  <span className={`inline-flex items-center gap-1 font-bold shrink-0 ${isPositive ? 'text-brand-green-light' : 'text-red-400'}`}>
+                    {isPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                    {formatPercent(percentChange)}
+                  </span>
+                </div>
+
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                  <div className="min-w-0">
+                    <dt className="text-xs text-text-muted">Cantidad</dt>
+                    <dd className="text-text-primary truncate">{quantity}</dd>
+                  </div>
+                  <div className="min-w-0">
+                    <dt className="text-xs text-text-muted">Break-even</dt>
+                    <dd className="text-text-primary truncate">{formatCurrency(averageBuyPrice)}</dd>
+                  </div>
+                  <div className="min-w-0">
+                    <dt className="text-xs text-text-muted">Ganancia (USD)</dt>
+                    <dd className={`font-bold truncate ${isPositive ? 'text-brand-green-light' : 'text-red-400'}`}>{formatCurrency(profit)}</dd>
+                  </div>
+                  <div className="min-w-0">
+                    <dt className="text-xs text-text-muted">Última operación</dt>
+                    <dd className="text-text-secondary truncate">{lastTrade ? formatShortDate(lastTrade.executedAt) : '—'}</dd>
+                  </div>
+                </dl>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* ── Posiciones: tabla (md+) ── */}
+      <div className="hidden md:block bg-surface-card/60 backdrop-blur-md rounded-2xl border border-white/5 shadow-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse whitespace-nowrap text-sm">
             <thead>
@@ -338,17 +421,7 @@ export default function Crypto() {
                 <tr><td colSpan={8} className="p-6 text-center text-text-muted">Aún no tienes operaciones registradas</td></tr>
               ) : (
                 positions.map((p) => {
-                  const quantity = Number(p.quantity);
-                  const averageBuyPrice = Number(p.averageBuyPrice);
-                  const invested = Number(p.allocatedCapital);
-                  const currentPrice = livePrices[p.symbol] ?? averageBuyPrice;
-                  const currentValue = quantity * currentPrice;
-                  const profit = currentValue - invested;
-                  const percentChange = averageBuyPrice > 0 ? (currentPrice - averageBuyPrice) / averageBuyPrice : 0;
-                  const isPositive = profit >= 0;
-                  const lastTrade = p.trades[0];
-                  const trend = trends[p.symbol];
-                  const TrendIcon = trend ? TREND_ICONS[trend] : null;
+                  const { quantity, averageBuyPrice, currentPrice, profit, percentChange, isPositive, lastTrade, trend, TrendIcon } = getPositionMetrics(p);
 
                   return (
                     <tr key={p.symbol} className="hover:bg-surface-elevated/30 transition-colors">
@@ -395,13 +468,13 @@ export default function Crypto() {
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-surface-card/80 backdrop-blur-md rounded-2xl border border-white/5 shadow-card w-full max-w-md p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-text-primary flex items-center gap-2">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-4">
+          <div className="bg-surface-card/80 backdrop-blur-md rounded-2xl border border-white/5 shadow-card w-full max-w-md max-h-[90dvh] overflow-y-auto overscroll-contain p-5 sm:p-6">
+            <div className="flex justify-between items-center gap-3 mb-5 sm:mb-6">
+              <h2 className="text-xl sm:text-2xl font-bold text-text-primary flex items-center gap-2">
                 <Bitcoin className="text-brand-green" /> Registrar operación
               </h2>
-              <button onClick={() => { setIsModalOpen(false); setLastEditedField(null); }} className="text-text-secondary hover:text-text-primary transition-colors">
+              <button onClick={() => { setIsModalOpen(false); setLastEditedField(null); }} className="p-1 -mr-1 rounded-lg text-text-secondary hover:text-text-primary transition-colors" aria-label="Cerrar">
                 <X size={24} />
               </button>
             </div>
@@ -412,7 +485,7 @@ export default function Crypto() {
                 <button type="button" onClick={() => { setNewOp({ ...newOp, type: 'SELL', symbol: '' }); setLastEditedField(null); }} className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${newOp.type === 'SELL' ? 'bg-red-500 text-white shadow' : 'text-text-secondary hover:text-text-primary'}`}>Venta</button>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="relative">
                   <label className="block text-text-secondary text-sm font-medium mb-1">Moneda (Ticker)</label>
                   {newOp.type === 'SELL' ? (
@@ -420,7 +493,7 @@ export default function Crypto() {
                       required
                       value={newOp.symbol}
                       onChange={(e) => setNewOp({ ...newOp, symbol: e.target.value })}
-                      className="w-full bg-surface-base border border-surface-border text-text-primary rounded-lg px-4 py-2.5 focus:outline-none focus:border-red-500 appearance-none"
+                      className="w-full bg-surface-base border border-surface-border text-text-primary rounded-lg px-4 py-2.5 text-base sm:text-sm focus:outline-none focus:border-red-500 appearance-none"
                     >
                       <option value="" disabled>Selecciona...</option>
                       {ownedCoins.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -435,7 +508,7 @@ export default function Crypto() {
                         onFocus={() => setShowSuggestions(true)}
                         onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                         onChange={(e) => setNewOp({ ...newOp, symbol: e.target.value.toUpperCase() })}
-                        className="w-full bg-surface-base border border-surface-border text-text-primary rounded-lg px-4 py-2.5 focus:outline-none focus:border-brand-green uppercase"
+                        className="w-full bg-surface-base border border-surface-border text-text-primary rounded-lg px-4 py-2.5 text-base sm:text-sm focus:outline-none focus:border-brand-green uppercase"
                       />
                       {showSuggestions && newOp.symbol && (
                         <div className="absolute z-10 w-full mt-1 bg-surface-card border border-surface-border rounded-lg shadow-xl overflow-hidden max-h-40 overflow-y-auto">
@@ -456,23 +529,23 @@ export default function Crypto() {
 
                 <div>
                   <label className="block text-text-secondary text-sm font-medium mb-1">Fecha</label>
-                  <input type="date" required value={newOp.date} onChange={(e) => setNewOp({ ...newOp, date: e.target.value })} className="w-full bg-surface-base border border-surface-border text-text-primary rounded-lg px-4 py-2.5 focus:outline-none focus:border-brand-green [&::-webkit-calendar-picker-indicator]:invert" />
+                  <input type="date" required value={newOp.date} onChange={(e) => setNewOp({ ...newOp, date: e.target.value })} className="w-full bg-surface-base border border-surface-border text-text-primary rounded-lg px-4 py-2.5 text-base sm:text-sm focus:outline-none focus:border-brand-green [&::-webkit-calendar-picker-indicator]:invert" />
                 </div>
               </div>
 
               <div>
                 <label className="block text-text-secondary text-sm font-medium mb-1">Precio de la Moneda (USD)</label>
-                <input type="number" step="0.00000001" placeholder="0.00" required value={newOp.price} onChange={(e) => handlePriceChange(e.target.value)} className="w-full bg-surface-base border border-surface-border text-text-primary rounded-lg px-4 py-2.5 focus:outline-none focus:border-brand-green" />
+                <input type="number" step="0.00000001" placeholder="0.00" required value={newOp.price} onChange={(e) => handlePriceChange(e.target.value)} className="w-full bg-surface-base border border-surface-border text-text-primary rounded-lg px-4 py-2.5 text-base sm:text-sm focus:outline-none focus:border-brand-green" />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-text-secondary text-sm font-medium mb-1">Total a {newOp.type === 'BUY' ? 'Invertir' : 'Vender'} (USD)</label>
-                  <input type="number" step="0.01" placeholder="0.00" required value={newOp.totalUsd} onChange={(e) => handleTotalChange(e.target.value)} className="w-full bg-surface-base border border-surface-border text-text-primary rounded-lg px-4 py-2.5 focus:outline-none focus:border-brand-green" />
+                  <input type="number" step="0.01" placeholder="0.00" required value={newOp.totalUsd} onChange={(e) => handleTotalChange(e.target.value)} className="w-full bg-surface-base border border-surface-border text-text-primary rounded-lg px-4 py-2.5 text-base sm:text-sm focus:outline-none focus:border-brand-green" />
                 </div>
                 <div>
                   <label className="block text-text-secondary text-sm font-medium mb-1">Cantidad de Cripto</label>
-                  <input type="number" step="0.00000001" placeholder="0.00000000" required value={newOp.quantity} onChange={(e) => handleQuantityChange(e.target.value)} className="w-full bg-surface-base border border-surface-border text-text-primary rounded-lg px-4 py-2.5 focus:outline-none focus:border-brand-green" />
+                  <input type="number" step="0.00000001" placeholder="0.00000000" required value={newOp.quantity} onChange={(e) => handleQuantityChange(e.target.value)} className="w-full bg-surface-base border border-surface-border text-text-primary rounded-lg px-4 py-2.5 text-base sm:text-sm focus:outline-none focus:border-brand-green" />
                 </div>
               </div>
 
@@ -485,7 +558,7 @@ export default function Crypto() {
                 <p className="text-xs text-red-400">Los números no cuadran: precio × cantidad debe ser igual al total en USD.</p>
               )}
 
-              <div className="flex gap-4 mt-8 pt-4 border-t border-surface-border">
+              <div className="flex flex-col-reverse sm:flex-row gap-3 sm:gap-4 mt-6 sm:mt-8 pt-4 border-t border-surface-border">
                 <button type="button" onClick={() => { setIsModalOpen(false); setLastEditedField(null); }} className="flex-1 bg-surface-elevated hover:bg-surface-elevated text-text-primary py-2.5 rounded-xl transition-all font-medium">Cancelar</button>
                 <button type="submit" disabled={isSubmitting || !canSubmit} className={`flex-1 text-white py-2.5 rounded-xl transition-all font-bold shadow-lg disabled:opacity-40 disabled:cursor-not-allowed ${newOp.type === 'BUY' ? 'bg-brand-green hover:bg-brand-green-light shadow-brand-green/20' : 'bg-red-500 hover:bg-red-600 shadow-red-500/20'}`}>
                   {isSubmitting ? 'Guardando...' : 'Confirmar'}

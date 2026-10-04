@@ -10,6 +10,7 @@ import Privacy from './pages/public/Privacy';
 import Terms from './pages/public/Terms';
 import Contact from './pages/public/Contact';
 import ProtectedRoute from './components/ProtectedRoute';
+import InstallPwaBanner from './components/InstallPwaBanner';
 import Dashboard from './pages/user/Dashboard';
 import Profile from './pages/user/Profile';
 import AccountMonitor from './pages/user/AccountMonitor';
@@ -56,6 +57,7 @@ function App() {
   return (
     <BrowserRouter>
       <Toaster richColors theme="dark" position="top-right" />
+      <InstallPwaBanner />
       <Routes>
         {/* Rutas Públicas */}
         <Route path="/" element={<Landing />} />

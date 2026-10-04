@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Landmark, ArrowRight, Sparkles, Wallet, Trophy, Store, ChevronRight, Activity, Star, Users, LineChart, PieChart, BookOpen, Menu, X } from 'lucide-react';
+import { Landmark, ArrowRight, Sparkles, Wallet, ChevronRight, Activity, Star, Users, LineChart, PieChart, BookOpen, Menu, X } from 'lucide-react';
 
 const LEVELS = [
   {

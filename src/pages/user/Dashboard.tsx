@@ -6,9 +6,10 @@ import {
   Landmark, CreditCard, RefreshCw, Bitcoin,
   BarChart2, Percent, LayoutDashboard,
   AlertCircle, TrendingUp, TrendingDown,
-  CalendarClock,
+  CalendarClock, CheckCircle,
 } from 'lucide-react';
 import { EmptyState, PortfolioEmptyIllustration, LoansEmptyIllustration } from '../../components/EmptyState';
+import InstallAppButton from '../../components/InstallAppButton';
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -575,6 +576,7 @@ export default function Dashboard() {
       <div className="flex items-center gap-4 mb-6">
         <h2 className="text-xl font-bold text-white whitespace-nowrap">Mi Panel</h2>
         <div className="h-px flex-1 bg-surface-border" />
+        <InstallAppButton />
       </div>
 
       {activeWidgets.length === 0 ? (
