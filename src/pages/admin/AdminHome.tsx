@@ -188,7 +188,7 @@ export default function AdminHome() {
                 />
                 <Tooltip
                   contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8, color: '#f8fafc' }}
-                  formatter={(v: number) => [fmt(v), 'Cobros esperados']}
+                  formatter={(v) => [fmt(Number(v)), 'Cobros esperados']}
                   labelStyle={{ color: '#94a3b8', marginBottom: 4 }}
                   cursor={{ fill: 'rgba(100,116,139,0.1)' }}
                 />

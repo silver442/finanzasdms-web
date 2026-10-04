@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import {
   ArrowLeft, Plus, AlertTriangle, Check,
   ChevronRight, ChevronLeft, Send, CalendarCheck, X,
-  MessageCircle, ShieldAlert, CheckCircle2, HelpCircle,
+  MessageCircle, CheckCircle2, HelpCircle,
 } from 'lucide-react';
 
 type Frequency = 'Semanal' | 'Quincenal' | 'Mensual';
@@ -54,7 +54,6 @@ const CLABE_BANK_CODES: Record<string, string> = {
 const API = import.meta.env.VITE_API_URL;
 const DEFAULT_CREDIT_LIMIT = 1000;
 const DEFAULT_RATE = 50;
-const TERM_OPTIONS = [1, 2, 3, 6, 9, 12, 18, 24];
 const HOUSING_OPTIONS = ['Propia', 'Rentada', 'Familiar'];
 const WHATSAPP_URL = `https://wa.me/${import.meta.env.VITE_WHATSAPP_NUMBER}?text=Verificaci%C3%B3n+de+identidad+FinanzasDMS`;
 

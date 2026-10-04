@@ -164,8 +164,8 @@ export default function AdminUsers() {
                   {/* Familiar */}
                   <td className="px-5 py-4 text-center">
                     {user.familyCode
-                      ? <CheckCircle2 size={16} className="text-brand-green-light mx-auto" title="Familiar asignado" />
-                      : <XCircle size={16} className="text-text-muted mx-auto" title="Sin código de familia" />
+                      ? <span title="Familiar asignado" className="inline-flex"><CheckCircle2 size={16} className="text-brand-green-light" /></span>
+                      : <span title="Sin código de familia" className="inline-flex"><XCircle size={16} className="text-text-muted" /></span>
                     }
                   </td>
 
