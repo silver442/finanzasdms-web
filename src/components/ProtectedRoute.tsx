@@ -3,6 +3,7 @@ import { Navigate, Outlet } from 'react-router-dom';
 import axios from 'axios';
 import { PhoneCall, AlertTriangle, Menu, LogOut } from 'lucide-react';
 import Sidebar from './Sidebar';
+import BottomNav from './BottomNav';
 
 const API = import.meta.env.VITE_API_URL;
 const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER;
@@ -120,10 +121,13 @@ export default function ProtectedRoute() {
           <span className="text-lg font-extrabold text-brand-green tracking-tight">FinanzasDMS</span>
         </header>
 
-        <main className="flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)]">
+        {/* pb extra en móvil para que el BottomNav (h-16) no tape el final del contenido */}
+        <main className="flex-1 overflow-y-auto overscroll-contain pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-[env(safe-area-inset-bottom)]">
           <Outlet />
         </main>
       </div>
+
+      <BottomNav />
 
     </div>
   );
