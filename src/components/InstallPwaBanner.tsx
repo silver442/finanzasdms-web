@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Download, X } from 'lucide-react';
 import { usePwaInstall } from '../hooks/usePwaInstall';
 
@@ -20,6 +21,7 @@ function rememberDismiss() {
 export default function InstallPwaBanner() {
   const { canInstall, promptInstall } = usePwaInstall();
   const [dismissed, setDismissed] = useState(wasRecentlyDismissed);
+  useLocation(); // re-render al navegar (login/logout cambian la posición)
 
   const handleInstall = async () => {
     const outcome = await promptInstall();
@@ -33,11 +35,14 @@ export default function InstallPwaBanner() {
 
   if (!canInstall || dismissed) return null;
 
+  // Con sesión, en móvil se muestra el BottomNav (h-16): el banner se coloca encima.
+  const hasSession = !!localStorage.getItem('token');
+
   return (
     <div
       role="dialog"
       aria-label="Instalar FinanzasDMS"
-      className="fixed inset-x-4 bottom-4 mb-[env(safe-area-inset-bottom)] z-40 sm:left-auto sm:right-6 sm:bottom-6 sm:w-96"
+      className={`fixed inset-x-4 ${hasSession ? 'bottom-20 md:bottom-6' : 'bottom-4 sm:bottom-6'} mb-[env(safe-area-inset-bottom)] z-40 sm:left-auto sm:right-6 sm:w-96`}
     >
       <div className="flex items-center gap-3 bg-surface-card/90 backdrop-blur-md border border-white/5 rounded-2xl shadow-card p-4">
         <div className="shrink-0 bg-brand-green/10 border border-brand-green/20 rounded-xl p-2.5">
