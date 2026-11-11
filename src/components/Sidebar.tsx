@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { isAdminRole } from '../utils/roles';
 import {
   Activity, LayoutDashboard, CreditCard, CalendarClock, Landmark, PieChart, Bitcoin,
   LogOut, ShieldCheck, ClipboardList, Briefcase, DatabaseZap, ClipboardCheck,
@@ -240,7 +241,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   }, []);
 
   useEffect(() => {
-    if (role !== 'ADMIN') return;
+    if (!isAdminRole(role)) return;
     const fetchCount = async () => {
       try {
         const { data } = await axios.get<{ count: number }>(
@@ -319,8 +320,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           Tienda de Módulos
         </NavLink>
 
-        {/* Administración — solo ADMIN */}
-        {role === 'ADMIN' && (
+        {/* Administración — solo ADMIN / SUPER_ADMIN */}
+        {isAdminRole(role) && (
           <div className="pt-2">
             <button
               onClick={() => toggleSection('admin')}
@@ -358,7 +359,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       </nav>
 
       {/* ── Progreso de nivel ── */}
-      {role !== 'ADMIN' && (
+      {!isAdminRole(role) && (
         <LevelProgress points={points} level={level} />
       )}
 

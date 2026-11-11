@@ -5,7 +5,7 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import {
   ArrowLeft, CreditCard, CheckCircle2, Circle, AlertCircle, Copy,
-  Clock, Ban, Banknote, X, Paperclip, MessageCircle, AlertTriangle,
+  Clock, Ban, Banknote, X, Paperclip, MessageCircle, AlertTriangle, ImageIcon,
 } from 'lucide-react';
 
 interface AdminBank { id: string; bankName: string; clabe: string; accountHolder: string; }
@@ -29,7 +29,8 @@ interface Loan {
   amount: string | number; interestRate: string | number;
   termQuantity: number; termUnit: string;
   startDate: string; updatedAt: string;
-  status: 'REQUESTED' | 'ACTIVE' | 'PAID' | 'DEFAULTED' | 'REJECTED' | 'CANCELADO' | 'ESPERANDO_CONFIRMACION' | 'PENDIENTE_TRANSFERIR';
+  status: 'REQUESTED' | 'ACTIVE' | 'PAID' | 'DEFAULTED' | 'REJECTED' | 'CANCELADO' | 'ESPERANDO_CONFIRMACION' | 'PENDIENTE_TRANSFERIR' | 'CANCELADO_POR_ADMIN';
+  imageUrl?: string | null;
   installments: Installment[];
 }
 
@@ -188,6 +189,7 @@ export default function LoanDetail() {
   const isEsperando = loan.status === 'ESPERANDO_CONFIRMACION';
   const isPending   = loan.status === 'PENDIENTE_TRANSFERIR';
   const isRejected  = loan.status === 'REJECTED';
+  const isCancelledByAdmin = loan.status === 'CANCELADO_POR_ADMIN';
 
   return (
     <div className="p-6 md:p-8 text-white font-sans max-w-5xl mx-auto">
@@ -209,6 +211,24 @@ export default function LoanDetail() {
               Capital: {fmt(loan.amount)} · {loan.termQuantity} {loan.termUnit === 'SEMANAS' ? 'semanas' : 'meses'} · Tasa: {Number(loan.interestRate)}% anual
             </p>
             <p className="text-xs text-text-muted mt-0.5">Inicio: {fmtDate(loan.startDate)}</p>
+            {loan.imageUrl && (
+              <a
+                href={loan.imageUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-flex items-center gap-3 bg-surface-elevated/70 backdrop-blur-lg border border-white/5 hover:border-brand-green/30 rounded-xl p-2 pr-4 transition-all group"
+              >
+                <img
+                  src={loan.imageUrl}
+                  alt="Comprobante del préstamo"
+                  className="w-12 h-12 rounded-lg object-cover"
+                  loading="lazy"
+                />
+                <span className="flex items-center gap-1.5 text-sm font-semibold text-text-secondary group-hover:text-brand-green-light transition-colors">
+                  <ImageIcon size={15} /> Ver comprobante
+                </span>
+              </a>
+            )}
           </div>
           {totalDue > 0 && (
             <div className="text-right shrink-0">
@@ -305,6 +325,16 @@ export default function LoanDetail() {
           </div>
           <p className="text-red-400 font-semibold">Solicitud rechazada</p>
           <p className="text-text-muted text-xs max-w-xs">Esta solicitud no fue aprobada. Puedes solicitar un nuevo préstamo cuando lo desees.</p>
+        </div>
+      )}
+
+      {isCancelledByAdmin && (
+        <div className="bg-surface-card border border-red-500/30 rounded-2xl p-6 mb-6 flex flex-col items-center gap-3 text-center">
+          <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center">
+            <Ban size={28} className="text-red-400" />
+          </div>
+          <p className="text-red-400 font-semibold">Préstamo cancelado por el administrador</p>
+          <p className="text-text-muted text-xs max-w-xs">Las condiciones aprobadas fueron revocadas. Si tienes dudas, contacta al administrador o solicita un nuevo préstamo.</p>
         </div>
       )}
 
