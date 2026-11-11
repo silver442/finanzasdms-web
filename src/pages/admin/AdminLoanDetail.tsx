@@ -4,9 +4,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
 import {
-  ArrowLeft, Briefcase, User, Phone, Trash2,
+  ArrowLeft, User, Phone, Trash2, Zap, Pencil,
   CheckCircle2, Circle, AlertCircle, RotateCcw, AlertTriangle, X,
 } from 'lucide-react';
+import LoanHeaderMedia from '../../components/LoanHeaderMedia';
+import SuperEditLoanModal from '../../components/SuperEditLoanModal';
+import SuperEditInstallmentModal from '../../components/SuperEditInstallmentModal';
+import { uploadLoanImage } from '../../utils/loanImage';
 
 interface PaymentRecord {
   id: string; amount: string | number;
@@ -17,7 +21,7 @@ interface PaymentRecord {
 interface Installment {
   id: string; number: number; dueDate: string;
   amountDue: string | number; amountPaid: string | number;
-  status: 'PENDING' | 'PARTIAL' | 'PAID';
+  status: 'PENDING' | 'PARTIAL' | 'PAID' | 'OVERDUE';
   lateFeeAmount?: string | number;
   paymentRequests?: PaymentRecord[];
 }
@@ -31,6 +35,9 @@ interface ActiveLoan {
   amount: string | number; interestRate: string | number;
   termQuantity: number; termUnit: string;
   startDate: string; status: string;
+  paymentFrequency?: string;
+  disbursementAccount?: string;
+  imageUrl?: string | null;
   user: LoanUser;
   installments: Installment[];
 }
@@ -50,9 +57,21 @@ function daysLate(dueDate: string, status: Installment['status']): number {
   return diff > 0 ? Math.floor(diff / (1000 * 60 * 60 * 24)) : 0;
 }
 
+function getStoredRole(): string | null {
+  try {
+    const raw = localStorage.getItem('user');
+    const p = raw ? (JSON.parse(raw) as Record<string, unknown>) : null;
+    return typeof p?.role === 'string' ? p.role : null;
+  } catch { return null; }
+}
+
 export default function AdminLoanDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const isSuperAdmin = getStoredRole() === 'SUPER_ADMIN';
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [superEditOpen, setSuperEditOpen] = useState(false);
+  const [editInstallment, setEditInstallment] = useState<Installment | null>(null);
 
   const [loan, setLoan] = useState<ActiveLoan | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -123,6 +142,20 @@ export default function AdminLoanDetail() {
     }
   };
 
+  const handleImageUpload = async (file: File) => {
+    if (!loan) return;
+    setIsUploadingImage(true);
+    try {
+      await uploadLoanImage(loan.id, file);
+      toast.success('Imagen actualizada');
+      void fetchLoan();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? 'Error al subir la imagen');
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
   if (isLoading) return <div className="flex justify-center py-20 text-text-secondary">Cargando...</div>;
   if (!loan) return null;
 
@@ -146,24 +179,42 @@ export default function AdminLoanDetail() {
 
       {/* Encabezado */}
       <div className="bg-surface-card border border-surface-border rounded-2xl p-6 mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-5">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <Briefcase size={18} className="text-sky-400" />
-              <h1 className="text-2xl font-extrabold text-white">{loan.concept}</h1>
-              <span className="bg-sky-500/20 text-sky-400 text-xs px-2 py-0.5 rounded border border-sky-500/30 font-semibold">Activo</span>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-5">
+          <div className="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left min-w-0">
+            <LoanHeaderMedia
+              imageUrl={loan.imageUrl}
+              concept={loan.concept}
+              canEdit
+              isUploading={isUploadingImage}
+              onUpload={file => void handleImageUpload(file)}
+            />
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-1">
+                <h1 className="text-2xl font-extrabold text-white">{loan.concept}</h1>
+                <span className="bg-sky-500/20 text-sky-400 text-xs px-2 py-0.5 rounded border border-sky-500/30 font-semibold">Activo</span>
+              </div>
+              <p className="text-text-secondary text-sm">
+                Capital: {fmt(loan.amount)} · {loan.termQuantity} {loan.termUnit === 'SEMANAS' ? 'semanas' : 'meses'} · Tasa: {Number(loan.interestRate).toFixed(0)}% anual
+              </p>
+              <p className="text-xs text-text-muted mt-0.5">Inicio: {fmtDate(loan.startDate)}</p>
             </div>
-            <p className="text-text-secondary text-sm">
-              Capital: {fmt(loan.amount)} · {loan.termQuantity} {loan.termUnit === 'SEMANAS' ? 'semanas' : 'meses'} · Tasa: {Number(loan.interestRate).toFixed(0)}% anual
-            </p>
-            <p className="text-xs text-text-muted mt-0.5">Inicio: {fmtDate(loan.startDate)}</p>
           </div>
-          <button
-            onClick={() => setDeleteOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-colors text-sm font-semibold shrink-0"
-          >
-            <Trash2 size={15} /> Eliminar Préstamo
-          </button>
+          <div className="flex flex-wrap justify-center gap-2 shrink-0">
+            {isSuperAdmin && (
+              <button
+                onClick={() => setSuperEditOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 transition-colors text-sm font-semibold"
+              >
+                <Zap size={15} /> Modo Dios: Editar
+              </button>
+            )}
+            <button
+              onClick={() => setDeleteOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-colors text-sm font-semibold"
+            >
+              <Trash2 size={15} /> Eliminar Préstamo
+            </button>
+          </div>
         </div>
 
         {/* Cliente */}
@@ -258,6 +309,8 @@ export default function AdminLoanDetail() {
                         ? <span className="inline-flex items-center gap-1 bg-brand-green/15 text-brand-green-light text-xs px-2 py-0.5 rounded-full border border-brand-green/20 font-semibold"><CheckCircle2 size={10} /> Pagada</span>
                         : isPartial
                           ? <span className="inline-flex items-center gap-1 bg-brand-violet/15 text-brand-violet text-xs px-2 py-0.5 rounded-full border border-brand-violet/20 font-semibold"><AlertCircle size={10} /> Parcial</span>
+                          : inst.status === 'OVERDUE'
+                          ? <span className="inline-flex items-center gap-1 bg-red-500/15 text-red-400 text-xs px-2 py-0.5 rounded-full border border-red-500/20 font-semibold"><AlertTriangle size={10} /> Vencida</span>
                           : <span className="inline-flex items-center gap-1 bg-surface-elevated/50 text-text-secondary text-xs px-2 py-0.5 rounded-full border border-surface-border/40 font-semibold"><Circle size={10} /> Pendiente</span>}
                     </td>
                     <td className="px-4 py-3 text-center">
@@ -277,6 +330,17 @@ export default function AdminLoanDetail() {
                             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-40 bg-brand-green/10 hover:bg-brand-green/20 text-brand-green-light border border-brand-green/20"
                           >
                             <CheckCircle2 size={11} /> Pagar
+                          </button>
+                        )}
+                        {isSuperAdmin && (
+                          <button
+                            onClick={() => setEditInstallment(inst)}
+                            disabled={!!toggling}
+                            title="Editar cuota (SUPER_ADMIN)"
+                            aria-label={`Editar cuota ${inst.number}`}
+                            className="inline-flex items-center px-2 py-1.5 rounded-lg text-xs transition-all disabled:opacity-40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20"
+                          >
+                            <Pencil size={11} />
                           </button>
                         )}
                       </div>
@@ -369,6 +433,24 @@ export default function AdminLoanDetail() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal: Modo Dios (SUPER_ADMIN) */}
+      {superEditOpen && isSuperAdmin && (
+        <SuperEditLoanModal
+          loan={loan}
+          onClose={() => setSuperEditOpen(false)}
+          onSaved={() => { setSuperEditOpen(false); void fetchLoan(); }}
+        />
+      )}
+
+      {/* Modal: Cobranza fina (SUPER_ADMIN) */}
+      {editInstallment && isSuperAdmin && (
+        <SuperEditInstallmentModal
+          installment={editInstallment}
+          onClose={() => setEditInstallment(null)}
+          onSaved={() => { setEditInstallment(null); void fetchLoan(); }}
+        />
       )}
 
       {/* Modal: Confirmar Eliminación */}

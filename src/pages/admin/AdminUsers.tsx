@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import {
-  Users, X, Tag, CheckCircle2, XCircle,
+  Users, X, Tag, CheckCircle2, XCircle, Lock, Unlock, ShieldCheck, ShieldOff,
 } from 'lucide-react';
 
 interface AppUser {
@@ -40,7 +40,38 @@ function levelColor(level: string) {
   return 'bg-surface-elevated/50 text-text-primary border-surface-border';
 }
 
+function getStoredUser(): { id: string | null; role: string | null } {
+  try {
+    const raw = localStorage.getItem('user');
+    const p = raw ? (JSON.parse(raw) as Record<string, unknown>) : null;
+    return {
+      id: typeof p?.id === 'string' ? p.id : null,
+      role: typeof p?.role === 'string' ? p.role : null,
+    };
+  } catch { return { id: null, role: null }; }
+}
+
+type RoleFilter = 'ALL' | 'USER' | 'ADMIN';
+
+const ROLE_FILTERS: { value: RoleFilter; label: string }[] = [
+  { value: 'ALL', label: 'Todos' },
+  { value: 'USER', label: 'Usuarios' },
+  { value: 'ADMIN', label: 'Administradores' },
+];
+
+function roleBadge(role: string) {
+  if (role === 'SUPER_ADMIN') return { label: 'Super Admin', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/30' };
+  if (role === 'ADMIN')       return { label: 'Admin',       cls: 'bg-sky-500/10 text-sky-400 border-sky-500/30' };
+  return null;
+}
+
 export default function AdminUsers() {
+  const { id: currentUserId, role: currentRole } = getStoredUser();
+  const isSuperAdmin = currentRole === 'SUPER_ADMIN';
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>('ALL');
+  const [roleTarget, setRoleTarget] = useState<AppUser | null>(null);
+  const [isChangingRole, setIsChangingRole] = useState(false);
+  const [togglingBlock, setTogglingBlock] = useState<string | null>(null);
   const [users, setUsers] = useState<AppUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -53,13 +84,14 @@ export default function AdminUsers() {
   const fetchData = useCallback(async () => {
     try {
       const res = await axios.get<AppUser[]>(`${API}/users`, { headers: authHeaders() });
-      setUsers(res.data.filter(u => u.role === 'USER'));
+      // SUPER_ADMIN ve también a los administradores; un ADMIN solo gestiona usuarios.
+      setUsers(isSuperAdmin ? res.data : res.data.filter(u => u.role === 'USER'));
     } catch {
       toast.error('No se pudo cargar la información');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isSuperAdmin]);
 
   useEffect(() => { void fetchData(); }, [fetchData]);
 
@@ -94,7 +126,50 @@ export default function AdminUsers() {
     }
   };
 
+  const handleToggleBlock = async (user: AppUser) => {
+    setTogglingBlock(user.id);
+    try {
+      const { data } = await axios.patch<{ isBlocked: boolean }>(
+        `${API}/users/${user.id}/toggle-block`,
+        {},
+        { headers: authHeaders() },
+      );
+      setUsers(prev => prev.map(u => (u.id === user.id ? { ...u, isBlocked: data.isBlocked } : u)));
+      toast.success(`${user.name ?? user.email} ${data.isBlocked ? 'bloqueado' : 'desbloqueado'}`);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? 'Error al cambiar el estado de la cuenta');
+    } finally {
+      setTogglingBlock(null);
+    }
+  };
+
+  const handleChangeRole = async () => {
+    if (!roleTarget) return;
+    const newRole = roleTarget.role === 'ADMIN' ? 'USER' : 'ADMIN';
+    setIsChangingRole(true);
+    try {
+      const { data } = await axios.patch<{ role: string }>(
+        `${API}/users/${roleTarget.id}/role`,
+        { role: newRole },
+        { headers: authHeaders() },
+      );
+      setUsers(prev => prev.map(u => (u.id === roleTarget.id ? { ...u, role: data.role } : u)));
+      toast.success(
+        data.role === 'ADMIN'
+          ? `${roleTarget.name ?? roleTarget.email} ahora es administrador`
+          : `${roleTarget.name ?? roleTarget.email} ya no es administrador`,
+      );
+      setRoleTarget(null);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? 'Error al cambiar el rol');
+    } finally {
+      setIsChangingRole(false);
+    }
+  };
+
   const filtered = users.filter(u => {
+    if (roleFilter === 'USER' && u.role !== 'USER') return false;
+    if (roleFilter === 'ADMIN' && u.role === 'USER') return false;
     const q = search.toLowerCase();
     return (
       u.email.toLowerCase().includes(q) ||
@@ -115,8 +190,8 @@ export default function AdminUsers() {
         <p className="text-text-secondary mt-2">Asigna códigos de referido a usuarios de confianza</p>
       </div>
 
-      {/* Search */}
-      <div className="mb-6">
+      {/* Search + filtro de rol (solo SUPER_ADMIN) */}
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-3">
         <input
           type="text"
           placeholder="Buscar por nombre o correo..."
@@ -124,6 +199,21 @@ export default function AdminUsers() {
           onChange={e => setSearch(e.target.value)}
           className={inputCls + ' max-w-sm'}
         />
+        {isSuperAdmin && (
+          <div className="inline-flex bg-surface-card border border-surface-border rounded-xl p-1 self-start">
+            {ROLE_FILTERS.map(f => (
+              <button
+                key={f.value}
+                onClick={() => setRoleFilter(f.value)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${roleFilter === f.value
+                  ? 'bg-brand-green/10 text-brand-green-light border border-brand-green/20'
+                  : 'text-text-secondary hover:text-white border border-transparent'}`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {isLoading ? (
@@ -142,15 +232,27 @@ export default function AdminUsers() {
                 <th className="text-left px-5 py-3 text-text-secondary font-semibold">Nivel</th>
                 <th className="text-center px-5 py-3 text-text-secondary font-semibold">Familiar</th>
                 <th className="text-left px-5 py-3 text-text-secondary font-semibold">Código Referido</th>
+                <th className="text-center px-5 py-3 text-text-secondary font-semibold">Estado</th>
                 <th className="text-center px-5 py-3 text-text-secondary font-semibold">Acción</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700/50">
-              {filtered.map(user => (
+              {filtered.map(user => {
+                const badge = roleBadge(user.role);
+                const isSelf = user.id === currentUserId;
+                return (
                 <tr key={user.id} className="hover:bg-surface-elevated/20 transition-colors">
                   {/* Usuario */}
                   <td className="px-5 py-4">
-                    <p className="font-semibold text-white">{user.name ?? '—'}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold text-white">{user.name ?? '—'}</p>
+                      {badge && (
+                        <span className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border font-bold ${badge.cls}`}>
+                          {badge.label}
+                        </span>
+                      )}
+                      {isSelf && <span className="text-[10px] text-text-muted font-semibold">(tú)</span>}
+                    </div>
                     <p className="text-text-secondary text-xs">{user.email}</p>
                   </td>
 
@@ -182,19 +284,87 @@ export default function AdminUsers() {
                     }
                   </td>
 
+                  {/* Estado */}
+                  <td className="px-5 py-4 text-center">
+                    {user.isBlocked
+                      ? <span className="bg-red-500/20 text-red-400 text-xs font-bold px-2 py-1 rounded-full">BLOQUEADO</span>
+                      : <span className="bg-brand-green/20 text-brand-green-light text-xs font-bold px-2 py-1 rounded-full">ACTIVO</span>}
+                  </td>
+
                   {/* Acción */}
                   <td className="px-5 py-4 text-center">
-                    <button
-                      onClick={() => openEdit(user)}
-                      className="bg-brand-violet/10 hover:bg-brand-violet text-brand-violet hover:text-white border border-brand-violet/30 hover:border-brand-violet px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
-                    >
-                      {user.referralCode ? 'Cambiar' : 'Asignar'}
-                    </button>
+                    <div className="inline-flex items-center gap-2">
+                      <button
+                        onClick={() => openEdit(user)}
+                        className="bg-brand-violet/10 hover:bg-brand-violet text-brand-violet hover:text-white border border-brand-violet/30 hover:border-brand-violet px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                      >
+                        {user.referralCode ? 'Cambiar' : 'Asignar'}
+                      </button>
+                      {isSuperAdmin && !isSelf && user.role !== 'SUPER_ADMIN' && (
+                        <button
+                          onClick={() => setRoleTarget(user)}
+                          className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${user.role === 'ADMIN'
+                            ? 'bg-surface-elevated/50 hover:bg-surface-elevated text-text-secondary hover:text-white border-surface-border'
+                            : 'bg-sky-500/10 hover:bg-sky-500 text-sky-400 hover:text-white border-sky-500/30'}`}
+                        >
+                          {user.role === 'ADMIN' ? <><ShieldOff size={12} /> Quitar admin</> : <><ShieldCheck size={12} /> Hacer admin</>}
+                        </button>
+                      )}
+                      {isSuperAdmin && !isSelf && (
+                        <button
+                          onClick={() => void handleToggleBlock(user)}
+                          disabled={togglingBlock === user.id}
+                          className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all disabled:opacity-50 ${user.isBlocked
+                            ? 'bg-brand-green/10 hover:bg-brand-green text-brand-green-light hover:text-white border-brand-green/30'
+                            : 'bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border-red-500/30'}`}
+                        >
+                          {user.isBlocked ? <><Unlock size={12} /> Desbloquear</> : <><Lock size={12} /> Bloquear</>}
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Modal confirmar cambio de rol (SUPER_ADMIN) */}
+      {roleTarget && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-surface-card/80 backdrop-blur-md border border-white/5 rounded-2xl shadow-card w-full max-w-sm p-6 text-center">
+            {roleTarget.role === 'ADMIN'
+              ? <ShieldOff size={36} className="text-text-secondary mx-auto mb-3" />
+              : <ShieldCheck size={36} className="text-sky-400 mx-auto mb-3" />}
+            <h3 className="text-lg font-bold text-white mb-2">
+              {roleTarget.role === 'ADMIN' ? '¿Quitar rol de administrador?' : '¿Hacer administrador?'}
+            </h3>
+            <p className="text-white font-semibold">{roleTarget.name ?? '—'}</p>
+            <p className="text-text-secondary text-xs mb-4">{roleTarget.email}</p>
+            <p className="text-text-muted text-sm mb-6">
+              {roleTarget.role === 'ADMIN'
+                ? 'Perderá el acceso al panel de administración de inmediato y sus cuentas bancarias dejarán de mostrarse para recibir pagos SPEI.'
+                : 'Podrá aprobar préstamos, validar pagos SPEI y gestionar usuarios. El cambio aplica de inmediato.'}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setRoleTarget(null)}
+                disabled={isChangingRole}
+                className="flex-1 px-4 py-2 rounded-lg border border-surface-border text-text-primary hover:text-white transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => void handleChangeRole()}
+                disabled={isChangingRole}
+                className="flex-1 bg-brand-green hover:bg-brand-green-light text-white px-4 py-2 rounded-lg font-bold transition-colors disabled:opacity-50 shadow-lg shadow-brand-green/20"
+              >
+                {isChangingRole ? 'Guardando...' : 'Confirmar'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

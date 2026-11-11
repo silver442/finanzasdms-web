@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
-import { PhoneCall, AlertTriangle, Menu } from 'lucide-react';
+import axios from 'axios';
+import { PhoneCall, AlertTriangle, Menu, LogOut } from 'lucide-react';
 import Sidebar from './Sidebar';
 
+const API = import.meta.env.VITE_API_URL;
 const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER;
 
 function getStoredUser(): Record<string, unknown> | null {
@@ -15,6 +17,24 @@ function getStoredUser(): Record<string, unknown> | null {
 }
 
 function BlockedScreen() {
+  // Si un SUPER_ADMIN ya desbloqueó la cuenta, /users/me responde 200: se limpia el flag y se recarga.
+  useEffect(() => {
+    axios
+      .get(`${API}/users/me`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+      .then(() => {
+        const user = getStoredUser();
+        localStorage.setItem('user', JSON.stringify({ ...user, isBlocked: false }));
+        window.location.reload();
+      })
+      .catch(() => { /* sigue bloqueada o sin sesión válida */ });
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/login';
+  };
+
   const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
     'Hola, mi cuenta está bloqueada por morosidad y necesito regularizar mi situación.',
   )}`;
@@ -49,6 +69,13 @@ function BlockedScreen() {
         <p className="text-text-muted text-sm mt-5">
           Una vez regularizada tu situación, el administrador desbloqueará tu acceso.
         </p>
+
+        <button
+          onClick={handleLogout}
+          className="mt-4 inline-flex items-center gap-2 text-text-muted hover:text-text-secondary text-sm font-semibold transition-colors"
+        >
+          <LogOut className="w-4 h-4" /> Cerrar sesión
+        </button>
       </div>
     </div>
   );
