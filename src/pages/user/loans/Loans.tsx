@@ -27,7 +27,7 @@ interface Loan {
   termUnit: string;
   startDate: string;
   updatedAt: string;
-  status: 'REQUESTED' | 'ACTIVE' | 'PAID' | 'DEFAULTED' | 'REJECTED' | 'CANCELADO' | 'ESPERANDO_CONFIRMACION' | 'PENDIENTE_TRANSFERIR';
+  status: 'REQUESTED' | 'ACTIVE' | 'PAID' | 'DEFAULTED' | 'REJECTED' | 'CANCELADO' | 'ESPERANDO_CONFIRMACION' | 'PENDIENTE_TRANSFERIR' | 'CANCELADO_POR_ADMIN';
   installments: Installment[];
 }
 
@@ -68,6 +68,7 @@ const STATUS_CONFIG: Record<Loan['status'], { label: string; border: string; bad
   PENDIENTE_TRANSFERIR:   { label: 'Pendiente de transferencia', border: 'border-violet-500/30', badge: 'bg-violet-500/20 text-violet-300 border-violet-500/30' },
   REJECTED:               { label: 'Rechazado',                border: 'border-red-500/30',    badge: 'bg-red-500/20 text-red-400 border-red-500/30' },
   CANCELADO:              { label: 'Cancelado',                border: 'border-surface-border',     badge: 'bg-surface-elevated/50 text-text-secondary border-surface-border' },
+  CANCELADO_POR_ADMIN:    { label: 'Cancelado por Admin',      border: 'border-red-500/30',    badge: 'bg-red-500/20 text-red-400 border-red-500/30' },
   DEFAULTED:              { label: 'En mora',                  border: 'border-orange-500/30', badge: 'bg-orange-500/20 text-orange-400 border-orange-500/30' },
 };
 
@@ -79,6 +80,7 @@ const STATUS_ICON: Record<Loan['status'], React.ReactElement> = {
   PENDIENTE_TRANSFERIR:   <Banknote size={15} className="text-violet-400" />,
   REJECTED:               <XCircle size={15} className="text-red-400" />,
   CANCELADO:              <XCircle size={15} className="text-text-secondary" />,
+  CANCELADO_POR_ADMIN:    <XCircle size={15} className="text-red-400" />,
   DEFAULTED:              <AlertCircle size={15} className="text-orange-400" />,
 };
 
