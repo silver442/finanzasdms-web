@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { isAdminRole } from '../utils/roles';
+import { getUserFlags, userModules, type UserFlags } from '../config/navigation';
 import {
-  Activity, LayoutDashboard, CreditCard, CalendarClock, Landmark, PieChart, Bitcoin,
+  Landmark,
   LogOut, ShieldCheck, ClipboardList, Briefcase, DatabaseZap, ClipboardCheck,
   TrendingUp, BarChart2, Users, ChevronDown, ShoppingBag,
   Zap, Shield, Star, Crown, X,
@@ -76,49 +77,7 @@ function getUserLevel(): LevelKey {
   } catch { return 'NOVATO_1'; }
 }
 
-type UserFlags = {
-  hasCreditCardsModule: boolean;
-  hasLoansModule: boolean;
-  hasCryptoModule: boolean;
-  hasStockMarketModule: boolean;
-  hasCompoundInterestModule: boolean;
-  hasSubscriptionsModule: boolean;
-  hasMakeMoneyModule: boolean;
-};
-
-function defaultFlags(): UserFlags {
-  return { hasCreditCardsModule: false, hasLoansModule: true, hasCryptoModule: false, hasStockMarketModule: false, hasCompoundInterestModule: false, hasSubscriptionsModule: false, hasMakeMoneyModule: true };
-}
-
-function getUserFlags(): UserFlags {
-  try {
-    const raw = localStorage.getItem('user');
-    if (!raw) return defaultFlags();
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    return {
-      hasCreditCardsModule:      parsed.hasCreditCardsModule     === true,
-      hasLoansModule:            parsed.hasLoansModule           !== false,
-      hasCryptoModule:           parsed.hasCryptoModule          === true,
-      hasStockMarketModule:      parsed.hasStockMarketModule     === true,
-      hasCompoundInterestModule: parsed.hasCompoundInterestModule === true,
-      hasSubscriptionsModule:    parsed.hasSubscriptionsModule    === true,
-      hasMakeMoneyModule:        parsed.hasMakeMoneyModule        !== false,
-    };
-  } catch { return defaultFlags(); }
-}
-
 // ─── Módulos ──────────────────────────────────────────────────────────────────
-
-const userModules: { name: string; path: string; icon: React.ElementType; requiredFlag?: keyof UserFlags }[] = [
-  { name: 'Resumen Financiero',  path: '/dashboard',       icon: LayoutDashboard },
-  { name: 'Tarjetas de Crédito', path: '/credit-cards',    icon: CreditCard,    requiredFlag: 'hasCreditCardsModule'     },
-  { name: 'Suscripciones',       path: '/subscriptions',   icon: CalendarClock,  requiredFlag: 'hasSubscriptionsModule'   },
-  { name: 'Préstamos',           path: '/loans',           icon: Landmark,       requiredFlag: 'hasLoansModule'           },
-  { name: 'Portafolio',          path: '/portfolio',       icon: PieChart                                                },
-  { name: 'Monitor de Cuentas',  path: '/monitor-cuentas', icon: Activity                                               },
-  { name: 'Inversiones Cripto',  path: '/crypto',          icon: Bitcoin,        requiredFlag: 'hasCryptoModule'          },
-  { name: 'Gana Dinero',         path: '/investments',     icon: TrendingUp,     requiredFlag: 'hasMakeMoneyModule'       },
-];
 
 const adminModules = [
   { name: 'Panel de Control',       path: '/admin/home',         icon: BarChart2      },
