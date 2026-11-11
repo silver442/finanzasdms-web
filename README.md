@@ -254,6 +254,15 @@ La guía completa está en la §17 de [`CLAUDE.md`](../CLAUDE.md).
 
 ## Puesta en marcha
 
+### Requisitos
+
+| Herramienta | Versión | Notas |
+|---|---|---|
+| Node.js | **24 LTS (Krypton)**, versión mínima recomendada **v24.22.1** | v24.22.1 es la actualización de seguridad del 20-oct-2026 |
+| npm | **11.19.1** o posterior | Viene incluido con Node 24.22.1 |
+
+> Comprueba tu versión con `node -v`. Después de actualizar dependencias (`npm audit fix`, sin `--force`), vuelve a correr `npm run build` y despliega el contenido de `dist/` para que los parches lleguen a producción.
+
 ### Variables de entorno (`fintech-web/.env`)
 
 | Variable | Descripción |
@@ -269,7 +278,14 @@ npm install
 npm run dev        # http://localhost:5173
 ```
 
-> Necesitas el backend corriendo. Consulta [`../fintech-core/api/README.md`](../fintech-core/api/README.md#puesta-en-marcha).
+> Necesitas el backend corriendo. La guía completa para levantar back y front juntos, en modo desarrollo o tipo producción, está en [`../fintech-core/README.md`](../fintech-core/README.md#levantar-todo-en-local-back--front).
+
+Para probar el build final, PWA incluida:
+
+```bash
+npm run build
+npm run preview -- --port 5173   # el puerto 5173 es el único permitido por el CORS del API en local
+```
 
 ---
 

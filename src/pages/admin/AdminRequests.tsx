@@ -2,9 +2,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
+import LoanImageInput from '../../components/LoanImageInput';
+import { uploadLoanImage } from '../../utils/loanImage';
 import {
   ShieldCheck, ShieldAlert, User, Phone, MapPin, Wallet,
-  CheckCircle2, XCircle, X, AlertTriangle, CreditCard, Banknote, Lock,
+  CheckCircle2, XCircle, X, AlertTriangle, CreditCard, Banknote, Lock, Clock, Ban,
 } from 'lucide-react';
 
 const CLABE_BANK_CODES: Record<string, string> = {
@@ -38,6 +40,10 @@ interface LoanUser {
   familyCode?: string | null;
 }
 
+type LoanStatus =
+  | 'REQUESTED' | 'ACTIVE' | 'PAID' | 'DEFAULTED' | 'REJECTED' | 'CANCELADO'
+  | 'ESPERANDO_CONFIRMACION' | 'PENDIENTE_TRANSFERIR' | 'CANCELADO_POR_ADMIN';
+
 interface AdminLoan {
   id: string;
   concept: string;
@@ -46,7 +52,7 @@ interface AdminLoan {
   termUnit: string;
   interestRate?: string | number;
   startDate: string;
-  status?: string;
+  status?: LoanStatus;
   referralCode?: string;
   disbursementAccount?: string;
   user: LoanUser;
@@ -79,12 +85,14 @@ export default function AdminRequests() {
   const adminId = useMemo(() => getAdminId(), []);
   const [loans, setLoans] = useState<AdminLoan[]>([]);
   const [pendingTransfer, setPendingTransfer] = useState<AdminLoan[]>([]);
+  const [awaitingClient, setAwaitingClient] = useState<AdminLoan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Approve modal state (incluye edición de capital/tasa según categoría)
   const [approveTarget, setApproveTarget] = useState<AdminLoan | null>(null);
   const [approveForm, setApproveForm] = useState({ amount: '', interestRate: '' });
   const [isApproving, setIsApproving] = useState(false);
+  const [approveImage, setApproveImage] = useState<File | null>(null);
 
   // Reject confirmation state
   const [rejectTarget, setRejectTarget] = useState<AdminLoan | null>(null);
@@ -93,13 +101,18 @@ export default function AdminRequests() {
   // Confirmar transferencia state
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
+  // Cancelar/revocar préstamo ya aprobado
+  const [cancelTarget, setCancelTarget] = useState<AdminLoan | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+
   const fetchRequests = useCallback(async () => {
     try {
       const { data } = await axios.get<AdminLoan[]>(
-        `${API}/loans/all`,
+        `${API}/loans/admin/pending`,
         { headers: authHeaders() },
       );
       setLoans(data.filter(l => l.status === 'REQUESTED'));
+      setAwaitingClient(data.filter(l => l.status === 'ESPERANDO_CONFIRMACION'));
       setPendingTransfer(data.filter(l => l.status === 'PENDIENTE_TRANSFERIR'));
     } catch {
       toast.error('No se pudieron cargar las solicitudes');
@@ -131,6 +144,7 @@ export default function AdminRequests() {
 
   const openApprove = (loan: AdminLoan) => {
     setApproveTarget(loan);
+    setApproveImage(null);
     // Inicializar con datos reales del préstamo. La tasa parte de la sugerida
     // del usuario (loan.interestRate es 0 mientras está en REQUESTED).
     setApproveForm({
@@ -179,9 +193,17 @@ export default function AdminRequests() {
         payload,
         { headers: authHeaders() },
       );
+      if (approveImage) {
+        try {
+          await uploadLoanImage(approveTarget.id, approveImage);
+        } catch (e: any) {
+          toast.warning(e?.response?.data?.message ?? 'Préstamo aprobado, pero no se pudo adjuntar la imagen');
+        }
+      }
       toast.success(`Préstamo de ${approveTarget.user.name ?? approveTarget.user.email} aprobado — esperando confirmación del usuario`);
-      setLoans(prev => prev.filter(l => l.id !== approveTarget.id));
       setApproveTarget(null);
+      // Recargar: el préstamo pasa a la sección "Esperando al Cliente".
+      void fetchRequests();
     } catch (e: any) {
       toast.error(e?.response?.data?.message ?? 'Error al aprobar');
     } finally {
@@ -216,6 +238,23 @@ export default function AdminRequests() {
     }
   };
 
+  const handleAdminCancel = async (loan: AdminLoan) => {
+    setIsCancelling(true);
+    try {
+      await axios.patch(`${API}/loans/${loan.id}/admin-cancel`, {}, { headers: authHeaders() });
+      toast.success(`Préstamo de ${loan.user.name ?? loan.user.email} cancelado`);
+      setAwaitingClient(prev => prev.filter(l => l.id !== loan.id));
+      setPendingTransfer(prev => prev.filter(l => l.id !== loan.id));
+      setCancelTarget(null);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? 'Error al cancelar el préstamo');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  const cancelBtnCls = 'flex items-center justify-center gap-2 bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500 hover:text-white hover:border-red-500 px-4 py-2.5 rounded-xl font-bold transition-all';
+
   const capacity = (loan: AdminLoan) => {
     const income = Number(loan.user.income ?? 0);
     const expenses = Number(loan.user.expenses ?? 0);
@@ -235,6 +274,55 @@ export default function AdminRequests() {
         </h1>
         <p className="text-text-secondary mt-2">Revisa y aprueba las solicitudes de préstamo de los usuarios</p>
       </div>
+
+      {/* ── Esperando confirmación del cliente (aprobado por admin) ── */}
+      {!isLoading && awaitingClient.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Clock size={22} className="text-sky-400" />
+            <h2 className="text-xl font-bold text-sky-300">Esperando al Cliente</h2>
+            <span className="bg-sky-500/20 text-sky-300 text-xs px-2 py-0.5 rounded-full border border-sky-500/30 font-semibold">
+              {awaitingClient.length}
+            </span>
+          </div>
+          <p className="text-text-secondary text-sm mb-4">
+            Aprobaste estas condiciones; el cliente aún debe aceptarlas. Puedes revocarlas si fue un error o el cliente ya no lo quiere.
+          </p>
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            {awaitingClient.map(loan => {
+              const isOwnLoan = loan.user.id === adminId;
+              return (
+                <div key={loan.id} className="bg-surface-card/60 backdrop-blur-md border border-white/5 rounded-2xl shadow-card p-5 flex flex-col gap-3">
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="min-w-0">
+                      <h3 className="text-white font-bold truncate">{loan.concept}</h3>
+                      <p className="text-sm text-text-secondary">
+                        {loan.user.name ?? loan.user.email} · {fmt(loan.amount)} · {pct(loan.interestRate)}
+                      </p>
+                    </div>
+                    <span className="bg-sky-500/20 text-sky-300 text-xs px-2 py-1 rounded border border-sky-500/30 font-semibold whitespace-nowrap">
+                      Pendiente de firma
+                    </span>
+                  </div>
+                  {isOwnLoan ? (
+                    <div className="flex items-center gap-2 bg-brand-violet/10 border border-brand-violet/30 rounded-xl px-4 py-2.5">
+                      <ShieldAlert size={15} className="text-brand-violet shrink-0" />
+                      <span className="text-brand-violet text-xs font-semibold">
+                        Tu préstamo · Requiere otro Admin
+                      </span>
+                    </div>
+                  ) : (
+                    <button onClick={() => setCancelTarget(loan)} className={cancelBtnCls}>
+                      <Ban size={18} />
+                      Cancelar/Revocar
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ── Pendientes de Transferir (el cliente ya aceptó las condiciones) ── */}
       {!isLoading && pendingTransfer.length > 0 && (
@@ -284,14 +372,24 @@ export default function AdminRequests() {
                       </span>
                     </div>
                   ) : (
-                    <button
-                      onClick={() => void handleConfirmTransfer(loan)}
-                      disabled={confirmingId === loan.id}
-                      className="flex items-center justify-center gap-2 bg-violet-500 hover:bg-violet-600 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-violet-500/20 disabled:opacity-50"
-                    >
-                      <Banknote size={18} />
-                      {confirmingId === loan.id ? 'Activando...' : 'Confirmar Transferencia'}
-                    </button>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <button
+                        onClick={() => setCancelTarget(loan)}
+                        disabled={confirmingId === loan.id}
+                        className={`${cancelBtnCls} sm:flex-1 disabled:opacity-50`}
+                      >
+                        <Ban size={18} />
+                        Cancelar/Revocar
+                      </button>
+                      <button
+                        onClick={() => void handleConfirmTransfer(loan)}
+                        disabled={confirmingId === loan.id}
+                        className="sm:flex-1 flex items-center justify-center gap-2 bg-brand-green hover:bg-brand-green-light text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-brand-green/20 disabled:opacity-50"
+                      >
+                        <Banknote size={18} />
+                        {confirmingId === loan.id ? 'Activando...' : 'Confirmar Transferencia'}
+                      </button>
+                    </div>
                   )}
                 </div>
               );
@@ -594,6 +692,8 @@ export default function AdminRequests() {
                 <p className="text-xs text-text-muted mt-1">El plazo no puede modificarse.</p>
               </div>
 
+              <LoanImageInput file={approveImage} onChange={setApproveImage} disabled={isApproving} />
+
               {(() => {
                 const amt = approveForm.amount !== '' ? parseFloat(approveForm.amount) : Number(approveTarget.amount);
                 const rate = parseFloat(approveForm.interestRate);
@@ -626,6 +726,35 @@ export default function AdminRequests() {
               >
                 {isApproving ? 'Aprobando...' : 'Confirmar Aprobación'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Confirmar Cancelación/Revocación ── */}
+      {cancelTarget && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-surface-card/80 backdrop-blur-md border border-white/5 rounded-2xl shadow-card w-full max-w-sm">
+            <div className="p-6 text-center">
+              <Ban size={40} className="text-red-400 mx-auto mb-3" />
+              <h3 className="text-lg font-bold text-white mb-2">¿Cancelar préstamo aprobado?</h3>
+              <p className="text-text-secondary text-sm mb-6">
+                El préstamo <strong className="text-white">{cancelTarget.concept}</strong> de{' '}
+                <strong className="text-white">{cancelTarget.user.name ?? cancelTarget.user.email}</strong> pasará a{' '}
+                <span className="text-red-400 font-semibold">Cancelado por Admin</span> y se eliminarán sus cuotas. Esta acción no se puede deshacer.
+              </p>
+              <div className="flex gap-3">
+                <button onClick={() => setCancelTarget(null)}
+                  disabled={isCancelling}
+                  className="flex-1 px-4 py-2 rounded-lg border border-surface-border text-text-primary hover:text-white transition-colors disabled:opacity-50">
+                  Volver
+                </button>
+                <button onClick={() => void handleAdminCancel(cancelTarget)}
+                  disabled={isCancelling}
+                  className="flex-1 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-bold transition-colors disabled:opacity-50">
+                  {isCancelling ? 'Cancelando...' : 'Cancelar préstamo'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { isAdminRole } from '../../utils/roles';
 import { toast } from 'sonner';
 import { ShoppingBag, CheckCircle, Loader2, Lock, AlertTriangle, Landmark, Wallet, GraduationCap } from 'lucide-react';
 
@@ -78,7 +79,7 @@ export default function ModuleStore() {
   const [confirmKey, setConfirmKey] = useState<keyof UserFlags | null>(null);
   const [restrictions, setRestrictions] = useState<ModuleRestrictions>({});
   const role = getUserRole();
-  const isAdmin = role === 'ADMIN';
+  const isAdmin = isAdminRole(role);
 
   useEffect(() => {
     axios

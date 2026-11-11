@@ -3,6 +3,8 @@ import { Fragment, useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
+import LoanImageInput from '../../../components/LoanImageInput';
+import { uploadLoanImage } from '../../../utils/loanImage';
 import {
   ArrowLeft, Plus, AlertTriangle, Check,
   ChevronRight, ChevronLeft, Send, CalendarCheck, X,
@@ -408,6 +410,7 @@ export default function LoanRequest() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [acceptPrivacy, setAcceptPrivacy] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
@@ -507,7 +510,7 @@ export default function LoanRequest() {
 
     setIsSubmitting(true);
     try {
-      await axios.post(
+      const { data: createdLoan } = await axios.post<{ id: string }>(
         `${API}/loans/request`,
         {
           concept: form.concept,
@@ -526,6 +529,14 @@ export default function LoanRequest() {
         },
         { headers: authHeaders() },
       );
+      if (imageFile) {
+        try {
+          await uploadLoanImage(createdLoan.id, imageFile);
+        } catch (e: any) {
+          // La solicitud ya existe; solo avisamos que la imagen no se adjuntó.
+          toast.warning(e?.response?.data?.message ?? 'La solicitud se envió, pero no se pudo adjuntar la imagen');
+        }
+      }
       if (!getFamilyCode()) {
         // Solicitud guardada — mostrar modal para que el usuario se verifique por WhatsApp
         setShowWhatsAppModal(true);
@@ -989,6 +1000,11 @@ export default function LoanRequest() {
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Imagen opcional */}
+              <div className="bg-surface-card border border-surface-border rounded-2xl p-5">
+                <LoanImageInput file={imageFile} onChange={setImageFile} disabled={isSubmitting} />
               </div>
 
               {/* Checkboxes legales */}
