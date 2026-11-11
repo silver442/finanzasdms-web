@@ -5,8 +5,9 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import {
   ArrowLeft, CreditCard, CheckCircle2, Circle, AlertCircle, Copy,
-  Clock, Ban, Banknote, X, Paperclip, MessageCircle, AlertTriangle, ImageIcon,
+  Clock, Ban, Banknote, X, Paperclip, MessageCircle, AlertTriangle,
 } from 'lucide-react';
+import LoanHeaderMedia from '../../../components/LoanHeaderMedia';
 
 interface AdminBank { id: string; bankName: string; clabe: string; accountHolder: string; }
 
@@ -204,34 +205,19 @@ export default function LoanDetail() {
 
       {/* Encabezado del préstamo */}
       <div className="bg-surface-card border border-surface-border rounded-2xl p-6 mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
-          <div>
-            <h1 className="text-2xl font-extrabold text-white">{loan.concept}</h1>
-            <p className="text-text-secondary text-sm mt-1">
-              Capital: {fmt(loan.amount)} · {loan.termQuantity} {loan.termUnit === 'SEMANAS' ? 'semanas' : 'meses'} · Tasa: {Number(loan.interestRate)}% anual
-            </p>
-            <p className="text-xs text-text-muted mt-0.5">Inicio: {fmtDate(loan.startDate)}</p>
-            {loan.imageUrl && (
-              <a
-                href={loan.imageUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-3 inline-flex items-center gap-3 bg-surface-elevated/70 backdrop-blur-lg border border-white/5 hover:border-brand-green/30 rounded-xl p-2 pr-4 transition-all group"
-              >
-                <img
-                  src={loan.imageUrl}
-                  alt="Comprobante del préstamo"
-                  className="w-12 h-12 rounded-lg object-cover"
-                  loading="lazy"
-                />
-                <span className="flex items-center gap-1.5 text-sm font-semibold text-text-secondary group-hover:text-brand-green-light transition-colors">
-                  <ImageIcon size={15} /> Ver comprobante
-                </span>
-              </a>
-            )}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+          <div className="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left min-w-0">
+            <LoanHeaderMedia imageUrl={loan.imageUrl} concept={loan.concept} />
+            <div className="min-w-0">
+              <h1 className="text-2xl font-extrabold text-white">{loan.concept}</h1>
+              <p className="text-text-secondary text-sm mt-1">
+                Capital: {fmt(loan.amount)} · {loan.termQuantity} {loan.termUnit === 'SEMANAS' ? 'semanas' : 'meses'} · Tasa: {Number(loan.interestRate)}% anual
+              </p>
+              <p className="text-xs text-text-muted mt-0.5">Inicio: {fmtDate(loan.startDate)}</p>
+            </div>
           </div>
           {totalDue > 0 && (
-            <div className="text-right shrink-0">
+            <div className="text-center sm:text-right shrink-0">
               <p className="text-xs text-text-muted uppercase tracking-wider font-semibold mb-0.5">Deuda total pactada</p>
               <p className="text-xl font-extrabold text-brand-green-light">{fmt(totalDue)}</p>
             </div>
