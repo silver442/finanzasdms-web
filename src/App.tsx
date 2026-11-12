@@ -11,6 +11,7 @@ import Terms from './pages/public/Terms';
 import Contact from './pages/public/Contact';
 import ProtectedRoute from './components/ProtectedRoute';
 import InstallPwaBanner from './components/InstallPwaBanner';
+import PwaUpdatePrompt from './components/PwaUpdatePrompt';
 import Dashboard from './pages/user/Dashboard';
 import Profile from './pages/user/Profile';
 import AccountMonitor from './pages/user/AccountMonitor';
@@ -36,6 +37,8 @@ import AdminBanks from './pages/admin/AdminBanks';
 import AdminMigration from './pages/admin/AdminMigration';
 import AdminReferrals from './pages/admin/AdminReferrals';
 import AdminUsers from './pages/admin/AdminUsers';
+import AdminAuditLogs from './pages/admin/AdminAuditLogs';
+import { isSuperAdminRole } from './utils/roles';
 
 type FlagKey = 'hasCreditCardsModule' | 'hasLoansModule' | 'hasCryptoModule' | 'hasStockMarketModule' | 'hasCompoundInterestModule' | 'hasSubscriptionsModule' | 'hasMakeMoneyModule';
 
@@ -53,11 +56,18 @@ function ModuleRoute({ flag }: { flag: FlagKey }) {
   return getFlag(flag) ? <Outlet /> : <Navigate to="/dashboard" replace />;
 }
 
+function SuperAdminRoute() {
+  let role: unknown = null;
+  try { role = (JSON.parse(localStorage.getItem('user') ?? 'null') as Record<string, unknown> | null)?.role; } catch { /* sin user */ }
+  return isSuperAdminRole(typeof role === 'string' ? role : null) ? <Outlet /> : <Navigate to="/dashboard" replace />;
+}
+
 function App() {
   return (
     <BrowserRouter>
       <Toaster richColors theme="dark" position="top-right" />
       <InstallPwaBanner />
+      <PwaUpdatePrompt />
       <Routes>
         {/* Rutas Públicas */}
         <Route path="/" element={<Landing />} />
@@ -104,6 +114,9 @@ function App() {
           <Route path="/admin/home" element={<AdminHome />} />
           <Route path="/admin/referrals" element={<AdminReferrals />} />
           <Route path="/admin/users" element={<AdminUsers />} />
+          <Route element={<SuperAdminRoute />}>
+            <Route path="/admin/audit-logs" element={<AdminAuditLogs />} />
+          </Route>
           <Route path="/profile" element={<Profile />} />
           <Route element={<ModuleRoute flag="hasMakeMoneyModule" />}>
             <Route path="/investments" element={<Investments />} />
