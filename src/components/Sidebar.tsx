@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { isAdminRole } from '../utils/roles';
+import { isAdminRole, isSuperAdminRole } from '../utils/roles';
 import { getUserFlags, userModules, type UserFlags } from '../config/navigation';
 import {
   Landmark,
   LogOut, ShieldCheck, ClipboardList, Briefcase, DatabaseZap, ClipboardCheck,
   TrendingUp, BarChart2, Users, ChevronDown, ShoppingBag,
-  Zap, Shield, Star, Crown, X,
+  Zap, Shield, Star, Crown, X, ScrollText,
 } from 'lucide-react';
 
 // ─── Config de niveles (espejo exacto de levels.config.ts del backend) ────────
@@ -88,6 +88,11 @@ const adminModules = [
   { name: 'Migrar Datos',           path: '/admin/migration',    icon: DatabaseZap    },
   { name: 'Tarjetas Referidos',     path: '/admin/referrals',    icon: TrendingUp     },
   { name: 'Gestión de Usuarios',    path: '/admin/users',        icon: Users          },
+];
+
+// Solo SUPER_ADMIN (el backend también lo exige con @Roles('SUPER_ADMIN'))
+const superAdminModules = [
+  { name: 'Bitácora de Auditoría',  path: '/admin/audit-logs',   icon: ScrollText     },
 ];
 
 const navCls = ({ isActive }: { isActive: boolean }) =>
@@ -298,7 +303,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
             {openSections.admin && (
               <div className="space-y-1">
-                {adminModules.map(({ name: mName, path, icon: Icon }) => (
+                {[...adminModules, ...(isSuperAdminRole(role) ? superAdminModules : [])].map(({ name: mName, path, icon: Icon }) => (
                   <NavLink key={path} to={path} className={navCls} onClick={onClose}>
                     <Icon size={20} className="shrink-0" />
                     {mName}
