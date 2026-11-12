@@ -1,29 +1,22 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { X, CreditCard as CreditCardIcon, Banknote, Pencil, Trash2, RefreshCw } from 'lucide-react';
-
-interface CardTx {
-  id: string;
-  amount: number | string;
-  description: string;
-  type: 'ORDINARY' | 'MSI';
-  months: number;
-  date: string;
-}
-
-interface CardDetail {
-  id: string;
-  name: string;
-  color?: string;
-  creditLimit: number | string;
-  cutoffDay: number;
-  currentBalance: number | string;
-  nextCutoffDate: string;
-  paymentDeadline: string;
-  transactions: CardTx[];
-}
+import { AreaChart, Area, ResponsiveContainer } from 'recharts';
+import {
+  X, ArrowLeft, CreditCard as CreditCardIcon, Banknote, Pencil, Trash2, RefreshCw, Info, Landmark,
+  Calendar, CalendarClock, CalendarDays, Layers, Wallet, Plus, ChartColumn, Package, History, Receipt,
+  Repeat, BadgeCheck, ListChecks,
+} from 'lucide-react';
+import BankLogo from '../../../components/credit-cards/BankLogo';
+import CreditCardVisual from '../../../components/credit-cards/CreditCardVisual';
+import UtilizationRing from '../../../components/credit-cards/UtilizationRing';
+import CardFormModal from './CardFormModal';
+import PayCardModal from './PayCardModal';
+import {
+  dueDateFor, fmt, fmtDayMonth, nextCutoffDate,
+  type CardPayment, type CardTransaction, type CreditCardDetailItem,
+} from '../../../utils/creditCards';
 
 interface ScheduledSub {
   id: string;
@@ -33,45 +26,52 @@ interface ScheduledSub {
   creditCardId?: string;
 }
 
+type PeriodKey = 'CURRENT' | 'NEXT';
+type DetailTab = 'MOVEMENTS' | 'MSI' | 'PAYMENTS';
+
 const API = import.meta.env.VITE_API_URL;
 
 function authHeaders() {
   return { Authorization: `Bearer ${localStorage.getItem('token')}` };
 }
 
-const fmt = (v: number | string) =>
-  new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(v));
-
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: '2-digit' });
+
+const fmtShort = (d: Date) => d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+
+const addDays = (d: Date, days: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + days);
+
+/** yyyy-mm-dd + n meses (para recorrer la fecha de compras MSI con mensualidades ya pagadas) */
+function addMonthsIso(iso: string, months: number) {
+  const [y, m, d] = iso.split('-').map(Number);
+  const date = new Date(y, m - 1 + months, Math.min(d, new Date(y, m + months, 0).getDate()));
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+const todayIso = () => {
+  const t = new Date();
+  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+};
 
 const EMPTY_EXPENSE_FORM = {
   description: '',
   amount: '',
   months: '3',
   paidMonths: '0',
-  date: new Date().toISOString().split('T')[0],
+  date: todayIso(),
 };
-
-
-function calcNextCutoff(cutoffDay: number): Date | null {
-  if (cutoffDay < 1 || cutoffDay > 31) return null;
-  const today = new Date();
-  let d = new Date(today.getFullYear(), today.getMonth(), cutoffDay);
-  if (d <= today) {
-    d = new Date(today.getFullYear(), today.getMonth() + 1, cutoffDay);
-  }
-  return d;
-}
 
 export default function CreditCardDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const [card, setCard] = useState<CardDetail | null>(null);
+  const [card, setCard] = useState<CreditCardDetailItem | null>(null);
   const [linkedSubs, setLinkedSubs] = useState<ScheduledSub[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [period, setPeriod] = useState<PeriodKey>('CURRENT');
+  const [tab, setTab] = useState<DetailTab>('MOVEMENTS');
 
   // Modal agregar gasto
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -81,18 +81,12 @@ export default function CreditCardDetail() {
 
   // Modal pago
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
-  const [payAmount, setPayAmount] = useState('');
-  const [paying, setPaying] = useState(false);
+  const [payments, setPayments] = useState<CardPayment[]>([]);
 
-  // Modal editar tarjeta (Info General)
   const [isEditCardOpen, setIsEditCardOpen] = useState(false);
-  const [editCardForm, setEditCardForm] = useState({
-    name: '', creditLimit: '', cutoffDay: '', color: '#10B981', currentBalance: '',
-  });
-  const [savingCard, setSavingCard] = useState(false);
 
   // Modal editar/eliminar transacción
-  const [txEditTarget, setTxEditTarget] = useState<CardTx | null>(null);
+  const [txEditTarget, setTxEditTarget] = useState<CardTransaction | null>(null);
   const [txEditForm, setTxEditForm] = useState({
     amount: '', description: '', type: 'ORDINARY' as 'ORDINARY' | 'MSI', months: '1', date: '',
   });
@@ -101,7 +95,7 @@ export default function CreditCardDetail() {
 
   const fetchCard = useCallback(async () => {
     try {
-      const res = await axios.get<CardDetail>(`${API}/credit-cards/${id}`, { headers: authHeaders() });
+      const res = await axios.get<CreditCardDetailItem>(`${API}/credit-cards/${id}`, { headers: authHeaders() });
       setCard(res.data);
     } catch {
       setError('No se pudo cargar la tarjeta.');
@@ -117,48 +111,33 @@ export default function CreditCardDetail() {
     } catch { /* silencioso */ }
   }, []);
 
+  const fetchPayments = useCallback(async () => {
+    try {
+      const { data } = await axios.get<CardPayment[]>(`${API}/credit-cards/${id}/payments`, { headers: authHeaders() });
+      setPayments(data);
+    } catch {
+      toast.error('No se pudo cargar el historial de pagos');
+    }
+  }, [id]);
+
   useEffect(() => { void fetchCard(); }, [fetchCard]);
+  useEffect(() => { void fetchPayments(); }, [fetchPayments]);
   useEffect(() => { if (card) void fetchSubs(card.id); }, [card, fetchSubs]);
 
-  const openEditCard = () => {
-    if (!card) return;
-    setEditCardForm({
-      name: card.name,
-      creditLimit: String(Number(card.creditLimit)),
-      cutoffDay: String(card.cutoffDay),
-      color: card.color ?? '#10B981',
-      currentBalance: String(Number(card.currentBalance)),
-    });
-    setIsEditCardOpen(true);
-  };
+  // Periodo actual = el del estado de cuenta (el que se paga); siguiente = el que le sigue
+  const periods = useMemo(() => {
+    if (!card) return null;
+    const currentStart = new Date(card.statement.periodStart);
+    const currentCutoff = new Date(card.statement.cutoffDate);
+    const nextStart = addDays(currentCutoff, 1);
+    const nextCutoff = nextCutoffDate(card.cutoffDay, nextStart);
+    return {
+      CURRENT: { start: currentStart, cutoff: currentCutoff, dueDate: new Date(card.statement.dueDate) },
+      NEXT: { start: nextStart, cutoff: nextCutoff, dueDate: dueDateFor(nextCutoff, card.paymentDueDay) },
+    };
+  }, [card]);
 
-  const handleEditCard = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!card) return;
-    setSavingCard(true);
-    try {
-      await axios.patch(
-        `${API}/credit-cards/${card.id}`,
-        {
-          name: editCardForm.name || undefined,
-          color: editCardForm.color || undefined,
-          creditLimit: editCardForm.creditLimit ? parseFloat(editCardForm.creditLimit) : undefined,
-          cutoffDay: editCardForm.cutoffDay ? parseInt(editCardForm.cutoffDay) : undefined,
-          currentBalance: editCardForm.currentBalance !== '' ? parseFloat(editCardForm.currentBalance) : undefined,
-        },
-        { headers: authHeaders() },
-      );
-      toast.success('Tarjeta actualizada');
-      setIsEditCardOpen(false);
-      await fetchCard();
-    } catch {
-      toast.error('Error al actualizar la tarjeta');
-    } finally {
-      setSavingCard(false);
-    }
-  };
-
-  const openEditTx = (tx: CardTx) => {
+  const openEditTx = (tx: CardTransaction) => {
     setTxEditTarget(tx);
     setTxEditForm({
       amount: String(Number(tx.amount)),
@@ -222,6 +201,7 @@ export default function CreditCardDetail() {
     try {
       let postAmount: number;
       let postMonths: number | undefined;
+      let postDate = form.date;
 
       if (txType === 'MSI') {
         const originalAmount = parseFloat(form.amount);
@@ -236,6 +216,9 @@ export default function CreditCardDetail() {
         }
         postAmount = (originalAmount / totalMonths) * remainingMonths;
         postMonths = remainingMonths;
+        // Se registra solo el plan restante: arranca tantos meses después como mensualidades ya pagadas,
+        // para que el estado de cuenta no vuelva a facturar las mensualidades cubiertas.
+        postDate = addMonthsIso(form.date, paidMonths);
       } else {
         postAmount = parseFloat(form.amount);
         postMonths = undefined;
@@ -247,13 +230,14 @@ export default function CreditCardDetail() {
           amount: postAmount,
           description: form.description,
           type: txType,
-          date: form.date,
+          date: postDate,
           ...(txType === 'MSI' && { months: postMonths }),
         },
         { headers: authHeaders() },
       );
+      toast.success('Gasto registrado');
       setIsModalOpen(false);
-      setForm({ ...EMPTY_EXPENSE_FORM, date: new Date().toISOString().split('T')[0] });
+      setForm({ ...EMPTY_EXPENSE_FORM, date: todayIso() });
       setTxType('ORDINARY');
       await fetchCard();
     } catch (err) {
@@ -267,371 +251,548 @@ export default function CreditCardDetail() {
     }
   };
 
-  const handlePay = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!card) return;
-    const amount = parseFloat(payAmount);
-    if (!amount || amount <= 0) { toast.error('Ingresa un monto válido'); return; }
-    setPaying(true);
-    try {
-      await axios.post(`${API}/credit-cards/${card.id}/pay`, { amount }, { headers: authHeaders() });
-      toast.success(`Pago de ${fmt(amount)} registrado`);
-      setIsPayModalOpen(false);
-      setPayAmount('');
-      await fetchCard();
-    } catch {
-      toast.error('Error al registrar el pago.');
-    } finally {
-      setPaying(false);
-    }
-  };
-
-  if (loading) return <div className="p-8 text-text-secondary text-center">Cargando tarjeta...</div>;
-  if (error || !card) return <div className="p-8 text-red-400 text-center">{error || 'Tarjeta no encontrada.'}</div>;
+  if (loading) {
+    return (
+      <div className="flex justify-center py-20 text-text-secondary gap-2">
+        <RefreshCw size={18} className="animate-spin" /> Cargando tarjeta...
+      </div>
+    );
+  }
+  if (error || !card || !periods) return <div className="p-8 text-rose-400 text-center">{error || 'Tarjeta no encontrada.'}</div>;
 
   const creditLimit = Number(card.creditLimit);
-  const currentBalance = Number(card.currentBalance);
-  const available = creditLimit - currentBalance;
+  const { usedBalance, availableCredit, utilizationPct } = card;
 
-  const msi = card.transactions.filter(t => t.type === 'MSI');
-  const msiMonthlyTotal = msi.reduce((sum, t) => sum + Number(t.amount) / t.months, 0);
+  const selected = periods[period];
+  const periodEnd = addDays(selected.cutoff, 1);
+  const ordinaryTxs = card.transactions.filter(t => !t.isMSI);
+  const periodTxs = ordinaryTxs
+    .filter(t => { const d = new Date(t.date); return d >= selected.start && d < periodEnd; })
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const prevTxs = ordinaryTxs
+    .filter(t => new Date(t.date) < selected.start)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const msi = card.transactions
+    .filter(t => t.isMSI)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const msiTotal = msi.reduce((sum, t) => sum + Number(t.amount), 0);
+  const msiMonthlyTotal = msi
+    .filter(t => t.billedMonths < t.totalMonths)
+    .reduce((sum, t) => sum + t.monthlyPayment, 0);
 
-  const nextCutoff = new Date(card.nextCutoffDate);
-  const prevCutoff = new Date(nextCutoff);
-  prevCutoff.setMonth(prevCutoff.getMonth() - 1);
-  const ordinaryTxs = card.transactions.filter(t => t.type === 'ORDINARY');
-  const currentPeriod = ordinaryTxs.filter(t => new Date(t.date) >= prevCutoff);
-  const prevPeriod = ordinaryTxs.filter(t => new Date(t.date) < prevCutoff);
+  const paymentsTotal = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+  const periodSpend = periodTxs.reduce((sum, t) => sum + Number(t.amount), 0);
+  // Gasto acumulado del periodo para la mini gráfica
+  const sparkline = periodTxs.reduce(
+    (points, t) => [...points, { v: points[points.length - 1].v + Number(t.amount) }],
+    [{ v: 0 }],
+  );
+  const now = new Date();
+  const showSubs = now >= selected.start && now < periodEnd;
 
+  // Preview del formulario de gasto
   const originalAmount = parseFloat(form.amount) || 0;
   const totalMonths = parseInt(form.months) || 1;
   const paidMonths = parseInt(form.paidMonths) || 0;
   const remainingMonths = Math.max(totalMonths - paidMonths, 0);
   const monthlyPayment = totalMonths > 0 ? originalAmount / totalMonths : 0;
   const computedDebt = monthlyPayment * remainingMonths;
+  const exceedsLimit = txType === 'ORDINARY' ? originalAmount > availableCredit : computedDebt > availableCredit;
 
-  const enteredOrdinary = parseFloat(form.amount) || 0;
-  const exceedsLimit =
-    txType === 'ORDINARY'
-      ? enteredOrdinary > available
-      : computedDebt > available;
-
-  // Preview de periodo en formulario editar tarjeta
-  const editCutoffDay = parseInt(editCardForm.cutoffDay);
-  const editNextCutoff = !isNaN(editCutoffDay) ? calcNextCutoff(editCutoffDay) : null;
-  const editPeriodStart = editNextCutoff ? (() => { const d = new Date(editNextCutoff); d.setMonth(d.getMonth() - 1); return d; })() : null;
-  const editPaymentDeadline = editNextCutoff ? (() => { const d = new Date(editNextCutoff); d.setDate(d.getDate() + 20); return d; })() : null;
-
-  const thCls = 'p-3 font-semibold text-text-secondary';
-  const inputCls = 'w-full bg-surface-base border border-surface-border text-white rounded-lg px-4 py-2 focus:outline-none focus:border-brand-green';
+  const panelCls = 'bg-surface-card/60 backdrop-blur-md border border-white/5 rounded-2xl shadow-card';
+  const thCls = 'px-3 py-2.5 font-semibold text-text-secondary text-xs uppercase tracking-wider';
+  const inputCls = 'w-full bg-surface-base/70 border border-white/10 text-white rounded-xl px-4 py-2.5 focus:outline-none focus:border-brand-green transition-colors placeholder:text-text-muted';
   const labelCls = 'block text-text-secondary text-sm font-medium mb-1';
+  const modalCls = 'bg-surface-card/90 backdrop-blur-md border border-white/5 rounded-2xl shadow-card w-full';
 
+  const logo = <BankLogo key={card.bank ?? card.name} name={card.name} bank={card.bank} color={card.color} size="sm" />;
+
+  const infoRows = [
+    { icon: Landmark, label: 'Línea de crédito', value: fmt(creditLimit) },
+    { icon: Calendar, label: 'Fecha de inicio', value: fmtDayMonth(selected.start.toISOString()) },
+    { icon: CalendarDays, label: 'Fecha de corte', value: fmtDayMonth(selected.cutoff.toISOString()) },
+    { icon: CalendarClock, label: 'Fecha límite de pago', value: fmtDayMonth(selected.dueDate.toISOString()) },
+    {
+      icon: Layers, label: 'Deuda total (próximo pago)', value: fmt(card.statement.debt),
+      cls: card.statement.debt > 0 ? 'text-rose-400' : 'text-emerald-400',
+    },
+    { icon: Wallet, label: 'Saldo disponible', value: fmt(availableCredit), cls: 'text-emerald-400' },
+  ];
+
+  const txTable = (txs: CardTransaction[], emptyText: string, withSubs = false) => (
+    <div className="overflow-x-auto">
+      <table className="w-full text-left text-sm">
+        <thead>
+          <tr>
+            <th className={thCls}>Fecha</th>
+            <th className={thCls}>Descripción</th>
+            <th className={`${thCls} text-right`}>Monto</th>
+          </tr>
+        </thead>
+        <tbody>
+          {txs.length === 0 && !(withSubs && linkedSubs.length > 0) ? (
+            <tr><td colSpan={3} className="p-6 text-center text-text-muted">{emptyText}</td></tr>
+          ) : (
+            <>
+              {txs.map(t => (
+                <tr
+                  key={t.id}
+                  className="odd:bg-surface-base/40 hover:bg-surface-elevated/40 cursor-pointer transition-colors"
+                  onClick={() => openEditTx(t)}
+                  title="Click para editar o eliminar"
+                >
+                  <td className="px-3 py-2.5 text-text-primary whitespace-nowrap">{fmtDate(t.date)}</td>
+                  <td className="px-3 py-2.5 text-white">
+                    <span className="flex items-center gap-2.5 capitalize">
+                      <Receipt size={16} className="text-brand-green-light shrink-0" /> {t.description}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5 text-right font-medium text-white whitespace-nowrap">{fmt(t.amount)}</td>
+                </tr>
+              ))}
+              {withSubs && linkedSubs.map(sub => (
+                <tr key={`sub-${sub.id}`} className="text-text-secondary italic">
+                  <td className="px-3 py-2.5 whitespace-nowrap">Día {sub.chargeDay}</td>
+                  <td className="px-3 py-2.5">
+                    <span className="flex items-center gap-2.5">
+                      <Repeat size={16} className="shrink-0" /> {sub.name}
+                      <span className="text-xs bg-surface-elevated text-text-primary px-1.5 py-0.5 rounded-full not-italic font-medium">
+                        Programado
+                      </span>
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5 text-right whitespace-nowrap">{fmt(sub.amount)}</td>
+                </tr>
+              ))}
+            </>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
 
   return (
-    <div className="p-8 text-white font-sans max-w-7xl mx-auto relative">
-      <div className="flex items-center gap-4 mb-8">
+    <div className="p-4 md:p-8 text-white font-sans max-w-7xl mx-auto relative">
+      {/* Header */}
+      <div className="flex items-center gap-3 md:gap-5 mb-6">
         <button
           onClick={() => navigate('/credit-cards')}
-          className="text-text-secondary hover:text-brand-green-light transition-colors bg-surface-card p-2 rounded-lg"
+          className="flex items-center gap-2 text-text-secondary hover:text-white transition-colors bg-surface-card/60 border border-white/5 px-3 py-2 rounded-xl"
         >
-          ← Regresar
+          <ArrowLeft size={18} /> <span className="hidden sm:inline">Regresar</span>
         </button>
-        <h1 className="text-3xl font-extrabold text-brand-green-light flex items-center gap-3">
-          <CreditCardIcon size={28} style={{ color: card.color ?? '#10B981' }} />
-          Detalle {card.name}
+        <h1 className="text-2xl md:text-3xl font-extrabold text-white flex items-center gap-3">
+          <CreditCardIcon size={28} className="text-brand-green-light" />
+          Detalle de Tarjeta
         </h1>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[20rem_minmax(0,1fr)] xl:grid-cols-[23rem_minmax(0,1fr)] gap-6">
         {/* ── Columna izquierda ── */}
         <div className="space-y-6">
-          <div className="bg-surface-card rounded-2xl border border-surface-border p-6 shadow-lg">
-            <div className="flex justify-between items-center mb-4 border-b border-surface-border pb-2">
-              <h2 className="text-xl font-bold text-white">Información General</h2>
-              <button
-                onClick={openEditCard}
-                className="p-1.5 rounded-lg text-text-muted hover:text-sky-400 hover:bg-sky-500/10 transition-all"
-                title="Editar tarjeta"
-              >
-                <Pencil size={16} />
-              </button>
-            </div>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-text-secondary">Línea de Crédito</span>
-                <span className="font-bold">{fmt(creditLimit)}</span>
+          <div className={`${panelCls} p-4 flex items-center gap-4`}>
+            <CreditCardVisual color={card.color} lastFour={card.lastFour} logo={logo} className="max-w-44 sm:max-w-52" />
+            <div className="min-w-0 space-y-2">
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold truncate">{card.name}</h2>
+                <button
+                  onClick={() => setIsEditCardOpen(true)}
+                  className="p-1.5 rounded-lg text-text-muted hover:text-white hover:bg-surface-elevated transition-all shrink-0"
+                  title="Editar tarjeta"
+                >
+                  <Pencil size={15} />
+                </button>
               </div>
-              <div className="flex justify-between">
-                <span className="text-text-secondary">Día de Corte</span>
-                <span className="font-medium text-text-primary">Día {card.cutoffDay}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-text-secondary">Período actual</span>
-                <span className="font-medium text-text-primary text-right text-xs">
-                  {fmtDate(prevCutoff.toISOString())} → {fmtDate(card.nextCutoffDate)}
+              {card.lastFour && (
+                <span className="inline-block text-xs font-medium bg-surface-elevated text-text-primary px-2.5 py-1 rounded-lg">
+                  Terminación: {card.lastFour}
                 </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-text-secondary">Corte del período</span>
-                <span className="font-medium text-brand-violet">{fmtDate(card.nextCutoffDate)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-text-secondary">Fecha límite de pago</span>
-                <span className="font-medium text-brand-green-light">{fmtDate(card.paymentDeadline)}</span>
-              </div>
-              <div className="pt-3 border-t border-surface-border flex justify-between">
-                <span className="text-text-secondary">Saldo que debes</span>
-                <span className="font-bold text-red-400">{fmt(currentBalance)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-text-secondary">Crédito disponible</span>
-                <span className={`font-bold ${available > 0 ? 'text-brand-green-light' : 'text-red-400'}`}>
-                  {fmt(available)}
-                </span>
-              </div>
-              {msi.length > 0 && (
-                <div className="pt-3 border-t border-surface-border flex justify-between">
-                  <span className="text-text-secondary">Pago MSI mensual</span>
-                  <span className="font-bold text-brand-violet">{fmt(msiMonthlyTotal)}</span>
-                </div>
               )}
             </div>
+          </div>
+
+          <div className={`${panelCls} p-5`}>
+            <h2 className="flex items-center gap-2 text-lg font-bold mb-3">
+              <Info size={20} className="text-brand-green-light" /> Información General
+            </h2>
+            <dl className="divide-y divide-white/5 text-sm">
+              {infoRows.map(({ icon: Icon, label, value, cls }) => (
+                <div key={label} className="flex items-center justify-between gap-3 py-2.5">
+                  <dt className="flex items-center gap-2.5 text-text-primary"><Icon size={16} className="text-text-muted shrink-0" /> {label}</dt>
+                  <dd className={`font-bold whitespace-nowrap ${cls ?? 'text-white'}`}>{value}</dd>
+                </div>
+              ))}
+              {msiMonthlyTotal > 0 && (
+                <div className="flex items-center justify-between gap-3 py-2.5">
+                  <dt className="flex items-center gap-2.5 text-text-primary"><Package size={16} className="text-text-muted shrink-0" /> Mensualidades MSI</dt>
+                  <dd className="font-bold text-white whitespace-nowrap">{fmt(msiMonthlyTotal)}</dd>
+                </div>
+              )}
+            </dl>
             <button
-              onClick={() => { setPayAmount(''); setIsPayModalOpen(true); }}
-              className="w-full mt-5 bg-brand-green hover:bg-brand-green-light text-white py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-brand-green/20 flex items-center justify-center gap-2"
+              onClick={() => setIsPayModalOpen(true)}
+              disabled={usedBalance <= 0}
+              className="w-full mt-4 bg-brand-green hover:bg-brand-green-light text-white py-3 rounded-xl font-bold text-lg transition-all shadow-lg shadow-brand-green/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Banknote size={18} />
-              Registrar Pago
+              <Banknote size={20} /> Registrar Pago
             </button>
           </div>
 
-          {msi.length > 0 && (
-            <div className="bg-surface-card rounded-2xl border border-surface-border overflow-hidden shadow-lg">
-              <div className="bg-surface-base/50 p-4 border-b border-surface-border">
-                <h2 className="text-base font-bold text-white">Productos a Crédito (MSI)</h2>
-              </div>
-              <table className="w-full text-left text-xs">
-                <thead className="text-text-secondary bg-surface-card/50">
-                  <tr>
-                    <th className="p-3 font-semibold">Descripción</th>
-                    <th className="p-3 font-semibold text-center">Meses</th>
-                    <th className="p-3 font-semibold text-right">Mensual</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-700/50">
-                  {msi.map(t => (
-                    <tr key={t.id} className="hover:bg-surface-elevated/30 cursor-pointer" onClick={() => openEditTx(t)}>
-                      <td className="p-3 text-white capitalize">
-                        <div>{t.description}</div>
-                        <div className="text-text-muted">{fmtDate(t.date)}</div>
-                      </td>
-                      <td className="p-3 text-center">
-                        <span className="bg-brand-violet/20 text-brand-violet text-xs font-bold px-2 py-0.5 rounded-full">
-                          {t.months}m
-                        </span>
-                      </td>
-                      <td className="p-3 text-right font-bold text-brand-violet">
-                        {fmt(Number(t.amount) / t.months)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <div className={`${panelCls} p-5`}>
+            <h2 className="flex items-center gap-2 text-lg font-bold mb-3">
+              <CalendarDays size={20} className="text-brand-green-light" /> Períodos
+            </h2>
+            <div className="grid grid-cols-2 gap-3">
+              {([['CURRENT', 'Período actual'], ['NEXT', 'Período siguiente']] as const).map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => setPeriod(key)}
+                  aria-pressed={period === key}
+                  className={`rounded-xl px-3 py-3 text-center transition-all border ${
+                    period === key
+                      ? 'border-brand-green bg-brand-green/10 text-white shadow-inner'
+                      : 'border-white/5 bg-surface-base/40 text-text-secondary hover:text-white'
+                  }`}
+                >
+                  <p className="text-sm font-semibold">{label}</p>
+                  <p className="text-sm mt-0.5">{fmtShort(periods[key].start)} – {fmtShort(periods[key].cutoff)}</p>
+                </button>
+              ))}
             </div>
-          )}
+          </div>
         </div>
 
         {/* ── Columna derecha ── */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Periodo Actual */}
-          <div className="bg-surface-card rounded-2xl border border-surface-border overflow-hidden shadow-lg">
-            <div className="bg-surface-base/50 p-4 border-b border-surface-border flex justify-between items-center">
-              <div>
-                <h2 className="text-lg font-bold text-white">Movimientos del Período Actual</h2>
-                <p className="text-xs text-text-muted mt-0.5">
-                  {fmtDate(prevCutoff.toISOString())} → corte {fmtDate(card.nextCutoffDate)}
-                </p>
+        <div className="space-y-6 min-w-0">
+          {/* Métricas */}
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
+            <div className={`${panelCls} p-4 flex items-center gap-3`}>
+              <div className="hidden sm:flex w-11 h-11 rounded-full bg-brand-green/10 items-center justify-center shrink-0">
+                <Landmark size={20} className="text-brand-green-light" />
               </div>
-              <button
-                onClick={() => setIsModalOpen(true)}
-                disabled={available <= 0}
-                className="text-xs bg-brand-green hover:bg-brand-green-light disabled:bg-surface-elevated disabled:cursor-not-allowed px-3 py-1.5 text-white rounded-lg font-bold transition-colors"
-                title={available <= 0 ? 'Sin saldo disponible' : undefined}
-              >
-                + Agregar Gasto
-              </button>
+              <div className="min-w-0">
+                <p className="text-xs text-text-secondary">Límite de crédito</p>
+                <p className="text-lg md:text-xl font-extrabold truncate">{fmt(creditLimit)}</p>
+              </div>
             </div>
-            <table className="w-full text-left text-sm">
-              <thead className="text-text-secondary bg-surface-card/50">
-                <tr>
-                  <th className={thCls}>Fecha</th>
-                  <th className={thCls}>Descripción</th>
-                  <th className={`${thCls} text-right`}>Monto</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-700/50">
-                {currentPeriod.length === 0 && linkedSubs.length === 0 ? (
-                  <tr><td colSpan={3} className="p-6 text-center text-text-muted">Sin movimientos en este periodo.</td></tr>
-                ) : (
-                  <>
-                    {currentPeriod.map(t => (
+            <div className={`${panelCls} p-4 flex items-center gap-3`}>
+              <div className="hidden sm:flex w-11 h-11 rounded-full bg-brand-green/10 items-center justify-center shrink-0">
+                <CreditCardIcon size={20} className="text-brand-green-light" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-text-secondary">Saldo utilizado</p>
+                <p className="text-lg md:text-xl font-extrabold truncate">{fmt(usedBalance)}</p>
+              </div>
+            </div>
+            <div className={`${panelCls} p-4 flex items-center gap-3`}>
+              <UtilizationRing pct={utilizationPct} size="sm" />
+              <div className="min-w-0">
+                <p className="text-xs text-text-secondary">Utilización</p>
+                <p className="text-lg md:text-xl font-extrabold">{utilizationPct.toFixed(1)}%</p>
+              </div>
+            </div>
+            <div className={`${panelCls} p-4 flex items-center gap-3`}>
+              <div className="hidden sm:flex w-11 h-11 rounded-full bg-brand-green/10 items-center justify-center shrink-0">
+                <Wallet size={20} className="text-brand-green-light" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-text-secondary">Crédito disponible</p>
+                <p className="text-lg md:text-xl font-extrabold text-emerald-400 truncate">{fmt(availableCredit)}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Pestañas */}
+          <div className="grid grid-cols-3 gap-2 bg-surface-card/60 backdrop-blur-md border border-white/5 rounded-2xl p-1.5" role="tablist">
+            {([
+              ['MOVEMENTS', 'Movimientos', ListChecks, periodTxs.length],
+              ['MSI', 'Productos a Crédito', Layers, msi.length],
+              ['PAYMENTS', 'Pagos', CreditCardIcon, payments.length],
+            ] as const).map(([key, label, Icon, count]) => (
+              <button
+                key={key}
+                role="tab"
+                aria-selected={tab === key}
+                onClick={() => setTab(key)}
+                className={`flex items-center justify-center gap-2 px-2 py-3 rounded-xl text-sm md:text-base font-semibold transition-all ${
+                  tab === key ? 'bg-brand-green text-white shadow-lg shadow-brand-green/20' : 'text-text-secondary hover:text-white hover:bg-surface-elevated/40'
+                }`}
+              >
+                <Icon size={18} className="shrink-0" />
+                <span className="truncate">{label}</span>
+                {count > 0 && (
+                  <span className={`hidden sm:inline text-xs px-1.5 py-0.5 rounded-full ${tab === key ? 'bg-white/20' : 'bg-surface-elevated'}`}>{count}</span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {tab === 'MOVEMENTS' && (
+            <>
+              {/* Movimientos del periodo */}
+              <div className={`${panelCls} p-4 md:p-5`}>
+                <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+                  <div className="flex items-start gap-3">
+                    <CalendarDays size={22} className="text-brand-green-light mt-0.5" />
+                    <div>
+                      <h2 className="text-lg font-bold">
+                        Movimientos del {period === 'CURRENT' ? 'Período Actual' : 'Período Siguiente'}
+                      </h2>
+                      <p className="text-sm text-text-secondary">
+                        {fmtDayMonth(selected.start.toISOString())} – {fmtDayMonth(selected.cutoff.toISOString())}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setIsModalOpen(true)}
+                    disabled={availableCredit <= 0}
+                    className="flex items-center gap-1.5 bg-brand-green hover:bg-brand-green-light disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 text-white text-sm rounded-xl font-bold transition-all shadow-lg shadow-brand-green/20"
+                    title={availableCredit <= 0 ? 'Sin crédito disponible' : undefined}
+                  >
+                    <Plus size={16} /> Agregar Gasto
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_15rem] gap-4">
+                  <div className="bg-surface-base/30 rounded-xl overflow-hidden">
+                    {txTable(periodTxs, 'Sin movimientos en este período.', showSubs)}
+                  </div>
+                  <div className="bg-surface-base/40 border border-white/5 rounded-xl p-4 flex flex-col">
+                    <p className="flex items-center gap-2 font-semibold text-text-primary">
+                      <ChartColumn size={18} className="text-brand-green-light" /> Gastos del período
+                    </p>
+                    <p className="text-2xl font-extrabold mt-2">{fmt(periodSpend)}</p>
+                    <p className="text-sm text-text-secondary">
+                      {periodTxs.length} {periodTxs.length === 1 ? 'movimiento' : 'movimientos'}
+                    </p>
+                    <div className="h-20 mt-auto pt-3">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={sparkline} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
+                          <defs>
+                            <linearGradient id="period-spend" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#10B981" stopOpacity={0.45} />
+                              <stop offset="100%" stopColor="#10B981" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <Area type="monotone" dataKey="v" stroke="#10B981" strokeWidth={2} fill="url(#period-spend)" isAnimationActive={false} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Periodo anterior */}
+              <div className={`${panelCls} p-4 md:p-5`}>
+                <div className="flex items-start gap-3 mb-4">
+                  <History size={22} className="text-brand-green-light mt-0.5" />
+                  <div>
+                    <h2 className="text-lg font-bold">Movimientos del Período Anterior</h2>
+                    <p className="text-sm text-text-secondary">Antes del {fmtDayMonth(selected.start.toISOString())}</p>
+                  </div>
+                </div>
+                <div className="bg-surface-base/30 rounded-xl overflow-hidden">
+                  {txTable(prevTxs, 'Sin movimientos anteriores.')}
+                </div>
+              </div>
+            </>
+          )}
+
+          {tab === 'MSI' && (
+            <div className={`${panelCls} p-4 md:p-5`}>
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <h2 className="flex items-center gap-2 text-lg font-bold">
+                  <Package size={22} className="text-brand-green-light" /> Productos a Crédito
+                </h2>
+                {msi.length > 0 && (
+                  <span className="bg-brand-green/15 text-emerald-400 text-sm font-bold px-3 py-1 rounded-full whitespace-nowrap">
+                    Total: {fmt(msiTotal)}
+                  </span>
+                )}
+              </div>
+              <div className="bg-surface-base/30 rounded-xl overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr>
+                      <th className={thCls}>Fecha</th>
+                      <th className={thCls}>Producto</th>
+                      <th className={`${thCls} text-right`}>Total</th>
+                      <th className={`${thCls} text-center`}>Meses</th>
+                      <th className={`${thCls} text-right`}>Pago mensual</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {msi.length === 0 ? (
+                      <tr><td colSpan={5} className="p-6 text-center text-text-muted">Sin compras a meses sin intereses.</td></tr>
+                    ) : msi.map(t => (
                       <tr
                         key={t.id}
-                        className="hover:bg-surface-elevated/40 cursor-pointer transition-colors"
+                        className="odd:bg-surface-base/40 hover:bg-surface-elevated/40 cursor-pointer transition-colors"
                         onClick={() => openEditTx(t)}
                         title="Click para editar o eliminar"
                       >
-                        <td className="p-3 text-text-primary">{fmtDate(t.date)}</td>
-                        <td className="p-3 text-white capitalize">{t.description}</td>
-                        <td className="p-3 text-right font-medium text-red-400">{fmt(t.amount)}</td>
-                      </tr>
-                    ))}
-                    {linkedSubs.map(sub => (
-                      <tr key={`sub-${sub.id}`} className="opacity-60 italic bg-surface-base/20">
-                        <td className="p-3 text-text-secondary">Día {sub.chargeDay}</td>
-                        <td className="p-3 text-text-primary">
-                          {sub.name}
-                          <span className="ml-2 text-xs bg-surface-elevated text-text-primary px-1.5 py-0.5 rounded-full not-italic font-medium">
-                            Programado
-                          </span>
+                        <td className="px-3 py-2.5 text-text-primary whitespace-nowrap">{fmtDate(t.date)}</td>
+                        <td className="px-3 py-2.5 text-white capitalize">{t.description}</td>
+                        <td className="px-3 py-2.5 text-right whitespace-nowrap">{fmt(t.amount)}</td>
+                        <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                          {t.billedMonths >= t.totalMonths ? (
+                            <span className="text-emerald-400 text-xs font-bold">Liquidado</span>
+                          ) : (
+                            <><span className="text-text-primary">{t.currentMonth}</span><span className="text-text-muted">/{t.totalMonths}</span></>
+                          )}
                         </td>
-                        <td className="p-3 text-right text-text-secondary">{fmt(sub.amount)}</td>
+                        <td className="px-3 py-2.5 text-right font-bold text-white whitespace-nowrap">{fmt(t.monthlyPayment)}</td>
                       </tr>
                     ))}
-                  </>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Periodo Anterior */}
-          <div className="bg-surface-card rounded-2xl border border-surface-border overflow-hidden shadow-lg">
-            <div className="bg-surface-base/50 p-4 border-b border-surface-border">
-              <h2 className="text-lg font-bold text-white">Movimientos del Período Anterior</h2>
-              <p className="text-xs text-text-muted mt-0.5">Antes del {fmtDate(prevCutoff.toISOString())}</p>
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <table className="w-full text-left text-sm">
-              <thead className="text-text-secondary bg-surface-card/50">
-                <tr>
-                  <th className={thCls}>Fecha</th>
-                  <th className={thCls}>Descripción</th>
-                  <th className={`${thCls} text-right`}>Monto</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-700/50">
-                {prevPeriod.length === 0 ? (
-                  <tr><td colSpan={3} className="p-6 text-center text-text-muted">Sin movimientos anteriores.</td></tr>
-                ) : (
-                  prevPeriod.map(t => (
-                    <tr
-                      key={t.id}
-                      className="hover:bg-surface-elevated/40 cursor-pointer transition-colors"
-                      onClick={() => openEditTx(t)}
-                      title="Click para editar o eliminar"
-                    >
-                      <td className="p-3 text-text-primary">{fmtDate(t.date)}</td>
-                      <td className="p-3 text-white capitalize">{t.description}</td>
-                      <td className="p-3 text-right font-medium text-text-secondary">{fmt(t.amount)}</td>
-                    </tr>
-                  ))
+          )}
+
+          {tab === 'PAYMENTS' && (
+            <div className={`${panelCls} p-4 md:p-5`}>
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <h2 className="flex items-center gap-2 text-lg font-bold">
+                  <BadgeCheck size={22} className="text-brand-green-light" /> Pagos
+                </h2>
+                {payments.length > 0 && (
+                  <span className="bg-brand-green/15 text-emerald-400 text-sm font-bold px-3 py-1 rounded-full whitespace-nowrap">
+                    Total pagado: {fmt(paymentsTotal)}
+                  </span>
                 )}
-              </tbody>
-            </table>
-          </div>
+              </div>
+              <div className="bg-surface-base/30 rounded-xl overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr>
+                      <th className={thCls}>Fecha</th>
+                      <th className={thCls}>Notas</th>
+                      <th className={`${thCls} text-right`}>Monto pagado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payments.length === 0 ? (
+                      <tr><td colSpan={3} className="p-6 text-center text-text-muted">Aún no hay pagos registrados.</td></tr>
+                    ) : payments.map(p => (
+                      <tr key={p.id} className="odd:bg-surface-base/40">
+                        <td className="px-3 py-2.5 text-text-primary whitespace-nowrap">
+                          {fmtDate(p.paymentDate)}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          {p.reference || p.notes ? (
+                            <>
+                              {p.reference && <span className="block text-white font-medium">{p.reference}</span>}
+                              {p.notes && <span className="block text-text-secondary text-xs">{p.notes}</span>}
+                            </>
+                          ) : (
+                            <span className="text-text-muted">—</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2.5 text-right font-bold text-emerald-400 whitespace-nowrap">+{fmt(p.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
+      {/* ── Modal editar tarjeta ── */}
+      {isEditCardOpen && (
+        <CardFormModal
+          card={card}
+          onClose={() => setIsEditCardOpen(false)}
+          onSaved={() => { setIsEditCardOpen(false); void fetchCard(); }}
+        />
+      )}
+
       {/* ── Modal agregar gasto ── */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-surface-card rounded-2xl border border-surface-border shadow-2xl w-full max-w-md p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-white">Registrar Gasto</h2>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setIsModalOpen(false)}>
+          <div className={`${modalCls} max-w-md p-6 max-h-[92vh] overflow-y-auto`} onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-5">
+              <h2 className="text-xl font-bold flex items-center gap-2"><Plus className="text-brand-green-light" size={20} /> Registrar Gasto</h2>
               <button onClick={() => setIsModalOpen(false)} className="text-text-secondary hover:text-white transition-colors">
                 <X size={20} />
               </button>
             </div>
 
-            <div className="flex bg-surface-base rounded-xl p-1 mb-5">
+            <div className="grid grid-cols-2 bg-surface-base/60 rounded-xl p-1 mb-5 border border-white/10">
               {(['ORDINARY', 'MSI'] as const).map(t => (
                 <button
                   key={t}
                   type="button"
                   onClick={() => setTxType(t)}
-                  className={`flex-1 py-2 rounded-lg text-sm font-bold transition-colors ${txType === t ? 'bg-brand-green text-white' : 'text-text-secondary hover:text-white'}`}
+                  className={`py-2 rounded-lg text-sm font-bold transition-all ${txType === t ? 'bg-brand-green text-white shadow-lg shadow-brand-green/20' : 'text-text-secondary hover:text-white'}`}
                 >
-                  {t === 'ORDINARY' ? 'Ordinario' : 'MSI'}
+                  {t === 'ORDINARY' ? 'Ordinario' : 'Meses sin intereses'}
                 </button>
               ))}
             </div>
 
             <form onSubmit={e => void handleAddExpense(e)} className="space-y-4">
               <div>
-                <label className="block text-text-secondary text-sm font-medium mb-1">
-                  {txType === 'MSI' ? 'Fecha de compra original' : 'Fecha del Gasto'}
-                </label>
+                <label className={labelCls}>{txType === 'MSI' ? 'Fecha de compra original' : 'Fecha del gasto'}</label>
                 <input type="date" required value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} className={inputCls} />
               </div>
               <div>
-                <label className="block text-text-secondary text-sm font-medium mb-1">Descripción</label>
-                <input type="text" placeholder="Ej. Despensa, Gasolina..." required value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className={inputCls} />
+                <label className={labelCls}>{txType === 'MSI' ? 'Producto' : 'Descripción'}</label>
+                <input type="text" placeholder={txType === 'MSI' ? 'Ej. Laptop, Celular...' : 'Ej. Despensa, Gasolina...'} required value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className={inputCls} />
               </div>
               <div>
-                <label className="block text-text-secondary text-sm font-medium mb-1">
-                  {txType === 'MSI' ? 'Monto original de compra (MXN)' : 'Monto (MXN)'}
-                </label>
+                <label className={labelCls}>{txType === 'MSI' ? 'Monto original de compra (MXN)' : 'Monto (MXN)'}</label>
                 <input type="number" step="0.01" min="0.01" placeholder="0.00" required value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} className={inputCls} />
                 {txType === 'ORDINARY' && exceedsLimit && form.amount && (
-                  <p className="text-red-400 text-xs mt-1 font-medium">
-                    ⚠ Supera el saldo disponible ({fmt(available)})
-                  </p>
+                  <p className="text-rose-400 text-xs mt-1 font-medium">Supera el crédito disponible ({fmt(availableCredit)})</p>
                 )}
               </div>
 
               {txType === 'MSI' && (
                 <>
-                  <div>
-                    <label className="block text-text-secondary text-sm font-medium mb-1">Meses totales del plan</label>
-                    <input type="number" min="2" max="48" required value={form.months} onChange={e => setForm({ ...form, months: e.target.value })} className={inputCls} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={labelCls}>Meses del plan</label>
+                      <input type="number" min="2" max="48" required value={form.months} onChange={e => setForm({ ...form, months: e.target.value })} className={inputCls} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Meses ya pagados</label>
+                      <input type="number" min="0" value={form.paidMonths} onChange={e => setForm({ ...form, paidMonths: e.target.value })} className={inputCls} />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-text-secondary text-sm font-medium mb-1">Meses ya pagados</label>
-                    <input type="number" min="0" value={form.paidMonths} onChange={e => setForm({ ...form, paidMonths: e.target.value })} className={inputCls} />
-                    <p className="text-text-muted text-xs mt-1">Déjalo en 0 si es una compra nueva.</p>
-                  </div>
+                  <p className="text-text-muted text-xs -mt-2">Deja "ya pagados" en 0 si es una compra nueva.</p>
 
                   {originalAmount > 0 && remainingMonths > 0 && (
-                    <div className={`rounded-xl p-3 text-sm space-y-1 ${exceedsLimit ? 'bg-red-500/10 border border-red-500/30' : 'bg-surface-base/60'}`}>
+                    <div className={`rounded-xl p-3 text-sm space-y-1 border ${exceedsLimit ? 'bg-rose-500/10 border-rose-500/30' : 'bg-brand-green/5 border-brand-green/20'}`}>
                       <div className="flex justify-between text-text-secondary">
                         <span>Mensualidad</span>
-                        <span className="text-brand-violet font-bold">{fmt(monthlyPayment)}</span>
+                        <span className="text-white font-bold">{fmt(monthlyPayment)}</span>
                       </div>
                       <div className="flex justify-between text-text-secondary">
                         <span>Meses restantes</span>
                         <span className="text-white font-bold">{remainingMonths}</span>
                       </div>
-                      <div className="flex justify-between text-text-secondary border-t border-surface-border pt-1">
+                      <div className="flex justify-between text-text-secondary border-t border-white/5 pt-1">
                         <span>Deuda a registrar</span>
-                        <span className={`font-bold ${exceedsLimit ? 'text-red-400' : 'text-brand-green-light'}`}>{fmt(computedDebt)}</span>
+                        <span className={`font-bold ${exceedsLimit ? 'text-rose-400' : 'text-emerald-400'}`}>{fmt(computedDebt)}</span>
                       </div>
                       {exceedsLimit && (
-                        <p className="text-red-400 text-xs font-medium pt-1">
-                          ⚠ Supera el saldo disponible ({fmt(available)})
-                        </p>
+                        <p className="text-rose-400 text-xs font-medium pt-1">Supera el crédito disponible ({fmt(availableCredit)})</p>
                       )}
                     </div>
                   )}
                 </>
               )}
 
-              <div className="flex gap-4 mt-2">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 bg-surface-elevated hover:bg-surface-elevated text-white py-2 rounded-lg transition-colors font-medium">
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="bg-surface-elevated hover:bg-surface-border-hover text-white py-2.5 rounded-xl transition-all font-medium">
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={saving || exceedsLimit}
-                  className="flex-1 bg-brand-green hover:bg-brand-green-light disabled:bg-surface-elevated disabled:cursor-not-allowed text-white py-2 rounded-lg transition-colors font-bold"
+                  className="bg-brand-green hover:bg-brand-green-light disabled:opacity-50 disabled:cursor-not-allowed text-white py-2.5 rounded-xl transition-all font-bold shadow-lg shadow-brand-green/20"
                 >
                   {saving ? 'Guardando...' : 'Guardar'}
                 </button>
@@ -643,127 +804,19 @@ export default function CreditCardDetail() {
 
       {/* ── Modal pago ── */}
       {isPayModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-surface-card rounded-2xl border border-surface-border shadow-2xl w-full max-w-sm p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                <Banknote className="text-brand-green-light" size={20} />
-                Registrar Pago
-              </h2>
-              <button onClick={() => setIsPayModalOpen(false)} className="text-text-secondary hover:text-white transition-colors">
-                <X size={20} />
-              </button>
-            </div>
-
-            <p className="text-text-secondary text-sm mb-4">
-              Deuda actual: <span className="text-red-400 font-bold">{fmt(currentBalance)}</span>
-            </p>
-
-            <button
-              type="button"
-              onClick={() => setPayAmount(String(currentBalance))}
-              className="w-full mb-4 bg-surface-elevated hover:bg-surface-elevated text-white py-2.5 rounded-xl font-medium transition-all text-sm"
-            >
-              Pago total — {fmt(currentBalance)}
-            </button>
-
-            <form onSubmit={e => void handlePay(e)} className="space-y-4">
-              <div>
-                <label className="block text-text-secondary text-sm font-medium mb-1">Otro monto (MXN)</label>
-                <input type="number" step="0.01" min="0.01" placeholder="0.00" value={payAmount} onChange={e => setPayAmount(e.target.value)} className={inputCls} />
-              </div>
-              <div className="flex gap-3 pt-1">
-                <button type="button" onClick={() => setIsPayModalOpen(false)} className="flex-1 bg-surface-elevated hover:bg-surface-elevated text-white py-2.5 rounded-xl font-medium transition-all">
-                  Cancelar
-                </button>
-                <button type="submit" disabled={paying || !payAmount} className="flex-1 bg-brand-green hover:bg-brand-green-light disabled:opacity-50 text-white py-2.5 rounded-xl font-bold transition-all">
-                  {paying ? 'Procesando...' : 'Confirmar'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ── Modal editar tarjeta ── */}
-      {isEditCardOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-surface-card rounded-2xl border border-surface-border shadow-2xl w-[95%] md:max-w-lg max-h-[90vh] flex flex-col">
-            <div className="flex justify-between items-center p-4 md:p-6 border-b border-surface-border shrink-0">
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                <Pencil className="text-sky-400" size={18} />
-                Editar — {card.name}
-              </h2>
-              <button onClick={() => setIsEditCardOpen(false)} className="text-text-secondary hover:text-white"><X size={20} /></button>
-            </div>
-            <form onSubmit={e => void handleEditCard(e)} className="overflow-y-auto flex-1 p-4 md:p-6 space-y-4">
-              <div>
-                <label className={labelCls}>Nombre</label>
-                <input type="text" value={editCardForm.name} onChange={e => setEditCardForm(p => ({ ...p, name: e.target.value }))} className={inputCls} />
-              </div>
-              <div>
-                <label className={labelCls}>Línea de Crédito</label>
-                <input type="number" min="1" step="0.01" value={editCardForm.creditLimit} onChange={e => setEditCardForm(p => ({ ...p, creditLimit: e.target.value }))} className={inputCls} />
-              </div>
-              <div>
-                <label className={labelCls}>Día de Corte (1–31)</label>
-                <input type="number" min="1" max="31" step="1" value={editCardForm.cutoffDay} onChange={e => setEditCardForm(p => ({ ...p, cutoffDay: e.target.value }))} className={inputCls} />
-                {editNextCutoff && editPeriodStart && editPaymentDeadline && (
-                  <div className="mt-2 bg-surface-base/60 rounded-lg px-3 py-2 text-xs space-y-1 border border-surface-border">
-                    <div className="flex justify-between text-text-secondary">
-                      <span>Período actual</span>
-                      <span className="text-white font-medium">
-                        {fmtDate(editPeriodStart.toISOString())} → {fmtDate(editNextCutoff.toISOString())}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-text-secondary">
-                      <span>Fecha límite de pago</span>
-                      <span className="text-brand-green-light font-medium">{fmtDate(editPaymentDeadline.toISOString())}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div>
-                <label className={labelCls}>Saldo actual (deuda)</label>
-                <input type="number" min="0" step="0.01" value={editCardForm.currentBalance} onChange={e => setEditCardForm(p => ({ ...p, currentBalance: e.target.value }))} className={inputCls} />
-                <p className="text-xs text-text-muted mt-1">Ajusta si necesitas corregir el saldo registrado.</p>
-              </div>
-              <div>
-                <label className={labelCls}>Color de tarjeta</label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="color"
-                    value={editCardForm.color}
-                    onChange={e => setEditCardForm(p => ({ ...p, color: e.target.value }))}
-                    className="h-10 w-16 rounded cursor-pointer bg-surface-base border border-surface-border p-0.5"
-                  />
-                  <span className="px-3 py-1 rounded-full text-xs font-bold border"
-                    style={{ backgroundColor: editCardForm.color + '33', color: editCardForm.color, borderColor: editCardForm.color + '66' }}>
-                    {editCardForm.name || card.name}
-                  </span>
-                </div>
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setIsEditCardOpen(false)}
-                  className="flex-1 bg-surface-elevated hover:bg-surface-elevated text-white py-3 rounded-xl font-medium transition-all">
-                  Cancelar
-                </button>
-                <button type="submit" disabled={savingCard}
-                  className="flex-1 bg-sky-500 hover:bg-sky-600 text-white py-3 rounded-xl font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-                  {savingCard ? <><RefreshCw size={15} className="animate-spin" /> Guardando...</> : 'Guardar Cambios'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <PayCardModal
+          card={card}
+          onClose={() => setIsPayModalOpen(false)}
+          onPaid={() => { setIsPayModalOpen(false); void Promise.all([fetchCard(), fetchPayments()]); }}
+        />
       )}
 
       {/* ── Modal editar/eliminar transacción ── */}
       {txEditTarget && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-surface-card rounded-2xl border border-surface-border shadow-2xl w-full max-w-md">
-            <div className="flex justify-between items-center p-5 border-b border-surface-border">
-              <h2 className="text-xl font-bold text-white">Editar Movimiento</h2>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setTxEditTarget(null)}>
+          <div className={`${modalCls} max-w-md`} onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center p-5 border-b border-white/5">
+              <h2 className="text-xl font-bold flex items-center gap-2"><Pencil className="text-brand-green-light" size={18} /> Editar Movimiento</h2>
               <button onClick={() => setTxEditTarget(null)} className="text-text-secondary hover:text-white transition-colors">
                 <X size={20} />
               </button>
@@ -783,10 +836,10 @@ export default function CreditCardDetail() {
               </div>
               <div>
                 <label className={labelCls}>Tipo</label>
-                <div className="flex bg-surface-base rounded-xl p-1">
+                <div className="grid grid-cols-2 bg-surface-base/60 rounded-xl p-1 border border-white/10">
                   {(['ORDINARY', 'MSI'] as const).map(t => (
                     <button key={t} type="button" onClick={() => setTxEditForm(p => ({ ...p, type: t }))}
-                      className={`flex-1 py-2 rounded-lg text-sm font-bold transition-colors ${txEditForm.type === t ? 'bg-brand-green text-white' : 'text-text-secondary hover:text-white'}`}>
+                      className={`py-2 rounded-lg text-sm font-bold transition-all ${txEditForm.type === t ? 'bg-brand-green text-white' : 'text-text-secondary hover:text-white'}`}>
                       {t === 'ORDINARY' ? 'Ordinario' : 'MSI'}
                     </button>
                   ))}
@@ -803,17 +856,17 @@ export default function CreditCardDetail() {
                   type="button"
                   onClick={() => void handleDeleteTx()}
                   disabled={deletingTx}
-                  className="flex items-center gap-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 px-4 py-2.5 rounded-xl font-medium transition-all disabled:opacity-50"
+                  className="flex items-center gap-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 px-4 py-2.5 rounded-xl font-medium transition-all disabled:opacity-50"
                 >
                   <Trash2 size={15} />
                   {deletingTx ? 'Eliminando...' : 'Eliminar'}
                 </button>
                 <button type="button" onClick={() => setTxEditTarget(null)}
-                  className="flex-1 bg-surface-elevated hover:bg-surface-elevated text-white py-2.5 rounded-xl font-medium transition-all">
+                  className="flex-1 bg-surface-elevated hover:bg-surface-border-hover text-white py-2.5 rounded-xl font-medium transition-all">
                   Cancelar
                 </button>
                 <button type="submit" disabled={savingTx}
-                  className="flex-1 bg-sky-500 hover:bg-sky-600 text-white py-2.5 rounded-xl font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                  className="flex-1 bg-brand-green hover:bg-brand-green-light text-white py-2.5 rounded-xl font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2">
                   {savingTx ? <><RefreshCw size={15} className="animate-spin" />Guardando...</> : 'Guardar'}
                 </button>
               </div>

@@ -7,7 +7,7 @@ import {
   Landmark,
   LogOut, ShieldCheck, ClipboardList, Briefcase, DatabaseZap, ClipboardCheck,
   TrendingUp, BarChart2, Users, ChevronDown, ShoppingBag,
-  Zap, Shield, Star, Crown, X, ScrollText,
+  Zap, Shield, Star, Crown, X, ScrollText, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 
 // ─── Config de niveles (espejo exacto de levels.config.ts del backend) ────────
@@ -95,8 +95,11 @@ const superAdminModules = [
   { name: 'Bitácora de Auditoría',  path: '/admin/audit-logs',   icon: ScrollText     },
 ];
 
-const navCls = ({ isActive }: { isActive: boolean }) =>
-  `flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all active:scale-[0.98] ${
+// En modo colapsado (solo md+) el ítem se centra y pierde el padding horizontal
+const navCls = (collapsed: boolean) => ({ isActive }: { isActive: boolean }) =>
+  `relative flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all active:scale-[0.98] ${
+    collapsed ? 'md:justify-center md:px-0' : ''
+  } ${
     isActive
       ? 'bg-brand-green/10 text-brand-green-light border border-brand-green/20 shadow-inner'
       : 'text-text-secondary hover:bg-surface-elevated hover:text-text-primary'
@@ -176,11 +179,31 @@ function LevelProgress({ points, level }: { points: number; level: LevelKey }) {
   );
 }
 
+// ─── LevelBadge — versión compacta para el mini sidebar ───────────────────────
+
+function LevelBadge({ points, level }: { points: number; level: LevelKey }) {
+  const { Icon, color } = getLevelVisual(level);
+  const label = LEVEL_CONFIG.find(l => l.level === level)?.label ?? level;
+  return (
+    <div
+      className="mx-auto mb-3 w-11 h-11 flex items-center justify-center bg-surface-elevated/50 border border-surface-border rounded-xl"
+      title={`${label} · ${points.toLocaleString('es-MX')} pts`}
+    >
+      <Icon size={18} className={color} />
+    </div>
+  );
+}
+
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
-type SidebarProps = { isOpen: boolean; onClose: () => void; };
+type SidebarProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
+};
 
-export default function Sidebar({ isOpen, onClose }: SidebarProps) {
+export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: SidebarProps) {
   const navigate = useNavigate();
   const role = getUserRole();
   const name = getUserName();
@@ -226,15 +249,29 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     navigate('/login');
   };
 
+  // Clases que solo aplican en escritorio cuando está colapsado (en móvil el drawer siempre va completo)
+  const hideWhenCollapsed = isCollapsed ? 'md:hidden' : '';
+  const itemCls = navCls(isCollapsed);
+  // Colapsado no hay cabeceras de acordeón: en md+ las secciones se muestran siempre
+  const sectionCls = (open: boolean) => `space-y-1 ${open ? '' : 'hidden'} ${isCollapsed ? 'md:block' : ''}`;
+
   return (
-    <aside className={`fixed md:relative inset-y-0 left-0 z-40 md:z-10 w-72 max-w-[85vw] md:w-64 shrink-0 bg-surface-card/90 backdrop-blur-md md:bg-surface-card border-r border-surface-border flex flex-col h-dvh md:h-full pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] md:pt-0 md:pb-0 shadow-2xl md:shadow-none transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+    <aside className={`fixed md:relative inset-y-0 left-0 z-40 md:z-10 w-72 max-w-[85vw] ${isCollapsed ? 'md:w-20' : 'md:w-64'} shrink-0 bg-surface-card/90 backdrop-blur-md md:bg-surface-card border-r border-surface-border flex flex-col h-dvh md:h-full pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] md:pt-0 md:pb-0 shadow-2xl md:shadow-none transition-all duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
 
       {/* ── Cabecera ── */}
-      <div className="p-6 border-b border-surface-border">
-        <div className="flex items-center justify-between gap-2">
-          <Link to="/dashboard" onClick={onClose} className="text-2xl font-extrabold text-brand-green tracking-tight hover:text-brand-green-light transition-colors">
+      <div className={`p-6 border-b border-surface-border ${isCollapsed ? 'md:px-0' : ''}`}>
+        <div className={`flex items-center justify-between gap-2 ${isCollapsed ? 'md:justify-center' : ''}`}>
+          <Link to="/dashboard" onClick={onClose} className={`text-2xl font-extrabold text-brand-green tracking-tight hover:text-brand-green-light transition-colors whitespace-nowrap ${hideWhenCollapsed}`}>
             FinanzasDMS
           </Link>
+          <button
+            onClick={onToggleCollapse}
+            className={`hidden md:flex p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-elevated/60 transition-colors ${isCollapsed ? '' : '-mr-2'}`}
+            aria-label={isCollapsed ? 'Expandir menú' : 'Colapsar menú'}
+            title={isCollapsed ? 'Expandir menú' : 'Colapsar menú'}
+          >
+            {isCollapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
+          </button>
           <button
             onClick={onClose}
             className="md:hidden p-2 -mr-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-elevated/60 transition-colors"
@@ -244,19 +281,19 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           </button>
         </div>
         {name && (
-          <p className="text-text-secondary text-sm mt-1 truncate">
+          <p className={`text-text-secondary text-sm mt-1 truncate ${hideWhenCollapsed}`}>
             <span className="text-text-muted">Hola,</span> {name}
           </p>
         )}
       </div>
 
       {/* ── Navegación ── */}
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+      <nav className={`flex-1 p-4 space-y-1 overflow-y-auto overflow-x-hidden ${isCollapsed ? 'md:px-3' : ''}`}>
 
         {/* Mis Módulos */}
         <button
           onClick={() => toggleSection('user')}
-          className="w-full flex items-center justify-between px-2 py-2 text-xs font-bold text-text-muted uppercase tracking-wider hover:text-text-secondary transition-colors"
+          className={`w-full flex items-center justify-between px-2 py-2 text-xs font-bold text-text-muted uppercase tracking-wider hover:text-text-secondary transition-colors ${hideWhenCollapsed}`}
         >
           Mis Módulos
           <ChevronDown
@@ -265,31 +302,29 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           />
         </button>
 
-        {openSections.user && (
-          <div className="space-y-1">
-            {userModules
-              .filter((m) => !m.requiredFlag || flags[m.requiredFlag])
-              .map(({ name: mName, path, icon: Icon }) => (
-                <NavLink key={path} to={path} className={navCls} onClick={onClose}>
-                  <Icon size={20} className="shrink-0" />
-                  {mName}
-                </NavLink>
-              ))}
-          </div>
-        )}
+        <div className={sectionCls(openSections.user)}>
+          {userModules
+            .filter((m) => !m.requiredFlag || flags[m.requiredFlag])
+            .map(({ name: mName, path, icon: Icon }) => (
+              <NavLink key={path} to={path} className={itemCls} onClick={onClose} title={isCollapsed ? mName : undefined}>
+                <Icon size={20} className="shrink-0" />
+                <span className={`truncate ${hideWhenCollapsed}`}>{mName}</span>
+              </NavLink>
+            ))}
+        </div>
 
         {/* Tienda de Módulos */}
-        <NavLink to="/tienda" className={navCls} onClick={onClose}>
+        <NavLink to="/tienda" className={itemCls} onClick={onClose} title={isCollapsed ? 'Tienda de Módulos' : undefined}>
           <ShoppingBag size={20} className="shrink-0 text-brand-violet-light" />
-          Tienda de Módulos
+          <span className={`truncate ${hideWhenCollapsed}`}>Tienda de Módulos</span>
         </NavLink>
 
         {/* Administración — solo ADMIN / SUPER_ADMIN */}
         {isAdminRole(role) && (
-          <div className="pt-2">
+          <div className={`pt-2 ${isCollapsed ? 'md:mt-2 md:border-t md:border-surface-border' : ''}`}>
             <button
               onClick={() => toggleSection('admin')}
-              className="w-full flex items-center justify-between px-2 py-2 text-xs font-bold text-text-muted uppercase tracking-wider hover:text-text-secondary transition-colors"
+              className={`w-full flex items-center justify-between px-2 py-2 text-xs font-bold text-text-muted uppercase tracking-wider hover:text-text-secondary transition-colors ${hideWhenCollapsed}`}
             >
               <span className="flex items-center gap-2">
                 <ShieldCheck size={14} />
@@ -301,22 +336,20 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               />
             </button>
 
-            {openSections.admin && (
-              <div className="space-y-1">
-                {[...adminModules, ...(isSuperAdminRole(role) ? superAdminModules : [])].map(({ name: mName, path, icon: Icon }) => (
-                  <NavLink key={path} to={path} className={navCls} onClick={onClose}>
-                    <Icon size={20} className="shrink-0" />
-                    {mName}
-                    {path === '/admin/payments' && pendingCount > 0 && (
-                      <span className="ml-auto relative flex h-3 w-3">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500" />
-                      </span>
-                    )}
-                  </NavLink>
-                ))}
-              </div>
-            )}
+            <div className={sectionCls(openSections.admin)}>
+              {[...adminModules, ...(isSuperAdminRole(role) ? superAdminModules : [])].map(({ name: mName, path, icon: Icon }) => (
+                <NavLink key={path} to={path} className={itemCls} onClick={onClose} title={isCollapsed ? mName : undefined}>
+                  <Icon size={20} className="shrink-0" />
+                  <span className={`truncate ${hideWhenCollapsed}`}>{mName}</span>
+                  {path === '/admin/payments' && pendingCount > 0 && (
+                    <span className={`ml-auto relative flex h-3 w-3 ${isCollapsed ? 'md:absolute md:top-1.5 md:right-1.5' : ''}`}>
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500" />
+                    </span>
+                  )}
+                </NavLink>
+              ))}
+            </div>
           </div>
         )}
 
@@ -324,17 +357,27 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       {/* ── Progreso de nivel ── */}
       {!isAdminRole(role) && (
-        <LevelProgress points={points} level={level} />
+        <>
+          <div className={hideWhenCollapsed}>
+            <LevelProgress points={points} level={level} />
+          </div>
+          {isCollapsed && (
+            <div className="hidden md:block">
+              <LevelBadge points={points} level={level} />
+            </div>
+          )}
+        </>
       )}
 
       {/* ── Cerrar sesión ── */}
-      <div className="p-4 border-t border-surface-border">
+      <div className={`p-4 border-t border-surface-border ${isCollapsed ? 'md:px-3' : ''}`}>
         <button
           onClick={handleLogout}
-          className="w-full flex items-center justify-center gap-2 bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500 hover:border-red-500 hover:text-white px-4 py-2.5 rounded-lg font-bold transition-all"
+          title={isCollapsed ? 'Cerrar Sesión' : undefined}
+          className={`w-full flex items-center justify-center gap-2 bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500 hover:border-red-500 hover:text-white px-4 py-2.5 rounded-lg font-bold transition-all ${isCollapsed ? 'md:px-0' : ''}`}
         >
-          <LogOut size={18} />
-          Cerrar Sesión
+          <LogOut size={18} className="shrink-0" />
+          <span className={`whitespace-nowrap ${hideWhenCollapsed}`}>Cerrar Sesión</span>
         </button>
       </div>
 
