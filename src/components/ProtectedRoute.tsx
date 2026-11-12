@@ -82,8 +82,28 @@ function BlockedScreen() {
   );
 }
 
+const SIDEBAR_COLLAPSED_KEY = 'sidebarCollapsed';
+
+function getStoredCollapsed(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
 export default function ProtectedRoute() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Mini sidebar (solo escritorio) — la preferencia se recuerda en localStorage
+  const [isCollapsed, setIsCollapsed] = useState(getStoredCollapsed);
+
+  const toggleCollapsed = () => {
+    setIsCollapsed((prev) => {
+      const next = !prev;
+      try { localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next)); } catch { /* sin storage */ }
+      return next;
+    });
+  };
   const token = localStorage.getItem('token');
 
   if (!token) {
@@ -106,7 +126,12 @@ export default function ProtectedRoute() {
         />
       )}
 
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={toggleCollapsed}
+      />
 
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Top Bar — solo móvil */}
