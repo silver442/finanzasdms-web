@@ -4,23 +4,27 @@ import { Bitcoin, X } from 'lucide-react';
 import axios from 'axios';
 import type { CryptoPosition } from './types';
 import { POPULAR_COINS } from './types';
+import { todayMx } from '../../../utils/dates';
 import { API, apiErrorMessage, authHeaders } from './utils/api';
 import { formatMoney } from './utils/format';
 
 interface RegisterTradeModalProps {
   positions: CryptoPosition[];
   usdBalance: number;
+  /** Moneda y precio de mercado precargados al abrir el modal desde una fila del portafolio */
+  initialSymbol?: string;
+  initialPrice?: number;
   onClose: () => void;
   onSaved: () => void;
 }
 
-const today = () => new Date().toISOString().split('T')[0];
-const emptyOp = () => ({ symbol: '', type: 'BUY' as 'BUY' | 'SELL', price: '', totalUsd: '', quantity: '', date: today() });
+const today = todayMx;
+const emptyOp = (symbol = '', price = '') => ({ symbol, type: 'BUY' as 'BUY' | 'SELL', price, totalUsd: '', quantity: '', date: today() });
 
 const round8 = (n: number) => Math.round(n * 1e8) / 1e8;
 
-export default function RegisterTradeModal({ positions, usdBalance, onClose, onSaved }: RegisterTradeModalProps) {
-  const [newOp, setNewOp] = useState(emptyOp);
+export default function RegisterTradeModal({ positions, usdBalance, initialSymbol, initialPrice, onClose, onSaved }: RegisterTradeModalProps) {
+  const [newOp, setNewOp] = useState(() => emptyOp(initialSymbol, initialPrice !== undefined ? String(initialPrice) : ''));
   const [affectCashBalance, setAffectCashBalance] = useState(true);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);

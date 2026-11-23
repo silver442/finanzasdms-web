@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { ArrowDownUp, Bitcoin, DollarSign, Eye, Pencil, PieChart as PieChartIcon, RefreshCw, RotateCcw, Trash2, Wallet } from 'lucide-react';
+import { ArrowLeftRight, CircleDollarSign, Coins, Eye, Layers, Pencil, Plus, RefreshCw, RotateCcw, Trash2 } from 'lucide-react';
 import axios from 'axios';
 import type { CryptoPosition, Currency, PortfolioResponse, PositionStatus, ReferenceMode } from './types';
 import { API, apiErrorMessage, authHeaders } from './utils/api';
@@ -12,11 +12,15 @@ import { usePeriodOpens } from './hooks/usePeriodOpens';
 import RegisterTradeModal from './RegisterTradeModal';
 import WatchlistModal from './WatchlistModal';
 import CashMovementModal from './CashMovementModal';
+import CoinIcon from './components/CoinIcon';
+import PortfolioValueCard from './components/PortfolioValueCard';
+import PortfolioDistributionCard from './components/PortfolioDistributionCard';
+import { usePortfolioHistory } from './hooks/usePortfolioHistory';
 
 const STATUS_ORDER: Record<PositionStatus, number> = { BOUGHT: 0, WATCHLIST: 1, SOLD: 2 };
 
 const STATUS_BADGE: Record<PositionStatus, { label: string; className: string }> = {
-  BOUGHT: { label: 'Comprado', className: 'bg-brand-green/20 text-brand-green-light' },
+  BOUGHT: { label: 'Comprado', className: 'bg-brand-green/15 text-brand-green-light border border-brand-green/30' },
   SOLD: { label: 'Vendido', className: 'bg-surface-elevated text-text-muted' },
   WATCHLIST: { label: 'Seguimiento', className: 'bg-white/5 text-text-secondary border border-white/10' },
 };
@@ -40,14 +44,14 @@ function SegmentedToggle<T extends string>({ value, options, onChange, ariaLabel
   ariaLabel: string;
 }) {
   return (
-    <div role="group" aria-label={ariaLabel} className="inline-flex bg-surface-base rounded-lg p-1 border border-surface-border">
+    <div role="group" aria-label={ariaLabel} className="inline-flex bg-surface-card/60 rounded-xl p-1 border border-white/10">
       {options.map((o) => (
         <button
           key={o.value}
           type="button"
           aria-pressed={value === o.value}
           onClick={() => onChange(o.value)}
-          className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all whitespace-nowrap ${value === o.value ? 'bg-brand-green/15 text-brand-green-light shadow-inner' : 'text-text-secondary hover:text-text-primary'}`}
+          className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-medium rounded-lg border transition-all whitespace-nowrap ${value === o.value ? 'bg-brand-green/25 border-brand-green/60 text-white shadow-inner' : 'border-transparent text-text-secondary hover:text-text-primary'}`}
         >
           {o.label}
         </button>
@@ -58,15 +62,7 @@ function SegmentedToggle<T extends string>({ value, options, onChange, ariaLabel
 
 function StatusBadge({ status }: { status: PositionStatus }) {
   return (
-    <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_BADGE[status].className}`}>{STATUS_BADGE[status].label}</span>
-  );
-}
-
-function CoinIcon({ symbol, size }: { symbol: string; size: 'sm' | 'md' }) {
-  return (
-    <div className={`${size === 'sm' ? 'w-6 h-6 text-xs' : 'w-8 h-8 text-sm'} shrink-0 rounded-full bg-surface-elevated flex items-center justify-center text-brand-green-light`}>
-      {symbol.charAt(0)}
-    </div>
+    <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${STATUS_BADGE[status].className}`}>{STATUS_BADGE[status].label}</span>
   );
 }
 
@@ -78,13 +74,12 @@ export default function PortfolioTab() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currency, setCurrency] = useState<Currency>(() => readPref('crypto.currency', ['USD', 'MXN'] as const, 'USD'));
   const [referenceMode, setReferenceMode] = useState<ReferenceMode>(() => readPref('crypto.referenceMode', ['DAY', 'SWING'] as const, 'DAY'));
-  const [isTradeModalOpen, setIsTradeModalOpen] = useState(false);
+  const [tradeModal, setTradeModal] = useState<{ symbol?: string; price?: number } | null>(null);
   const [isCashModalOpen, setIsCashModalOpen] = useState(false);
   const [watchlistModal, setWatchlistModal] = useState<{ editing: CryptoPosition | null } | null>(null);
   const [rateDraft, setRateDraft] = useState<string | null>(null);
 
   const { rate, isManual, setOverride } = useUsdMxnRate();
-  const CRYPTO_API_KEY = import.meta.env.VITE_CRYPTO_API_KEY;
 
   const fetchLivePrices = useCallback(async (coinList: CryptoPosition[]) => {
     if (coinList.length === 0) {
@@ -93,21 +88,16 @@ export default function PortfolioTab() {
     }
     setIsRefreshing(true);
     try {
-      const uniqueCoins = Array.from(new Set(coinList.map((p) => p.symbol))).join(',');
-      const cryptoRes = await axios.get(`https://min-api.cryptocompare.com/data/pricemulti?fsyms=${uniqueCoins}&tsyms=USD&api_key=${CRYPTO_API_KEY}`);
-      const newPrices: Record<string, number> = {};
-      if (cryptoRes.data) {
-        Object.keys(cryptoRes.data).forEach((coin) => {
-          if (cryptoRes.data[coin]?.USD) newPrices[coin] = cryptoRes.data[coin].USD;
-        });
-      }
-      setLivePrices(newPrices);
+      // El backend consulta Bitget (CryptoCompare de respaldo) y devuelve { BTC: 60797.89, ... } en USD
+      const symbols = Array.from(new Set(coinList.map((p) => p.symbol))).join(',');
+      const { data } = await axios.get<Record<string, number>>(`${API}/market/prices`, { params: { symbols }, headers: authHeaders() });
+      setLivePrices(data);
     } catch {
       toast.error('Error al conectar con el mercado');
     } finally {
       setIsRefreshing(false);
     }
-  }, [CRYPTO_API_KEY]);
+  }, []);
 
   const loadPortfolio = useCallback(async () => {
     try {
@@ -188,6 +178,12 @@ export default function PortfolioTab() {
   // Efectivo disponible + valor de mercado de las monedas compradas (= dólares + invertido + ganancia)
   const totalBalance = usdBalance + totalCurrentValue;
 
+  const boughtRows = rows.filter((r) => r.status === 'BOUGHT');
+  const valueHistory = usePortfolioHistory(boughtRows.map((r) => ({ symbol: r.position.symbol, quantity: r.quantity })));
+  // El histórico solo trae las monedas: se suma el efectivo actual para que la curva termine en el valor del portafolio
+  const chartHistory = valueHistory.map((h) => ({ time: h.time, value: toCurrency(h.value + usdBalance) }));
+  const distribution = boughtRows.map((r) => ({ symbol: r.position.symbol, value: r.quantity * (r.marketPrice ?? r.price ?? 0) }));
+
   const changeCurrency = (value: Currency) => {
     setCurrency(value);
     writePref('crypto.currency', value);
@@ -220,18 +216,18 @@ export default function PortfolioTab() {
     r.percent === null ? (
       <span className="text-text-muted">—</span>
     ) : (
-      <span className={`font-bold ${r.percent >= 0 ? 'text-brand-green-light' : 'text-red-400'}`}>{formatPercent(r.percent)}</span>
+      <span className={`inline-flex px-3 py-1 rounded-full text-sm font-bold border ${r.percent >= 0 ? 'bg-brand-green/15 border-brand-green/40 text-brand-green-light' : 'bg-red-500/15 border-red-500/40 text-red-400'}`}>{formatPercent(r.percent)}</span>
     );
 
   const renderProfit = (r: RowMetrics) => (
-    <span className={`font-bold ${r.status !== 'BOUGHT' ? 'text-text-muted' : r.profit >= 0 ? 'text-brand-green-light' : 'text-red-400'}`}>
-      {money(r.profit)}
+    <span className={`font-bold text-base ${r.status !== 'BOUGHT' ? 'text-text-muted' : r.profit >= 0 ? 'text-brand-green-light' : 'text-red-400'}`}>
+      {r.status === 'BOUGHT' && r.profit > 0 ? '+' : ''}{money(r.profit)}
     </span>
   );
 
   const renderActions = (r: RowMetrics) =>
     r.quantity === 0 ? (
-      <div className="flex items-center justify-end gap-1">
+      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
         <button onClick={() => setWatchlistModal({ editing: r.position })} className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-elevated/60 transition-colors" aria-label={`Editar referencia de ${r.position.symbol}`} title="Editar precio de referencia">
           <Pencil size={14} />
         </button>
@@ -241,20 +237,36 @@ export default function PortfolioTab() {
       </div>
     ) : null;
 
+  const openTradeFor = (r: RowMetrics) => setTradeModal({ symbol: r.position.symbol, price: r.marketPrice });
+
+  // Fila/tarjeta clicable: abre el registro de compra o venta con la moneda precargada
+  const rowTradeProps = (r: RowMetrics) => ({
+    role: 'button',
+    tabIndex: 0,
+    title: `Registrar operación de ${r.position.symbol}`,
+    onClick: () => openTradeFor(r),
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openTradeFor(r);
+      }
+    },
+  });
+
   const emptyMessage = isLoading ? 'Cargando portafolio...' : 'Aún no tienes monedas. Registra una operación o enlista una moneda para seguirla.';
 
   return (
     <div className="space-y-6 md:space-y-8">
       {/* ── Controles ── */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <SegmentedToggle ariaLabel="Divisa" value={currency} onChange={changeCurrency} options={[{ value: 'USD', label: 'USD' }, { value: 'MXN', label: 'MXN' }]} />
 
-          <div className="inline-flex items-center gap-1 text-xs text-text-secondary bg-surface-card/60 border border-white/5 rounded-lg px-2.5 py-1.5">
-            <span className="whitespace-nowrap">1 USD =</span>
+          <div className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-text-secondary bg-surface-card/60 border border-white/10 rounded-xl px-3 py-2">
+            <span className="whitespace-nowrap text-text-primary">1 USD =</span>
             {rateDraft === null ? (
               <button onClick={() => setRateDraft(String(rate))} className="font-bold text-text-primary hover:text-brand-green-light inline-flex items-center gap-1 transition-colors" title="Editar tipo de cambio">
-                ${rate.toFixed(2)} MXN <Pencil size={11} />
+                ${rate.toFixed(2)} MXN <Pencil size={12} className="text-brand-green-light" />
               </button>
             ) : (
               <input
@@ -280,52 +292,70 @@ export default function PortfolioTab() {
             )}
           </div>
 
+          <span className="hidden sm:block w-px h-8 bg-white/10" aria-hidden="true" />
+
           <SegmentedToggle ariaLabel="Referencia de seguimiento" value={referenceMode} onChange={changeReferenceMode} options={[{ value: 'DAY', label: 'Day (00:00)' }, { value: 'SWING', label: 'Swing (Lunes 00:00)' }]} />
 
-          <button onClick={() => fetchLivePrices(positions)} disabled={isRefreshing} className="flex items-center gap-1 text-sm text-brand-green-light hover:text-brand-green-light/80 transition-colors px-1">
-            <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
-            Actualizar precios
-          </button>
         </div>
 
-        <div className="grid grid-cols-2 sm:flex gap-2 sm:gap-3">
-          <button onClick={() => setWatchlistModal({ editing: null })} className="flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 bg-surface-elevated/70 hover:bg-surface-elevated text-text-primary text-sm font-bold rounded-xl border border-white/5 transition-all">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <button onClick={() => fetchLivePrices(positions)} disabled={isRefreshing} className="flex items-center gap-1.5 text-sm font-medium text-brand-green-light hover:text-brand-green-light/80 transition-colors px-2 whitespace-nowrap">
+            <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
+            Actualizar precios
+          </button>
+          <button onClick={() => setWatchlistModal({ editing: null })} className="flex items-center justify-center gap-2 px-4 py-2.5 bg-surface-card/60 hover:bg-surface-elevated text-text-primary text-sm font-semibold rounded-xl border border-white/10 transition-all whitespace-nowrap">
             <Eye size={16} /> Enlistar moneda
           </button>
-          <button onClick={() => setIsTradeModalOpen(true)} className="flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 bg-brand-green hover:bg-brand-green-light text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-brand-green/20">
-            <Bitcoin size={16} /> Registrar operación
+          <button onClick={() => setTradeModal({})} className="flex items-center justify-center gap-2 px-5 py-2.5 bg-brand-green hover:bg-brand-green-light text-white text-sm font-bold rounded-xl border border-brand-green-light/40 transition-all shadow-lg shadow-brand-green/30 whitespace-nowrap">
+            <Plus size={18} /> Registrar operación
           </button>
         </div>
       </div>
 
       {/* ── KPIs (invertido y rendimiento: solo monedas compradas) ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
-        <div className="bg-surface-card/60 backdrop-blur-md p-4 md:p-5 rounded-2xl border border-white/5 shadow-card flex flex-col">
-          <h2 className="text-text-secondary text-xs font-semibold uppercase tracking-wider mb-2 flex items-center gap-2"><DollarSign size={14} /> {currency === 'USD' ? 'Dólares' : 'Pesos MXN'}</h2>
-          <p className="text-xl md:text-2xl font-bold text-text-primary tabular-nums truncate">{money(usdBalance)}</p>
-          <button onClick={() => setIsCashModalOpen(true)} className="mt-2 self-start inline-flex items-center gap-1 text-xs font-bold text-brand-green-light hover:text-brand-green-light/80 transition-colors">
-            <ArrowDownUp size={12} /> Depositar / Retirar
-          </button>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
+        <div className="lg:col-span-5">
+          <PortfolioValueCard
+            currency={currency}
+            formattedValue={money(totalBalance)}
+            formattedProfit={money(totalProfit)}
+            profit={totalProfit}
+            yieldRatio={totalYield}
+            history={chartHistory}
+          />
         </div>
 
-        <div className="bg-surface-card/60 backdrop-blur-md p-4 md:p-5 rounded-2xl border border-white/5 shadow-card">
-          <h2 className="text-text-secondary text-xs font-semibold uppercase tracking-wider mb-2 flex items-center gap-2"><Wallet size={14} /> Total Invertido</h2>
-          <p className="text-xl md:text-2xl font-bold text-text-primary tabular-nums truncate">{money(totalInvested)}</p>
+        <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4 md:gap-6">
+          <div className="bg-surface-card/60 backdrop-blur-md p-4 md:p-5 rounded-2xl border border-white/5 shadow-card flex items-center gap-4">
+            <div className="w-12 h-12 shrink-0 rounded-xl bg-brand-green/15 border border-brand-green/20 flex items-center justify-center text-brand-green-light">
+              <Coins size={24} />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-sm text-text-secondary">Total Invertido</h2>
+              <p className="text-xl md:text-2xl font-bold text-white tabular-nums truncate">
+                {money(totalInvested)} <span className="text-sm font-medium text-text-secondary">{currency}</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-surface-card/60 backdrop-blur-md p-4 md:p-5 rounded-2xl border border-white/5 shadow-card flex items-center gap-4">
+            <div className="w-12 h-12 shrink-0 rounded-xl bg-brand-green/15 border border-brand-green/20 flex items-center justify-center text-brand-green-light">
+              <CircleDollarSign size={24} />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-sm text-text-secondary">Disponible ({currency})</h2>
+              <p className="text-xl md:text-2xl font-bold text-white tabular-nums truncate">
+                {money(usdBalance)} <span className="text-sm font-medium text-text-secondary">{currency}</span>
+              </p>
+              <button onClick={() => setIsCashModalOpen(true)} className="mt-1 inline-flex items-center gap-1.5 text-sm font-medium text-brand-green-light hover:text-brand-green-light/80 transition-colors">
+                <ArrowLeftRight size={14} /> Depositar / Retirar
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div className="bg-surface-card/60 backdrop-blur-md p-4 md:p-5 rounded-2xl border border-white/5 shadow-card">
-          <h2 className="text-text-secondary text-xs font-semibold uppercase tracking-wider mb-2 flex items-center gap-2"><PieChartIcon size={14} /> Saldo Total</h2>
-          <p className="text-xl md:text-2xl font-bold text-text-primary tabular-nums truncate">{money(totalBalance)}</p>
-        </div>
-
-        <div className={`p-4 md:p-5 rounded-2xl border backdrop-blur-md shadow-card ${totalProfit >= 0 ? 'bg-brand-green/[6%] border-brand-green/20' : 'bg-red-500/[6%] border-red-500/20'}`}>
-          <h2 className={`text-xs font-semibold uppercase tracking-wider mb-2 ${totalProfit >= 0 ? 'text-brand-green-light' : 'text-red-400'}`}>Rendimiento</h2>
-          <p className={`text-xl md:text-3xl font-extrabold ${totalProfit >= 0 ? 'text-brand-green-light' : 'text-red-400'}`}>
-            {formatPercent(totalYield)}
-          </p>
-          <p className={`text-xs font-medium mt-1 ${totalProfit >= 0 ? 'text-brand-green-light/70' : 'text-red-400/70'}`}>
-            {money(totalProfit)}
-          </p>
+        <div className="lg:col-span-4">
+          <PortfolioDistributionCard slices={distribution} currency={currency} formattedTotal={money(totalCurrentValue)} />
         </div>
       </div>
 
@@ -335,7 +365,7 @@ export default function PortfolioTab() {
           <div className="bg-surface-card/60 backdrop-blur-md rounded-2xl border border-white/5 shadow-card p-6 text-center text-sm text-text-muted">{emptyMessage}</div>
         ) : (
           rows.map((r) => (
-            <div key={r.position.symbol} className="bg-surface-card/60 backdrop-blur-md rounded-2xl border border-white/5 shadow-card p-4">
+            <div key={r.position.symbol} {...rowTradeProps(r)} className="bg-surface-card/60 backdrop-blur-md rounded-2xl border border-white/5 shadow-card p-4 cursor-pointer hover:border-brand-green/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/50 transition-colors">
               <div className="flex items-center justify-between gap-3 mb-3">
                 <div className="flex items-center gap-2 font-bold text-text-primary min-w-0">
                   <CoinIcon symbol={r.position.symbol} size="md" />
@@ -378,18 +408,21 @@ export default function PortfolioTab() {
       </div>
 
       {/* ── Posiciones: tabla (md+) ── */}
-      <div className="hidden md:block bg-surface-card/60 backdrop-blur-md rounded-2xl border border-white/5 shadow-card overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="hidden md:block bg-surface-card/60 backdrop-blur-md rounded-2xl border border-white/5 shadow-card p-4 lg:p-5">
+        <h2 className="flex items-center gap-3 text-xl font-bold text-white mb-4 px-1">
+          <Layers size={24} className="text-brand-green-light" /> Mis Inversiones
+        </h2>
+        <div className="overflow-x-auto rounded-xl border border-white/5">
           <table className="w-full text-left border-collapse whitespace-nowrap text-sm">
             <thead>
-              <tr className="bg-surface-base/50 text-text-primary uppercase tracking-wider border-b border-surface-border">
+              <tr className="bg-surface-base/40 text-text-primary text-xs uppercase tracking-wider border-b border-white/5">
                 <th className="p-4 font-semibold">Moneda</th>
                 <th className="p-4 font-semibold text-right">Precio</th>
                 <th className="p-4 font-semibold text-right">Invertido</th>
                 <th className="p-4 font-semibold">Estado</th>
-                <th className="p-4 font-semibold text-right">Fecha</th>
-                <th className="p-4 font-semibold text-right bg-surface-base/80">Precio de mercado</th>
-                <th className="p-4 font-semibold text-right">%</th>
+                <th className="p-4 font-semibold text-center">Fecha</th>
+                <th className="p-4 font-semibold text-right">Precio de mercado</th>
+                <th className="p-4 font-semibold text-center">Rendimiento</th>
                 <th className="p-4 font-semibold text-right">Ganancia</th>
                 <th className="p-4 w-px"><span className="sr-only">Acciones</span></th>
               </tr>
@@ -399,10 +432,10 @@ export default function PortfolioTab() {
                 <tr><td colSpan={9} className="p-6 text-center text-text-muted">{emptyMessage}</td></tr>
               ) : (
                 rows.map((r) => (
-                  <tr key={r.position.symbol} className="hover:bg-surface-elevated/30 transition-colors">
-                    <td className="p-4 font-bold text-text-primary">
-                      <div className="flex items-center gap-2">
-                        <CoinIcon symbol={r.position.symbol} size="sm" />
+                  <tr key={r.position.symbol} {...rowTradeProps(r)} className="cursor-pointer hover:bg-surface-elevated/40 focus:outline-none focus-visible:bg-surface-elevated/40 transition-colors">
+                    <td className="p-4 font-bold text-white">
+                      <div className="flex items-center gap-3">
+                        <CoinIcon symbol={r.position.symbol} size="md" />
                         {r.position.symbol}
                       </div>
                     </td>
@@ -412,11 +445,11 @@ export default function PortfolioTab() {
                       <div className="text-xs text-text-muted">{formatTokens(r.quantity)} {r.position.symbol}</div>
                     </td>
                     <td className="p-4"><StatusBadge status={r.status} /></td>
-                    <td className="p-4 text-right text-text-secondary">{r.date ? formatShortDate(r.date) : '—'}</td>
-                    <td className="p-4 text-right font-bold text-text-primary bg-surface-base/30 tabular-nums">
+                    <td className="p-4 text-center text-text-secondary">{r.date ? formatShortDate(r.date) : '—'}</td>
+                    <td className="p-4 text-right font-bold text-white tabular-nums">
                       {r.marketPrice !== undefined ? price(r.marketPrice) : '...'}
                     </td>
-                    <td className="p-4 text-right tabular-nums">{renderPercent(r)}</td>
+                    <td className="p-4 text-center tabular-nums">{renderPercent(r)}</td>
                     <td className="p-4 text-right tabular-nums">{renderProfit(r)}</td>
                     <td className="p-2 pr-4">{renderActions(r)}</td>
                   </tr>
@@ -427,8 +460,15 @@ export default function PortfolioTab() {
         </div>
       </div>
 
-      {isTradeModalOpen && (
-        <RegisterTradeModal positions={positions} usdBalance={usdBalance} onClose={() => setIsTradeModalOpen(false)} onSaved={loadPortfolio} />
+      {tradeModal && (
+        <RegisterTradeModal
+          positions={positions}
+          usdBalance={usdBalance}
+          initialSymbol={tradeModal.symbol}
+          initialPrice={tradeModal.price}
+          onClose={() => setTradeModal(null)}
+          onSaved={loadPortfolio}
+        />
       )}
       {isCashModalOpen && (
         <CashMovementModal usdBalance={usdBalance} marketRate={rate} onClose={() => setIsCashModalOpen(false)} onSaved={loadPortfolio} />

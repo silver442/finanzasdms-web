@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { DollarSign, X } from 'lucide-react';
 import axios from 'axios';
+import { todayMx } from '../../../utils/dates';
 import { API, apiErrorMessage, authHeaders } from './utils/api';
 import { formatMoney } from './utils/format';
 
@@ -18,7 +19,7 @@ type CashMovementType = 'DEPOSIT' | 'WITHDRAWAL';
 const INPUT_CLASS =
   'w-full bg-surface-base border border-surface-border text-text-primary rounded-lg px-4 py-2.5 text-base sm:text-sm focus:outline-none focus:border-brand-green';
 
-const today = () => new Date().toISOString().split('T')[0];
+const today = todayMx;
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /**

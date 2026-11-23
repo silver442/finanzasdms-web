@@ -3,6 +3,8 @@ import { useTradingJournal, entryResult } from './hooks/useTradingJournal';
 import { getDayWeeks, WEEKDAY_NAMES } from './utils/journalWeeks';
 import { formatMoney } from './utils/format';
 import { InlineNumberInput } from './components/InlineInput';
+import { BalanceField } from './components/BalanceField';
+import { CashFlowNote } from './components/CashFlowNote';
 import { MonthYearPicker } from './components/MonthYearPicker';
 import { JournalSummary } from './components/JournalSummary';
 import { ResultValue } from './components/ResultValue';
@@ -70,27 +72,27 @@ export default function DayTradingTab() {
                             {WEEKDAY_NAMES[dayIndex]} <span className="text-text-primary">{day.day}</span>
                           </p>
                           <div className="grid grid-cols-2 xl:grid-cols-1 gap-2">
-                            <label className="block min-w-0">
-                              <span className="block text-xs text-text-muted mb-0.5">Saldo inicial</span>
-                              <InlineNumberInput
-                                value={entry?.initialBalance ?? null}
-                                onCommit={(v) => saveEntry(day.iso, { initialBalance: v })}
-                                ariaLabel={`Saldo inicial del ${day.iso}`}
-                              />
-                            </label>
-                            <label className="block min-w-0">
-                              <span className="block text-xs text-text-muted mb-0.5">Saldo final</span>
-                              <InlineNumberInput
-                                value={entry?.finalBalance ?? null}
-                                onCommit={(v) => saveEntry(day.iso, { finalBalance: v })}
-                                ariaLabel={`Saldo final del ${day.iso}`}
-                              />
-                            </label>
+                            <BalanceField
+                              label="Saldo inicial"
+                              value={entry?.initialBalance ?? null}
+                              isManual={entry?.initialIsManual ?? false}
+                              onCommit={(v) => saveEntry(day.iso, { initialBalance: v })}
+                              ariaLabel={`Saldo inicial del ${day.iso}`}
+                            />
+                            <BalanceField
+                              label="Saldo final"
+                              value={entry?.finalBalance ?? null}
+                              isManual={entry?.finalIsManual ?? false}
+                              isLive={entry?.isLive}
+                              onCommit={(v) => saveEntry(day.iso, { finalBalance: v })}
+                              ariaLabel={`Saldo final del ${day.iso}`}
+                            />
                           </div>
                           <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-white/5 text-xs">
                             <span className="text-text-muted xl:hidden">Resultado</span>
                             <ResultValue value={entryResult(entry)} className="ml-auto truncate" />
                           </div>
+                          <CashFlowNote amount={entry?.netCashFlow ?? 0} />
                         </div>
                       );
                     })}

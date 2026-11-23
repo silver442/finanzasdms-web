@@ -4,19 +4,25 @@ import { toast } from 'sonner';
 import type { TradingMode } from '../types';
 import { API, apiErrorMessage, authHeaders } from '../utils/api';
 
+/**
+ * Saldos del periodo calculados por el backend con el valor del portafolio a las 00:00 (México):
+ * inicial ya incluye depósitos − retiros del periodo; un saldo capturado a mano reemplaza al automático.
+ */
 export interface JournalEntry {
   initialBalance: number | null;
   finalBalance: number | null;
+  initialIsManual: boolean;
+  finalIsManual: boolean;
+  netCashFlow: number;
+  /** Periodo en curso: el saldo final es el valor actual del portafolio */
+  isLive: boolean;
   notes: string | null;
 }
 
-export type JournalEntryPatch = Partial<JournalEntry>;
+export type JournalEntryPatch = Partial<Pick<JournalEntry, 'initialBalance' | 'finalBalance' | 'notes'>>;
 
-interface ApiEntry {
+interface ApiEntry extends JournalEntry {
   date: string;
-  initialBalance: string | null;
-  finalBalance: string | null;
-  notes: string | null;
 }
 
 interface ApiGoal {
@@ -24,9 +30,7 @@ interface ApiGoal {
   targetAmount: string;
 }
 
-const EMPTY_ENTRY: JournalEntry = { initialBalance: null, finalBalance: null, notes: null };
-
-const toNumber = (v: string | null) => (v === null ? null : Number(v));
+const EMPTY_ENTRY: JournalEntry = { initialBalance: null, finalBalance: null, initialIsManual: false, finalIsManual: false, netCashFlow: 0, isLive: false, notes: null };
 
 export function entryResult(entry: JournalEntry | undefined) {
   if (!entry || entry.initialBalance === null || entry.finalBalance === null) return null;
@@ -55,7 +59,8 @@ export function useTradingJournal(mode: TradingMode, year: number, month: number
         if (current !== requestId.current) return;
         const entryMap: Record<string, JournalEntry> = {};
         data.entries.forEach((e) => {
-          entryMap[e.date] = { initialBalance: toNumber(e.initialBalance), finalBalance: toNumber(e.finalBalance), notes: e.notes };
+          const { date, ...entry } = e;
+          entryMap[date] = entry;
         });
         const goalMap: Record<number, number> = {};
         data.goals.forEach((g) => { goalMap[g.weekNumber] = Number(g.targetAmount); });
@@ -70,15 +75,15 @@ export function useTradingJournal(mode: TradingMode, year: number, month: number
       });
   }, [mode, year, month]);
 
-  const track = useCallback(async (request: Promise<unknown>) => {
+  const track = useCallback(async <T,>(request: Promise<T>): Promise<T | null> => {
     setPendingSaves((n) => n + 1);
     try {
-      await request;
+      const result = await request;
       setLastSavedAt(Date.now());
-      return true;
+      return result;
     } catch (e) {
       toast.error(apiErrorMessage(e, 'No se pudo guardar el cambio'));
-      return false;
+      return null;
     } finally {
       setPendingSaves((n) => n - 1);
     }
@@ -88,10 +93,17 @@ export function useTradingJournal(mode: TradingMode, year: number, month: number
     let previous: JournalEntry | undefined;
     setEntries((prev) => {
       previous = prev[date];
-      return { ...prev, [date]: { ...EMPTY_ENTRY, ...prev[date], ...patch } };
+      const optimistic = { ...EMPTY_ENTRY, ...prev[date], ...patch };
+      // Un valor capturado se marca manual al instante; borrarlo espera el saldo automático del servidor
+      if (patch.initialBalance !== undefined) optimistic.initialIsManual = patch.initialBalance !== null;
+      if (patch.finalBalance !== undefined) optimistic.finalIsManual = patch.finalBalance !== null;
+      return { ...prev, [date]: optimistic };
     });
-    const ok = await track(axios.put(`${API}/crypto/journal/entry`, { mode, date, ...patch }, { headers: authHeaders() }));
-    if (!ok) {
+    const response = await track(axios.put<ApiEntry>(`${API}/crypto/journal/entry`, { mode, date, ...patch }, { headers: authHeaders() }));
+    if (response) {
+      const { date: savedDate, ...saved } = response.data;
+      setEntries((prev) => ({ ...prev, [savedDate]: saved }));
+    } else {
       setEntries((prev) => {
         const next = { ...prev };
         if (previous) next[date] = previous;
