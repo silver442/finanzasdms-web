@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { ArrowLeft } from 'lucide-react';
+import { todayMx } from '../../../utils/dates';
 
 interface PortfolioItem {
   id: string;
@@ -90,7 +91,7 @@ export default function PortfolioDetail() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [form, setForm] = useState({ date: new Date().toISOString().split('T')[0], type: 'Depósito', amount: '' });
+  const [form, setForm] = useState({ date: todayMx(), type: 'Depósito', amount: '' });
 
   const fetchAll = useCallback(async () => {
     if (!id) return;

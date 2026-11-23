@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { Activity, AlertTriangle, ChevronDown, Settings, Plus, X, TrendingUp, ShoppingBag } from 'lucide-react';
+import { todayMx } from '../../utils/dates';
 
 const API = import.meta.env.VITE_API_URL;
 const authHeaders = () => ({
@@ -49,7 +50,7 @@ interface MovForm {
   date: string;
 }
 
-const todayISO = () => new Date().toISOString().slice(0, 10);
+const todayISO = todayMx;
 const EMPTY_RULES: RulesForm = { periodStartDay: '1', minAverageBalance: '0', minMonthlySpend: '0' };
 const EMPTY_MOV: MovForm = { type: 'EXPENSE', amount: '', description: '', date: todayISO() };
 
