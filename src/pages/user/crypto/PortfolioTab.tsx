@@ -15,6 +15,7 @@ import CashMovementModal from './CashMovementModal';
 import CoinIcon from './components/CoinIcon';
 import PortfolioValueCard from './components/PortfolioValueCard';
 import PortfolioDistributionCard from './components/PortfolioDistributionCard';
+import DangerConfirmModal from './components/DangerConfirmModal';
 import { usePortfolioHistory } from './hooks/usePortfolioHistory';
 
 const STATUS_ORDER: Record<PositionStatus, number> = { BOUGHT: 0, WATCHLIST: 1, SOLD: 2 };
@@ -78,6 +79,8 @@ export default function PortfolioTab() {
   const [isCashModalOpen, setIsCashModalOpen] = useState(false);
   const [watchlistModal, setWatchlistModal] = useState<{ editing: CryptoPosition | null } | null>(null);
   const [rateDraft, setRateDraft] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<CryptoPosition | null>(null);
+  const [isDangerSubmitting, setIsDangerSubmitting] = useState(false);
 
   const { rate, isManual, setOverride } = useUsdMxnRate();
 
@@ -201,16 +204,23 @@ export default function PortfolioTab() {
     setRateDraft(null);
   };
 
-  const handleDelete = async (p: CryptoPosition) => {
-    if (!window.confirm(`¿Quitar ${p.symbol} de tu lista? También se borra su historial de operaciones.`)) return;
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    const { symbol } = deleteTarget;
+    setIsDangerSubmitting(true);
     try {
-      await axios.delete(`${API}/crypto/portfolio/${p.symbol}`, { headers: authHeaders() });
-      toast.success(`${p.symbol} eliminada de tu lista`);
-      setPositions((prev) => prev.filter((x) => x.symbol !== p.symbol));
+      await axios.delete(`${API}/crypto/portfolio/${symbol}`, { headers: authHeaders() });
+      toast.success(`${symbol} eliminada de tu portafolio`);
+      setPositions((prev) => prev.filter((x) => x.symbol !== symbol));
+      setDeleteTarget(null);
     } catch (e) {
       toast.error(apiErrorMessage(e, 'Error al eliminar la moneda'));
+    } finally {
+      setIsDangerSubmitting(false);
     }
   };
+
+
 
   const renderPercent = (r: RowMetrics) =>
     r.percent === null ? (
@@ -225,17 +235,18 @@ export default function PortfolioTab() {
     </span>
   );
 
-  const renderActions = (r: RowMetrics) =>
-    r.quantity === 0 ? (
-      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+  const renderActions = (r: RowMetrics) => (
+    <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+      {r.quantity === 0 && (
         <button onClick={() => setWatchlistModal({ editing: r.position })} className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-elevated/60 transition-colors" aria-label={`Editar referencia de ${r.position.symbol}`} title="Editar precio de referencia">
           <Pencil size={14} />
         </button>
-        <button onClick={() => handleDelete(r.position)} className="p-1.5 rounded-lg text-text-muted hover:text-red-400 hover:bg-red-500/10 transition-colors" aria-label={`Eliminar ${r.position.symbol}`} title="Eliminar de la lista">
-          <Trash2 size={14} />
-        </button>
-      </div>
-    ) : null;
+      )}
+      <button onClick={() => setDeleteTarget(r.position)} className="p-1.5 rounded-lg text-text-muted hover:text-red-400 hover:bg-red-500/10 transition-colors" aria-label={`Eliminar ${r.position.symbol}`} title="Eliminar moneda e historial">
+        <Trash2 size={14} />
+      </button>
+    </div>
+  );
 
   const openTradeFor = (r: RowMetrics) => setTradeModal({ symbol: r.position.symbol, price: r.marketPrice });
 
@@ -252,6 +263,18 @@ export default function PortfolioTab() {
       }
     },
   });
+
+  const investmentsHeader = (
+    <div className="flex items-center justify-between gap-3 mb-4 px-1">
+      <h2 className="flex items-center gap-3 text-xl font-bold text-white">
+        <Layers size={24} className="text-brand-green-light" /> Mis Inversiones
+      </h2>
+      <button onClick={() => fetchLivePrices(positions)} disabled={isRefreshing} className="flex items-center gap-1.5 text-sm font-medium text-brand-green-light hover:text-brand-green-light/80 hover:bg-brand-green/10 rounded-lg transition-colors px-2 py-1.5 whitespace-nowrap disabled:opacity-60">
+        <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
+        Actualizar precios
+      </button>
+    </div>
+  );
 
   const emptyMessage = isLoading ? 'Cargando portafolio...' : 'Aún no tienes monedas. Registra una operación o enlista una moneda para seguirla.';
 
@@ -299,10 +322,6 @@ export default function PortfolioTab() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <button onClick={() => fetchLivePrices(positions)} disabled={isRefreshing} className="flex items-center gap-1.5 text-sm font-medium text-brand-green-light hover:text-brand-green-light/80 transition-colors px-2 whitespace-nowrap">
-            <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
-            Actualizar precios
-          </button>
           <button onClick={() => setWatchlistModal({ editing: null })} className="flex items-center justify-center gap-2 px-4 py-2.5 bg-surface-card/60 hover:bg-surface-elevated text-text-primary text-sm font-semibold rounded-xl border border-white/10 transition-all whitespace-nowrap">
             <Eye size={16} /> Enlistar moneda
           </button>
@@ -361,6 +380,7 @@ export default function PortfolioTab() {
 
       {/* ── Posiciones: tarjetas apiladas (móvil) ── */}
       <div className="md:hidden space-y-3">
+        {investmentsHeader}
         {rows.length === 0 ? (
           <div className="bg-surface-card/60 backdrop-blur-md rounded-2xl border border-white/5 shadow-card p-6 text-center text-sm text-text-muted">{emptyMessage}</div>
         ) : (
@@ -409,9 +429,7 @@ export default function PortfolioTab() {
 
       {/* ── Posiciones: tabla (md+) ── */}
       <div className="hidden md:block bg-surface-card/60 backdrop-blur-md rounded-2xl border border-white/5 shadow-card p-4 lg:p-5">
-        <h2 className="flex items-center gap-3 text-xl font-bold text-white mb-4 px-1">
-          <Layers size={24} className="text-brand-green-light" /> Mis Inversiones
-        </h2>
+        {investmentsHeader}
         <div className="overflow-x-auto rounded-xl border border-white/5">
           <table className="w-full text-left border-collapse whitespace-nowrap text-sm">
             <thead>
@@ -481,6 +499,25 @@ export default function PortfolioTab() {
           onClose={() => setWatchlistModal(null)}
           onSaved={loadPortfolio}
         />
+      )}
+      {deleteTarget && (
+        <DangerConfirmModal
+          title={`¿Eliminar ${deleteTarget.symbol}?`}
+          confirmLabel="Sí, eliminar"
+          isSubmitting={isDangerSubmitting}
+          onConfirm={handleDelete}
+          onClose={() => setDeleteTarget(null)}
+        >
+          <p>
+            Se eliminará <span className="font-semibold text-text-primary">{deleteTarget.symbol}</span> de tu portafolio junto con todo su historial de operaciones. Esta acción no se puede deshacer.
+          </p>
+          {Number(deleteTarget.quantity) > 0 && (
+            <p className="bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 text-red-300">
+              Aún tienes {formatTokens(Number(deleteTarget.quantity))} {deleteTarget.symbol} comprados ({money(Number(deleteTarget.allocatedCapital))} invertidos).
+            </p>
+          )}
+          <p className="text-text-muted">Tu saldo disponible en dólares no cambia.</p>
+        </DangerConfirmModal>
       )}
     </div>
   );

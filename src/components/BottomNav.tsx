@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { getUserFlags, userModules, type UserFlags } from '../config/navigation';
+import { isStatusVisible, useModuleStatuses } from '../utils/moduleConfig';
+import { isAdminRole } from '../utils/roles';
+
+function getUserRole(): string | null {
+  try {
+    const role = (JSON.parse(localStorage.getItem('user') ?? 'null') as Record<string, unknown> | null)?.role;
+    return typeof role === 'string' ? role : null;
+  } catch { return null; }
+}
 
 const FIXED_PATHS = ['/dashboard', '/portfolio', '/monitor-cuentas'];
 const MAX_DYNAMIC = 2;
@@ -13,6 +22,8 @@ const itemCls = ({ isActive }: { isActive: boolean }) =>
 // Barra de navegación inferior — solo móvil (< md)
 export default function BottomNav() {
   const [flags, setFlags] = useState<UserFlags>(getUserFlags);
+  const moduleStatuses = useModuleStatuses();
+  const isAdmin = isAdminRole(getUserRole());
 
   useEffect(() => {
     const refresh = () => setFlags(getUserFlags());
@@ -21,7 +32,9 @@ export default function BottomNav() {
   }, []);
 
   const fixed   = userModules.filter((m) => FIXED_PATHS.includes(m.path));
-  const dynamic = userModules.filter((m) => m.requiredFlag && flags[m.requiredFlag]).slice(0, MAX_DYNAMIC);
+  const dynamic = userModules
+    .filter((m) => m.requiredFlag && flags[m.requiredFlag] && isStatusVisible(moduleStatuses[m.requiredFlag], isAdmin))
+    .slice(0, MAX_DYNAMIC);
   const items   = [...fixed, ...dynamic];
 
   return (

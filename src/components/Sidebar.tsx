@@ -3,6 +3,7 @@ import { NavLink, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { isAdminRole, isSuperAdminRole } from '../utils/roles';
 import { getUserFlags, userModules, type UserFlags } from '../config/navigation';
+import { isStatusVisible, useModuleStatuses } from '../utils/moduleConfig';
 import {
   Landmark,
   LogOut, ShieldCheck, ClipboardList, Briefcase, DatabaseZap, ClipboardCheck,
@@ -213,6 +214,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
   const [flags, setFlags]   = useState<UserFlags>(getUserFlags);
   const [points, setPoints] = useState(getUserPoints);
   const [level,  setLevel]  = useState<LevelKey>(getUserLevel);
+  const moduleStatuses = useModuleStatuses();
 
   const toggleSection = (section: 'user' | 'admin') =>
     setOpenSections((prev) => ({ ...prev, [section]: !prev[section] }));
@@ -304,7 +306,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
 
         <div className={sectionCls(openSections.user)}>
           {userModules
-            .filter((m) => !m.requiredFlag || flags[m.requiredFlag])
+            .filter((m) => !m.requiredFlag || (flags[m.requiredFlag] && isStatusVisible(moduleStatuses[m.requiredFlag], isAdminRole(role))))
             .map(({ name: mName, path, icon: Icon }) => (
               <NavLink key={path} to={path} className={itemCls} onClick={onClose} title={isCollapsed ? mName : undefined}>
                 <Icon size={20} className="shrink-0" />
