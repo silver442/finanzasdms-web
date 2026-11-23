@@ -2,17 +2,52 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import type { Plugin } from 'vite'
+
+// SW "autodestructivo" que el dev server sirve en /sw.js. Si quedó registrado un SW de
+// producción en este origen (ej. un `vite preview` en el mismo puerto), seguiría sirviendo
+// el bundle viejo para siempre: sin esto, /sw.js responde HTML y su revisión de update falla.
+// Al detectarlo como versión nueva, se activa, borra cachés, se desregistra y recarga la pestaña.
+const KILL_SWITCH_SW = `
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (event) => {
+  event.waitUntil((async () => {
+    await self.clients.claim();
+    const keys = await caches.keys();
+    await Promise.all(keys.map((key) => caches.delete(key)));
+    await self.registration.unregister();
+    const clients = await self.clients.matchAll({ type: 'window' });
+    clients.forEach((client) => client.navigate(client.url));
+  })());
+});
+`
+
+function devServiceWorkerKillSwitch(): Plugin {
+  return {
+    name: 'dev-sw-kill-switch',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/sw.js', (_req, res) => {
+        res.setHeader('Content-Type', 'application/javascript')
+        res.setHeader('Cache-Control', 'no-store')
+        res.end(KILL_SWITCH_SW)
+      })
+    },
+  }
+}
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    devServiceWorkerKillSwitch(),
     VitePWA({
       strategies: 'generateSW',
-      // 'prompt': el SW nuevo queda en espera hasta que el usuario pulse "Actualizar"
-      // en el toast de PwaUpdatePrompt (que también registra el SW vía useRegisterSW).
-      registerType: 'prompt',
+      // 'autoUpdate': el SW nuevo se activa en cuanto se instala (sin quedar en `waiting`) y
+      // PwaUpdatePrompt (que registra el SW vía useRegisterSW) recarga la página una vez que toma
+      // el control. Así un refresh normal basta para recibir la versión nueva.
+      registerType: 'autoUpdate',
       injectRegister: false,
       includeAssets: ['favicon.svg', 'icons/*.png'],
       manifest: {
@@ -39,6 +74,9 @@ export default defineConfig({
         // Precachea solo assets estáticos del build. La API vive en otro origen
         // (VITE_API_URL) y no se cachea: los datos financieros siempre van a red.
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+        // El plugin solo los activa con injectRegister 'auto'; aquí el registro es manual (PwaUpdatePrompt)
+        skipWaiting: true,
+        clientsClaim: true,
         navigateFallback: '/index.html',
         // No servir el App Shell para peticiones de archivos (ej. /og-image.png inexistente)
         navigateFallbackDenylist: [/\/[^/?]+\.[^/]+$/],
