@@ -38,22 +38,12 @@ import AdminMigration from './pages/admin/AdminMigration';
 import AdminReferrals from './pages/admin/AdminReferrals';
 import AdminUsers from './pages/admin/AdminUsers';
 import AdminAuditLogs from './pages/admin/AdminAuditLogs';
+import ModulePlaceholder from './pages/user/ModulePlaceholder';
 import { isSuperAdminRole } from './utils/roles';
+import { getUserFlags, type UserFlags } from './config/navigation';
 
-type FlagKey = 'hasCreditCardsModule' | 'hasLoansModule' | 'hasCryptoModule' | 'hasStockMarketModule' | 'hasCompoundInterestModule' | 'hasSubscriptionsModule' | 'hasMakeMoneyModule';
-
-function getFlag(key: FlagKey): boolean {
-  try {
-    const raw = localStorage.getItem('user');
-    if (!raw) return false;
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    if (key === 'hasLoansModule' || key === 'hasMakeMoneyModule') return parsed[key] !== false;
-    return parsed[key] === true;
-  } catch { return false; }
-}
-
-function ModuleRoute({ flag }: { flag: FlagKey }) {
-  return getFlag(flag) ? <Outlet /> : <Navigate to="/dashboard" replace />;
+function ModuleRoute({ flag }: { flag: keyof UserFlags }) {
+  return getUserFlags()[flag] ? <Outlet /> : <Navigate to="/dashboard" replace />;
 }
 
 function SuperAdminRoute() {
@@ -120,6 +110,22 @@ function App() {
           <Route path="/profile" element={<Profile />} />
           <Route element={<ModuleRoute flag="hasMakeMoneyModule" />}>
             <Route path="/investments" element={<Investments />} />
+          </Route>
+          {/* Módulos aún sin contenido: página en blanco hasta que se construyan */}
+          <Route element={<ModuleRoute flag="hasStockMarketModule" />}>
+            <Route path="/stocks" element={<ModulePlaceholder title="Bolsa de Valores" />} />
+          </Route>
+          <Route element={<ModuleRoute flag="hasCompoundInterestModule" />}>
+            <Route path="/compound-interest" element={<ModulePlaceholder title="Interés Compuesto" />} />
+          </Route>
+          <Route element={<ModuleRoute flag="hasExternalDebtModule" />}>
+            <Route path="/external-debt" element={<ModulePlaceholder title="Deuda Externa" />} />
+          </Route>
+          <Route element={<ModuleRoute flag="hasBudgetModule" />}>
+            <Route path="/budget" element={<ModulePlaceholder title="Presupuesto" />} />
+          </Route>
+          <Route element={<ModuleRoute flag="hasFinanceAcademyModule" />}>
+            <Route path="/academy" element={<ModulePlaceholder title="Academia de Finanzas" />} />
           </Route>
           <Route path="/monitor-cuentas" element={<AccountMonitor />} />
           <Route path="/tienda" element={<ModuleStore />} />
