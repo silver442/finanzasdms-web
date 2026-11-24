@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { ArrowLeftRight, CircleDollarSign, Coins, Eye, Layers, Pencil, Plus, RefreshCw, RotateCcw, Trash2 } from 'lucide-react';
+import { ArrowLeftRight, CircleDollarSign, Coins, Eye, Layers, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import axios from 'axios';
-import type { CryptoPosition, Currency, PortfolioResponse, PositionStatus, ReferenceMode } from './types';
+import type { CryptoPosition, PortfolioResponse, PositionStatus, ReferenceMode } from './types';
 import { API, apiErrorMessage, authHeaders } from './utils/api';
 import { formatMoney, formatPercent, formatPrice, formatShortDate, formatTokens } from './utils/format';
 import { getPeriodStart } from './utils/periods';
 import { readPref, writePref } from './utils/storage';
-import { useUsdMxnRate } from './hooks/useUsdMxnRate';
+import { useCurrency } from './hooks/useCurrency';
+import { CurrencyControls } from './components/CurrencyControls';
+import { SegmentedToggle } from './components/SegmentedToggle';
 import { usePeriodOpens } from './hooks/usePeriodOpens';
 import RegisterTradeModal from './RegisterTradeModal';
 import WatchlistModal from './WatchlistModal';
@@ -38,29 +40,6 @@ interface RowMetrics {
   profit: number;
 }
 
-function SegmentedToggle<T extends string>({ value, options, onChange, ariaLabel }: {
-  value: T;
-  options: { value: T; label: string }[];
-  onChange: (value: T) => void;
-  ariaLabel: string;
-}) {
-  return (
-    <div role="group" aria-label={ariaLabel} className="inline-flex bg-surface-card/60 rounded-xl p-1 border border-white/10">
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          aria-pressed={value === o.value}
-          onClick={() => onChange(o.value)}
-          className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-medium rounded-lg border transition-all whitespace-nowrap ${value === o.value ? 'bg-brand-green/25 border-brand-green/60 text-white shadow-inner' : 'border-transparent text-text-secondary hover:text-text-primary'}`}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function StatusBadge({ status }: { status: PositionStatus }) {
   return (
     <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${STATUS_BADGE[status].className}`}>{STATUS_BADGE[status].label}</span>
@@ -73,16 +52,15 @@ export default function PortfolioTab() {
   const [livePrices, setLivePrices] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [currency, setCurrency] = useState<Currency>(() => readPref('crypto.currency', ['USD', 'MXN'] as const, 'USD'));
   const [referenceMode, setReferenceMode] = useState<ReferenceMode>(() => readPref('crypto.referenceMode', ['DAY', 'SWING'] as const, 'DAY'));
   const [tradeModal, setTradeModal] = useState<{ symbol?: string; price?: number } | null>(null);
   const [isCashModalOpen, setIsCashModalOpen] = useState(false);
   const [watchlistModal, setWatchlistModal] = useState<{ editing: CryptoPosition | null } | null>(null);
-  const [rateDraft, setRateDraft] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<CryptoPosition | null>(null);
   const [isDangerSubmitting, setIsDangerSubmitting] = useState(false);
 
-  const { rate, isManual, setOverride } = useUsdMxnRate();
+  const fx = useCurrency();
+  const { currency, rate, toView: toCurrency } = fx;
 
   const fetchLivePrices = useCallback(async (coinList: CryptoPosition[]) => {
     if (coinList.length === 0) {
@@ -138,7 +116,6 @@ export default function PortfolioTab() {
   const periodOpens = usePeriodOpens(autoReferenceSymbols, referenceMode);
   const periodStartIso = getPeriodStart(referenceMode).toISOString();
 
-  const toCurrency = (usd: number) => (currency === 'MXN' ? usd * rate : usd);
   const money = (usd: number) => formatMoney(toCurrency(usd), currency);
   const price = (usd: number) => formatPrice(toCurrency(usd), currency);
 
@@ -187,21 +164,9 @@ export default function PortfolioTab() {
   const chartHistory = valueHistory.map((h) => ({ time: h.time, value: toCurrency(h.value + usdBalance) }));
   const distribution = boughtRows.map((r) => ({ symbol: r.position.symbol, value: r.quantity * (r.marketPrice ?? r.price ?? 0) }));
 
-  const changeCurrency = (value: Currency) => {
-    setCurrency(value);
-    writePref('crypto.currency', value);
-  };
-
   const changeReferenceMode = (value: ReferenceMode) => {
     setReferenceMode(value);
     writePref('crypto.referenceMode', value);
-  };
-
-  const commitRate = () => {
-    if (rateDraft === null) return;
-    const value = Number(rateDraft);
-    if (value > 0 && Math.abs(value - rate) > 1e-6) setOverride(Math.round(value * 10000) / 10000);
-    setRateDraft(null);
   };
 
   const handleDelete = async () => {
@@ -283,37 +248,7 @@ export default function PortfolioTab() {
       {/* ── Controles ── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <SegmentedToggle ariaLabel="Divisa" value={currency} onChange={changeCurrency} options={[{ value: 'USD', label: 'USD' }, { value: 'MXN', label: 'MXN' }]} />
-
-          <div className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-text-secondary bg-surface-card/60 border border-white/10 rounded-xl px-3 py-2">
-            <span className="whitespace-nowrap text-text-primary">1 USD =</span>
-            {rateDraft === null ? (
-              <button onClick={() => setRateDraft(String(rate))} className="font-bold text-text-primary hover:text-brand-green-light inline-flex items-center gap-1 transition-colors" title="Editar tipo de cambio">
-                ${rate.toFixed(2)} MXN <Pencil size={12} className="text-brand-green-light" />
-              </button>
-            ) : (
-              <input
-                autoFocus
-                type="number"
-                step="0.0001"
-                min="0"
-                value={rateDraft}
-                onChange={(e) => setRateDraft(e.target.value)}
-                onBlur={commitRate}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') e.currentTarget.blur();
-                  if (e.key === 'Escape') setRateDraft(null);
-                }}
-                aria-label="Tipo de cambio USD a MXN"
-                className="w-20 bg-surface-base border border-surface-border rounded px-1.5 py-0.5 text-base sm:text-xs text-text-primary focus:outline-none focus:border-brand-green"
-              />
-            )}
-            {isManual && rateDraft === null && (
-              <button onClick={() => setOverride(null)} className="ml-1 text-text-muted hover:text-text-primary transition-colors" title="Restablecer al tipo de cambio de mercado" aria-label="Restablecer tipo de cambio">
-                <RotateCcw size={12} />
-              </button>
-            )}
-          </div>
+          <CurrencyControls {...fx} />
 
           <span className="hidden sm:block w-px h-8 bg-white/10" aria-hidden="true" />
 
