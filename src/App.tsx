@@ -40,6 +40,7 @@ import AdminUsers from './pages/admin/AdminUsers';
 import AdminAuditLogs from './pages/admin/AdminAuditLogs';
 import ModulePlaceholder from './pages/user/ModulePlaceholder';
 import CompoundInterest from './pages/user/compound-interest/CompoundInterest';
+import Budget from './pages/user/budget/Budget';
 import { isSuperAdminRole } from './utils/roles';
 import { getUserFlags, type UserFlags } from './config/navigation';
 
@@ -123,7 +124,7 @@ function App() {
             <Route path="/external-debt" element={<ModulePlaceholder title="Deuda Externa" />} />
           </Route>
           <Route element={<ModuleRoute flag="hasBudgetModule" />}>
-            <Route path="/budget" element={<ModulePlaceholder title="Presupuesto" />} />
+            <Route path="/budget" element={<Budget />} />
           </Route>
           <Route element={<ModuleRoute flag="hasFinanceAcademyModule" />}>
             <Route path="/academy" element={<ModulePlaceholder title="Academia de Finanzas" />} />
