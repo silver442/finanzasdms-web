@@ -1,4 +1,5 @@
 import { Target, TrendingUp, TrendingDown, CalendarCheck } from 'lucide-react';
+import type { Currency } from '../types';
 import { formatMoney } from '../utils/format';
 
 interface JournalSummaryProps {
@@ -7,11 +8,12 @@ interface JournalSummaryProps {
   green: number;
   red: number;
   unitLabel: 'Días' | 'Semanas';
+  currency?: Currency;
 }
 
 const CARD = 'bg-surface-card/60 backdrop-blur-md p-4 md:p-5 rounded-2xl border border-white/5 shadow-card';
 
-export function JournalSummary({ total, goalTotal, green, red, unitLabel }: JournalSummaryProps) {
+export function JournalSummary({ total, goalTotal, green, red, unitLabel, currency = 'USD' }: JournalSummaryProps) {
   const isPositive = total >= 0;
   const progress = goalTotal > 0 ? Math.max(0, Math.min(1, total / goalTotal)) : 0;
 
@@ -22,13 +24,13 @@ export function JournalSummary({ total, goalTotal, green, red, unitLabel }: Jour
           {isPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />} Ganancia / Pérdida del mes
         </h2>
         <p className={`text-2xl md:text-3xl font-extrabold tabular-nums ${isPositive ? 'text-brand-green-light' : 'text-red-400'}`}>
-          {total > 0 ? '+' : ''}{formatMoney(total)}
+          {total > 0 ? '+' : ''}{formatMoney(total, currency)}
         </p>
       </div>
 
       <div className={CARD}>
         <h2 className="text-text-secondary text-xs font-semibold uppercase tracking-wider mb-2 flex items-center gap-2"><Target size={14} /> Meta acumulada</h2>
-        <p className="text-xl md:text-2xl font-bold text-text-primary tabular-nums">{formatMoney(goalTotal)}</p>
+        <p className="text-xl md:text-2xl font-bold text-text-primary tabular-nums">{formatMoney(goalTotal, currency)}</p>
         <div className="mt-3 h-1.5 rounded-full bg-surface-elevated overflow-hidden">
           <div className="h-full rounded-full bg-brand-green transition-all" style={{ width: `${progress * 100}%` }} />
         </div>

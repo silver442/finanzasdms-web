@@ -39,6 +39,7 @@ import AdminReferrals from './pages/admin/AdminReferrals';
 import AdminUsers from './pages/admin/AdminUsers';
 import AdminAuditLogs from './pages/admin/AdminAuditLogs';
 import ModulePlaceholder from './pages/user/ModulePlaceholder';
+import CompoundInterest from './pages/user/compound-interest/CompoundInterest';
 import { isSuperAdminRole } from './utils/roles';
 import { getUserFlags, type UserFlags } from './config/navigation';
 
@@ -116,7 +117,7 @@ function App() {
             <Route path="/stocks" element={<ModulePlaceholder title="Bolsa de Valores" />} />
           </Route>
           <Route element={<ModuleRoute flag="hasCompoundInterestModule" />}>
-            <Route path="/compound-interest" element={<ModulePlaceholder title="Interés Compuesto" />} />
+            <Route path="/compound-interest" element={<CompoundInterest />} />
           </Route>
           <Route element={<ModuleRoute flag="hasExternalDebtModule" />}>
             <Route path="/external-debt" element={<ModulePlaceholder title="Deuda Externa" />} />
