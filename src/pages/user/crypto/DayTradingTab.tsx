@@ -8,6 +8,8 @@ import { CashFlowNote } from './components/CashFlowNote';
 import { MonthYearPicker } from './components/MonthYearPicker';
 import { JournalSummary } from './components/JournalSummary';
 import { ResultValue } from './components/ResultValue';
+import { CurrencyControls } from './components/CurrencyControls';
+import { useCurrency } from './hooks/useCurrency';
 
 const shortDate = (iso: string) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
@@ -17,6 +19,12 @@ export default function DayTradingTab() {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const { entries, goals, isLoading, isSaving, lastSavedAt, saveEntry, saveGoal } = useTradingJournal('DAY', year, month);
+
+  const fx = useCurrency();
+  const { currency, toView, fromView } = fx;
+  // Los saldos y metas se guardan en USD; en MXN se muestran convertidos y la captura se regresa a USD
+  const view = (usd: number | null) => (usd === null ? null : Math.round(toView(usd) * 100) / 100);
+  const toUsd = (value: number | null) => (value === null ? null : fromView(value));
 
   const weeks = useMemo(() => getDayWeeks(year, month), [year, month]);
 
@@ -32,9 +40,14 @@ export default function DayTradingTab() {
 
   return (
     <div className="space-y-6">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <CurrencyControls {...fx} />
+        {currency === 'MXN' && <span className="text-xs text-text-muted">Montos guardados en USD</span>}
+      </div>
+
       <MonthYearPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} isSaving={isSaving} lastSavedAt={lastSavedAt} />
 
-      <JournalSummary total={monthTotal} goalTotal={goalTotal} green={greenDays} red={redDays} unitLabel="Días" />
+      <JournalSummary total={toView(monthTotal)} goalTotal={toView(goalTotal)} green={greenDays} red={redDays} unitLabel="Días" currency={currency} />
 
       {isLoading ? (
         <div className="bg-surface-card/60 backdrop-blur-md rounded-2xl border border-white/5 shadow-card p-6 text-center text-sm text-text-muted">Cargando bitácora...</div>
@@ -74,25 +87,25 @@ export default function DayTradingTab() {
                           <div className="grid grid-cols-2 xl:grid-cols-1 gap-2">
                             <BalanceField
                               label="Saldo inicial"
-                              value={entry?.initialBalance ?? null}
+                              value={view(entry?.initialBalance ?? null)}
                               isManual={entry?.initialIsManual ?? false}
-                              onCommit={(v) => saveEntry(day.iso, { initialBalance: v })}
+                              onCommit={(v) => saveEntry(day.iso, { initialBalance: toUsd(v) })}
                               ariaLabel={`Saldo inicial del ${day.iso}`}
                             />
                             <BalanceField
                               label="Saldo final"
-                              value={entry?.finalBalance ?? null}
+                              value={view(entry?.finalBalance ?? null)}
                               isManual={entry?.finalIsManual ?? false}
                               isLive={entry?.isLive}
-                              onCommit={(v) => saveEntry(day.iso, { finalBalance: v })}
+                              onCommit={(v) => saveEntry(day.iso, { finalBalance: toUsd(v) })}
                               ariaLabel={`Saldo final del ${day.iso}`}
                             />
                           </div>
                           <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-white/5 text-xs">
                             <span className="text-text-muted xl:hidden">Resultado</span>
-                            <ResultValue value={entryResult(entry)} className="ml-auto truncate" />
+                            <ResultValue value={view(entryResult(entry))} currency={currency} className="ml-auto truncate" />
                           </div>
-                          <CashFlowNote amount={entry?.netCashFlow ?? 0} />
+                          <CashFlowNote amount={toView(entry?.netCashFlow ?? 0)} currency={currency} />
                         </div>
                       );
                     })}
@@ -102,18 +115,18 @@ export default function DayTradingTab() {
                     <label className="block min-w-0">
                       <span className="block text-xs text-text-muted mb-1">Meta semanal</span>
                       <InlineNumberInput
-                        value={goal}
+                        value={view(goal)}
                         placeholder="$0.00"
-                        onCommit={(v) => saveGoal(week.weekNumber, v ?? 0)}
+                        onCommit={(v) => saveGoal(week.weekNumber, toUsd(v) ?? 0)}
                         ariaLabel={`Meta de la semana ${week.weekNumber}`}
                       />
                     </label>
                     <div className="min-w-0">
                       <span className="block text-xs text-text-muted mb-1">Total semanal</span>
-                      <ResultValue value={total} className="text-lg block truncate" />
+                      <ResultValue value={toView(total)} currency={currency} className="text-lg block truncate" />
                       {goal !== null && goal > 0 && (
                         <span className={`text-xs ${reachedGoal ? 'text-brand-green-light' : 'text-text-muted'}`}>
-                          {reachedGoal ? 'Meta alcanzada' : `Faltan ${formatMoney(goal - total)}`}
+                          {reachedGoal ? 'Meta alcanzada' : `Faltan ${formatMoney(toView(goal - total), currency)}`}
                         </span>
                       )}
                     </div>
