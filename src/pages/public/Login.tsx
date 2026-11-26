@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import DomainMigrationBanner from '../../components/DomainMigrationBanner';
+import GoogleAuthButton from '../../components/GoogleAuthButton';
 import { MailWarning, Eye, EyeOff, CheckCircle2, ArrowLeft } from 'lucide-react';
 
 const svgPattern = `<svg width="400" height="400" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="dots" x="40" y="40" width="40" height="40" patternUnits="userSpaceOnUse"><circle cx="20" cy="20" r="2" fill="rgba(5, 150, 105, 0.15)"/></pattern></defs><rect width="400" height="400" fill="none"/><rect width="400" height="400" fill="url(#dots)"/></svg>`;
@@ -35,6 +36,9 @@ export default function Login() {
       const msg: string = error.response?.data?.message ?? '';
       if (msg.toLowerCase().includes('verifica') || msg.toLowerCase().includes('verificad')) {
         setUnverified(true);
+      } else if (msg.includes('Google')) {
+        setUnverified(false);
+        toast.error(msg);
       } else {
         setUnverified(false);
         toast.error('Correo o contraseña incorrectos');
@@ -155,6 +159,8 @@ export default function Login() {
               {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
             </button>
           </form>
+
+          <GoogleAuthButton />
 
           <div className="mt-8 pt-6 border-t border-surface-border space-y-4">
             <Link
