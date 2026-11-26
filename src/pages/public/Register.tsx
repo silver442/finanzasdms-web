@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { CheckCircle, Eye, EyeOff, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import GoogleAuthButton from '../../components/GoogleAuthButton';
 
 const svgPattern = `<svg width="400" height="400" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="dots" x="40" y="40" width="40" height="40" patternUnits="userSpaceOnUse"><circle cx="20" cy="20" r="2" fill="rgba(5, 150, 105, 0.15)"/></pattern></defs><rect width="400" height="400" fill="none"/><rect width="400" height="400" fill="url(#dots)"/></svg>`;
 
@@ -217,6 +218,8 @@ export default function Register() {
               {isLoading ? 'Creando cuenta...' : 'Crear cuenta'}
             </button>
           </form>
+
+          <GoogleAuthButton />
 
           <div className="mt-8 pt-6 border-t border-surface-border">
             <p className="text-center text-sm text-text-muted">
