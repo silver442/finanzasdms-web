@@ -100,7 +100,7 @@ export default function Investments() {
           <Zap size={20} className="text-brand-green-light" />
         </div>
         <div className="flex-1">
-          <p className="text-brand-green-light font-bold">¿Ya invertiste? Súbete de nivel en FinanzasDMS</p>
+          <p className="text-brand-green-light font-bold">¿Ya invertiste? Súbete de nivel en Cashi</p>
           <p className="text-brand-green-light/70 text-sm mt-0.5">
             Envía tu comprobante y gana <strong>+10 puntos de confianza</strong> para avanzar en el sistema de niveles.
           </p>

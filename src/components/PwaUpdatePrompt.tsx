@@ -39,7 +39,7 @@ export default function PwaUpdatePrompt() {
 
   useEffect(() => {
     if (!offlineReady) return;
-    toast.success('FinanzasDMS lista para usar sin conexión');
+    toast.success('Cashi lista para usar sin conexión');
     setOfflineReady(false);
   }, [offlineReady, setOfflineReady]);
 
