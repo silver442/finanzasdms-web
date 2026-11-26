@@ -254,7 +254,7 @@ export default function LoanDetail() {
           <p className="text-brand-violet font-bold">Esperando aprobación del administrador</p>
           {(level.startsWith('NOVATO') || !familyCode) && (
             <a
-              href={`https://wa.me/${import.meta.env.VITE_WHATSAPP_NUMBER}?text=${encodeURIComponent('Verificación de identidad FinanzasDMS')}`}
+              href={`https://wa.me/${import.meta.env.VITE_WHATSAPP_NUMBER}?text=${encodeURIComponent('Verificación de identidad Cashi')}`}
               target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center gap-2 bg-brand-green/10 border border-brand-green/30 text-brand-green-light hover:bg-brand-green hover:text-white px-4 py-2 rounded-xl text-sm font-bold transition-all"
             >

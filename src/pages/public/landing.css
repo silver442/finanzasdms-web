@@ -1,0 +1,184 @@
+/* Animaciones de la Landing (Landing.tsx). Todo se desactiva con prefers-reduced-motion. */
+
+@property --lp-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+/* ---------- Entrada al cargar (hero) ---------- */
+@keyframes lp-enter {
+  from { opacity: 0; transform: translateY(24px); filter: blur(8px); }
+  to   { opacity: 1; transform: none; filter: blur(0); }
+}
+.lp-enter {
+  animation: lp-enter 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--d, 0s);
+}
+
+/* ---------- Revelado al hacer scroll ---------- */
+@keyframes lp-reveal {
+  from { opacity: 0; transform: translateY(40px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes lp-reveal-left {
+  from { opacity: 0; transform: translateX(-48px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes lp-reveal-right {
+  from { opacity: 0; transform: translateX(48px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes lp-grow {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+
+/* Navegadores con scroll-driven animations: el progreso sigue al scroll */
+@supports (animation-timeline: view()) {
+  .lp-reveal, .lp-reveal-left, .lp-reveal-right, .lp-grow {
+    animation-timeline: view();
+    animation-fill-mode: both;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    animation-range: entry calc(var(--i, 0) * 6%) cover 30%;
+  }
+  .lp-reveal       { animation-name: lp-reveal; }
+  .lp-reveal-left  { animation-name: lp-reveal-left; }
+  .lp-reveal-right { animation-name: lp-reveal-right; }
+  .lp-grow         { animation-name: lp-grow; transform-origin: bottom; animation-range: entry 10% cover 45%; }
+  .lp-grow-x       { animation: lp-grow-x linear both; animation-timeline: view(); animation-range: entry 20% cover 50%; }
+
+  /* Header que se solidifica al bajar */
+  .lp-header {
+    animation: lp-header linear both;
+    animation-timeline: scroll(root);
+    animation-range: 0 160px;
+  }
+}
+/* Fallback (Firefox): animación por tiempo al cargar */
+@supports not (animation-timeline: view()) {
+  .lp-reveal       { animation: lp-reveal 0.8s cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: calc(var(--i, 0) * 80ms); }
+  .lp-reveal-left  { animation: lp-reveal-left 0.8s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .lp-reveal-right { animation: lp-reveal-right 0.8s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .lp-grow         { animation: lp-grow 1s cubic-bezier(0.22, 1, 0.36, 1) both; transform-origin: bottom; animation-delay: calc(var(--i, 0) * 120ms); }
+  .lp-grow-x       { animation: lp-grow-x 1.2s cubic-bezier(0.22, 1, 0.36, 1) both; }
+}
+
+@keyframes lp-grow-x {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+.lp-grow-x { transform-origin: left; }
+
+@keyframes lp-header {
+  from { background-color: rgb(12 18 33 / 0.35); box-shadow: none; }
+  to   { background-color: rgb(12 18 33 / 0.9); box-shadow: 0 8px 30px rgb(0 0 0 / 0.35); }
+}
+
+/* ---------- Movimiento continuo ---------- */
+@keyframes lp-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-12px); }
+}
+.lp-float { animation: lp-float var(--dur, 6s) ease-in-out infinite; animation-delay: var(--d, 0s); }
+
+@keyframes lp-drift {
+  0%   { transform: translate(0, 0) rotate(0deg) scale(1); }
+  50%  { transform: translate(-4%, 6%) rotate(8deg) scale(1.08); }
+  100% { transform: translate(3%, -3%) rotate(-6deg) scale(0.96); }
+}
+.lp-drift { animation: lp-drift var(--dur, 18s) ease-in-out infinite alternate; }
+
+@keyframes lp-shimmer {
+  to { background-position: 200% center; }
+}
+.lp-shimmer {
+  background-image: linear-gradient(100deg, #10b981 20%, #6ee7b7 40%, #34d399 50%, #10b981 70%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: lp-shimmer 5s linear infinite;
+}
+
+@keyframes lp-pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgb(16 185 129 / 0.45); }
+  70%  { box-shadow: 0 0 0 14px rgb(16 185 129 / 0); }
+  100% { box-shadow: 0 0 0 0 rgb(16 185 129 / 0); }
+}
+.lp-pulse { animation: lp-pulse-ring 2.4s ease-out infinite; }
+
+/* Botón con destello que cruza al pasar el cursor */
+.lp-shine { position: relative; overflow: hidden; isolation: isolate; }
+.lp-shine::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.35) 50%, transparent 70%);
+  transform: translateX(-120%);
+  transition: transform 0.7s ease;
+  z-index: -1;
+}
+.lp-shine:hover::after { transform: translateX(120%); }
+
+/* Tarjeta con borde de gradiente giratorio (@property) */
+@keyframes lp-spin { to { --lp-angle: 360deg; } }
+.lp-border-spin {
+  border: 2px solid transparent;
+  background:
+    linear-gradient(var(--color-surface-card), var(--color-surface-card)) padding-box,
+    conic-gradient(from var(--lp-angle), #10b981, #0f766e 25%, #6ee7b7 50%, #0f766e 75%, #10b981) border-box;
+  animation: lp-spin 6s linear infinite;
+}
+
+/* Tarjetas que se levantan y brillan */
+.lp-card {
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.35s, box-shadow 0.35s;
+}
+.lp-card:hover {
+  transform: translateY(-6px);
+  border-color: rgb(16 185 129 / 0.35);
+  box-shadow: 0 18px 40px -12px rgb(16 185 129 / 0.25);
+}
+.lp-card .lp-icon { transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.lp-card:hover .lp-icon { transform: rotate(-8deg) scale(1.12); }
+
+/* Subrayado animado del menú */
+.lp-navlink { position: relative; }
+.lp-navlink::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: -6px;
+  height: 2px;
+  border-radius: 2px;
+  background: #10b981;
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+}
+.lp-navlink:hover::after, .lp-navlink[data-active='true']::after { transform: scaleX(1); }
+
+/* Menú móvil y FAQ: altura animable con grid-template-rows */
+.lp-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 0.4s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s;
+}
+.lp-collapse > * { overflow: hidden; min-height: 0; }
+.lp-collapse[data-open='true'] { grid-template-rows: 1fr; opacity: 1; }
+
+/* Carrusel infinito de "Próximamente" */
+@keyframes lp-marquee { to { transform: translateX(-50%); } }
+.lp-marquee {
+  mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+}
+.lp-marquee > div { width: max-content; animation: lp-marquee 22s linear infinite; }
+.lp-marquee:hover > div { animation-play-state: paused; }
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-enter, .lp-reveal, .lp-reveal-left, .lp-reveal-right, .lp-grow, .lp-grow-x, .lp-float, .lp-drift,
+  .lp-shimmer, .lp-pulse, .lp-border-spin, .lp-marquee > div, .lp-header {
+    animation: none !important;
+  }
+  .lp-card, .lp-card .lp-icon, .lp-collapse, .lp-shine::after { transition: none !important; }
+}

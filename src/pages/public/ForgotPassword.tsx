@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { Mail, ArrowLeft, CheckCircle, Landmark } from 'lucide-react';
+import { Mail, ArrowLeft, CheckCircle } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL;
 
@@ -28,10 +28,7 @@ export default function ForgotPassword() {
     <div className="min-h-screen bg-surface-base flex flex-col">
       <nav className="container mx-auto px-6 py-6 flex items-center">
         <Link to="/" className="flex items-center gap-2">
-          <div className="p-2 bg-surface-card rounded-lg border border-surface-border shadow-md shadow-brand-green/10">
-            <Landmark className="h-6 w-6 text-brand-green-light" />
-          </div>
-          <span className="text-xl font-extrabold tracking-tight text-white">Finanzas<span className="text-brand-green-light">DMS</span></span>
+          <img src="/brand/cashi-logo.png" alt="Cashi" className="h-11 w-auto" />
         </Link>
       </nav>
       <div className="flex-1 flex items-center justify-center p-4">

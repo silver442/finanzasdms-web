@@ -263,8 +263,8 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
       {/* ── Cabecera ── */}
       <div className={`p-6 border-b border-surface-border ${isCollapsed ? 'md:px-0' : ''}`}>
         <div className={`flex items-center justify-between gap-2 ${isCollapsed ? 'md:justify-center' : ''}`}>
-          <Link to="/dashboard" onClick={onClose} className={`text-2xl font-extrabold text-brand-green tracking-tight hover:text-brand-green-light transition-colors whitespace-nowrap ${hideWhenCollapsed}`}>
-            FinanzasDMS
+          <Link to="/dashboard" onClick={onClose} className={`shrink-0 hover:opacity-90 transition-opacity ${hideWhenCollapsed}`}>
+            <img src="/brand/cashi-logo.png" alt="Cashi" className="h-12 w-auto" />
           </Link>
           <button
             onClick={onToggleCollapse}
@@ -282,6 +282,11 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
             <X size={20} />
           </button>
         </div>
+        {isCollapsed && (
+          <Link to="/dashboard" className="hidden md:flex justify-center mt-3 hover:opacity-90 transition-opacity" title="Cashi">
+            <img src="/brand/cashi-mark.png" alt="Cashi" className="h-10 w-10" />
+          </Link>
+        )}
         {name && (
           <p className={`text-text-secondary text-sm mt-1 truncate ${hideWhenCollapsed}`}>
             <span className="text-text-muted">Hola,</span> {name}
