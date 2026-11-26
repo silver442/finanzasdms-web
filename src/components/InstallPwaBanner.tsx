@@ -41,7 +41,7 @@ export default function InstallPwaBanner() {
   return (
     <div
       role="dialog"
-      aria-label="Instalar FinanzasDMS"
+      aria-label="Instalar Cashi"
       className={`fixed inset-x-4 ${hasSession ? 'bottom-20 md:bottom-6' : 'bottom-4 sm:bottom-6'} mb-[env(safe-area-inset-bottom)] z-40 sm:left-auto sm:right-6 sm:w-96`}
     >
       <div className="flex items-center gap-3 bg-surface-card/90 backdrop-blur-md border border-white/5 rounded-2xl shadow-card p-4">
@@ -50,7 +50,7 @@ export default function InstallPwaBanner() {
         </div>
 
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-text-primary">Instala FinanzasDMS</p>
+          <p className="text-sm font-bold text-text-primary">Instala Cashi</p>
           <p className="text-xs text-text-secondary">Acceso directo desde tu pantalla de inicio.</p>
         </div>
 

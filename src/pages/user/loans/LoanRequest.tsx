@@ -55,7 +55,7 @@ const API = import.meta.env.VITE_API_URL;
 const DEFAULT_CREDIT_LIMIT = 1000;
 const DEFAULT_RATE = 50;
 const HOUSING_OPTIONS = ['Propia', 'Rentada', 'Familiar'];
-const WHATSAPP_URL = `https://wa.me/${import.meta.env.VITE_WHATSAPP_NUMBER}?text=Verificaci%C3%B3n+de+identidad+FinanzasDMS`;
+const WHATSAPP_URL = `https://wa.me/${import.meta.env.VITE_WHATSAPP_NUMBER}?text=Verificaci%C3%B3n+de+identidad+Cashi`;
 
 const MEXICO_STATES = [
   'Aguascalientes', 'Baja California', 'Baja California Sur', 'Campeche',

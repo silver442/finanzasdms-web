@@ -49,11 +49,11 @@ export default defineConfig({
       // el control. Así un refresh normal basta para recibir la versión nueva.
       registerType: 'autoUpdate',
       injectRegister: false,
-      includeAssets: ['favicon.svg', 'icons/*.png'],
+      includeAssets: ['favicon.ico', 'favicon.png', 'favicon-32x32.png', 'favicon-16x16.png', 'apple-touch-icon.png', 'icons/*.png', 'brand/*.png'],
       manifest: {
         id: '/dashboard',
-        name: 'FinanzasDMS - Portafolio y Crédito',
-        short_name: 'FinanzasDMS',
+        name: 'Cashi - Portafolio y Crédito',
+        short_name: 'Cashi',
         description: 'Préstamos familiares, portafolio de inversión y finanzas personales.',
         lang: 'es-MX',
         start_url: '/dashboard',
@@ -66,8 +66,8 @@ export default defineConfig({
         icons: [
           { src: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
           { src: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-          // El glifo del 512 cabe en la zona segura (círculo del 80 %) con fondo a sangre
-          { src: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          // Fondo a sangre (sin transparencia); el glifo cabe en la zona segura (círculo del 80 %)
+          { src: '/icons/icon-maskable-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       workbox: {

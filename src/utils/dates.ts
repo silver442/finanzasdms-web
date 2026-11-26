@@ -1,4 +1,4 @@
-/** Zona horaria de negocio de FinanzasDMS (centro de México, GMT-6). Igual que `APP_TIME_ZONE` del backend. */
+/** Zona horaria de negocio de Cashi (centro de México, GMT-6). Igual que `APP_TIME_ZONE` del backend. */
 export const APP_TIME_ZONE = 'America/Mexico_City';
 
 const isoDateFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: APP_TIME_ZONE });

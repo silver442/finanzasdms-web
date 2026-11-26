@@ -3,7 +3,8 @@ import { useState } from 'react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { MailWarning, Landmark, Eye, EyeOff, CheckCircle2, ArrowLeft } from 'lucide-react';
+import DomainMigrationBanner from '../../components/DomainMigrationBanner';
+import { MailWarning, Eye, EyeOff, CheckCircle2, ArrowLeft } from 'lucide-react';
 
 const svgPattern = `<svg width="400" height="400" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="dots" x="40" y="40" width="40" height="40" patternUnits="userSpaceOnUse"><circle cx="20" cy="20" r="2" fill="rgba(5, 150, 105, 0.15)"/></pattern></defs><rect width="400" height="400" fill="none"/><rect width="400" height="400" fill="url(#dots)"/></svg>`;
 
@@ -59,11 +60,8 @@ export default function Login() {
 
         {/* Contenido */}
         <div className="relative z-10 flex flex-col items-center text-center px-12">
-          <div className="mb-6 p-3 bg-brand-green/20 rounded-2xl border border-brand-green/30">
-            <Landmark className="h-12 w-12 text-brand-green" />
-          </div>
-          <h1 className="text-5xl font-extrabold text-text-primary mb-3">
-            Finanzas<span className="text-brand-green">DMS</span>
+          <h1 className="mb-6">
+            <img src="/brand/cashi-logo.png" alt="Cashi" className="h-28 w-auto" />
           </h1>
           <p className="text-xl text-text-secondary mb-12 max-w-sm">
             Tu plataforma de finanzas familiares inteligentes
@@ -89,21 +87,17 @@ export default function Login() {
       <div className="flex flex-col items-center justify-center w-full md:w-5/12 p-6 bg-surface-card">
         {/* Logo en mobile */}
         <Link to="/" className="md:hidden mb-8 flex items-center gap-2">
-          <div className="p-2 bg-surface-elevated rounded-lg border border-surface-border">
-            <Landmark className="h-5 w-5 text-brand-green" />
-          </div>
-          <span className="font-extrabold text-text-primary text-sm">
-            Finanzas<span className="text-brand-green">DMS</span>
-          </span>
+          <img src="/brand/cashi-logo.png" alt="Cashi" className="h-12 w-auto" />
         </Link>
 
         {/* Formulario */}
         <div className="w-full max-w-sm">
+          <DomainMigrationBanner className="mb-6" />
           <Link to="/" className="inline-flex items-center gap-1 text-text-muted hover:text-text-secondary transition-colors text-sm font-medium mb-6">
             <ArrowLeft size={14} /> Volver al inicio
           </Link>
           <h2 className="text-3xl font-extrabold text-text-primary mb-2">Iniciar Sesión</h2>
-          <p className="text-text-secondary mb-8 text-sm">Accede a tu cuenta FinanzasDMS</p>
+          <p className="text-text-secondary mb-8 text-sm">Accede a tu cuenta Cashi</p>
 
           {unverified && (
             <div className="mb-6 p-4 bg-[#F59E0B]/10 border border-[#F59E0B]/30 rounded-xl flex items-start gap-3">

@@ -4,6 +4,7 @@ import axios from 'axios';
 import { PhoneCall, AlertTriangle, Menu, LogOut } from 'lucide-react';
 import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
+import DomainMigrationBanner from './DomainMigrationBanner';
 
 const API = import.meta.env.VITE_API_URL;
 const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER;
@@ -143,8 +144,10 @@ export default function ProtectedRoute() {
           >
             <Menu size={22} />
           </button>
-          <span className="text-lg font-extrabold text-brand-green tracking-tight">FinanzasDMS</span>
+          <img src="/brand/cashi-logo.png" alt="Cashi" className="h-9 w-auto" />
         </header>
+
+        <DomainMigrationBanner className="shrink-0 mx-4 mt-3 md:mx-6 md:mt-4" />
 
         {/* pb extra en móvil para que el BottomNav (h-16) no tape el final del contenido */}
         <main className="flex-1 overflow-y-auto overscroll-contain pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-[env(safe-area-inset-bottom)]">

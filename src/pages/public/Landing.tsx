@@ -1,408 +1,510 @@
-import { useState } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Landmark, ArrowRight, Sparkles, Wallet, ChevronRight, Activity, Star, Users, LineChart, PieChart, BookOpen, Menu, X } from 'lucide-react';
+import {
+  ArrowRight, PlayCircle, ShieldCheck, Zap, Puzzle, Cloud, Menu, X, Check, ChevronDown,
+  Landmark, CreditCard, CalendarCheck, Bitcoin, Wallet, Calculator, ChartColumnIncreasing,
+  GraduationCap, HandCoins, TrendingUp, Star, Trophy, Lock,
+} from 'lucide-react';
+import './landing.css';
 
-const LEVELS = [
-  {
-    id: 'novato', label: 'Novato', Icon: Activity,
-    limit: '$500', rate: '50%', term: '6 meses', pts: '0 pts',
-    tabActive: 'bg-surface-elevated border-surface-border text-white',
-    tabInactive: 'border-transparent text-text-secondary hover:text-white',
-    accent: 'text-text-primary',
-    panelBg: 'bg-surface-card/60 border-surface-border',
-  },
-  {
-    id: 'cumplidor', label: 'Cumplidor', Icon: Activity,
-    limit: '$2,000', rate: '45%', term: '12 meses', pts: '300 pts',
-    tabActive: 'bg-brand-green/20 border-brand-green/50 text-brand-green-light',
-    tabInactive: 'border-transparent text-text-secondary hover:text-brand-green-light',
-    accent: 'text-brand-green-light',
-    panelBg: 'bg-brand-green/10 border-brand-green/30',
-  },
-  {
-    id: 'socio', label: 'Socio', Icon: Activity,
-    limit: '$7,000', rate: '35%', term: '18 meses', pts: '1,000 pts',
-    tabActive: 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400',
-    tabInactive: 'border-transparent text-text-secondary hover:text-cyan-400',
-    accent: 'text-cyan-400',
-    panelBg: 'bg-cyan-500/10 border-cyan-500/30',
-  },
-  {
-    id: 'elite', label: 'Élite', Icon: Star,
-    limit: '$15,000', rate: '25%', term: '24 meses', pts: 'Invitación',
-    tabActive: 'bg-brand-violet/20 border-brand-violet-light/50 text-brand-violet-light',
-    tabInactive: 'border-transparent text-text-secondary hover:text-brand-violet-light',
-    accent: 'text-brand-violet-light',
-    panelBg: 'bg-brand-violet/10 border-brand-violet/30',
-  },
-] as const;
+// Contenedor común: ancho máximo y margen lateral generoso
+const WRAP = 'mx-auto w-full max-w-6xl px-5 sm:px-8 lg:px-10';
 
-const METRICS = [
-  { label: 'Préstamos Activos', value: '3',       progress: 75, bar: 'from-emerald-500 to-emerald-400' },
-  { label: 'Próximo Pago',      value: '$1,200',  progress: 40, bar: 'from-amber-500 to-amber-400' },
-  { label: 'Puntos Acumulados', value: '850 pts', progress: 60, bar: 'from-violet-500 to-violet-400' },
+const NAV = [
+  { id: 'inicio', label: 'Inicio' },
+  { id: 'caracteristicas', label: 'Características' },
+  { id: 'modulos', label: 'Módulos' },
+  { id: 'planes', label: 'Planes' },
+  { id: 'faq', label: 'Preguntas Frecuentes' },
 ];
 
+const HIGHLIGHTS = [
+  { Icon: ShieldCheck, title: 'Seguro y confiable', desc: 'Pagos SPEI validados uno a uno' },
+  { Icon: Zap, title: 'Fácil de usar', desc: 'Control total en pocos clics' },
+  { Icon: Puzzle, title: 'Modular y flexible', desc: 'Activa solo lo que necesitas' },
+  { Icon: Cloud, title: 'En todos tus dispositivos', desc: 'Instálala como app en tu celular' },
+];
+
+const MODULES = [
+  { Icon: Landmark, name: 'Préstamos Familiares', desc: 'Interés simple, cuotas fijas y abonos a capital que bajan tus pagos.', tone: 'from-emerald-500 to-emerald-700' },
+  { Icon: CreditCard, name: 'Tarjetas de Crédito', desc: 'Fechas de corte, pago, MSI y crédito disponible en un vistazo.', tone: 'from-sky-500 to-blue-700' },
+  { Icon: CalendarCheck, name: 'Suscripciones', desc: 'Tus gastos recurrentes bajo control, mes a mes.', tone: 'from-teal-400 to-cyan-700' },
+  { Icon: Bitcoin, name: 'Portafolio Cripto', desc: 'Precios en vivo, rendimiento y bitácora de trading.', tone: 'from-amber-400 to-orange-600' },
+  { Icon: Wallet, name: 'Cuentas e Inversiones', desc: 'Ahorro, renta fija y variable con cortes mensuales.', tone: 'from-violet-500 to-indigo-700' },
+  { Icon: TrendingUp, name: 'Gana Dinero', desc: 'Oportunidades para generar ingresos extra.', tone: 'from-lime-400 to-emerald-600' },
+];
+
+const UPCOMING = [
+  { Icon: GraduationCap, name: 'Academia' },
+  { Icon: ChartColumnIncreasing, name: 'Bolsa de Valores' },
+  { Icon: Calculator, name: 'Interés Compuesto' },
+  { Icon: Wallet, name: 'Presupuesto' },
+  { Icon: HandCoins, name: 'Deuda Externa' },
+];
+
+const LEVELS = [
+  { name: 'Novato', pts: '0 pts', limit: '$500', rate: '50%', accent: 'text-text-primary' },
+  { name: 'Cumplidor', pts: '300 pts', limit: '$2,000', rate: '45%', accent: 'text-brand-green-light' },
+  { name: 'Socio', pts: '1,000 pts', limit: '$7,000', rate: '35%', accent: 'text-cyan-400' },
+  { name: 'Élite', pts: 'Invitación', limit: '$15,000', rate: '25%', accent: 'text-amber-300' },
+];
+
+const EXPERIENCE = [
+  'Patrimonio neto calculado en tiempo real',
+  'Recordatorios por correo antes de cada vencimiento',
+  'Pagos SPEI con comprobante validado por un administrador',
+  'Alertas cripto en vivo para usuarios Premium',
+];
+
+const PLANS = [
+  {
+    name: 'Gratis', tagline: 'Ideal para comenzar', price: '$0', period: '/mes',
+    features: ['Préstamos familiares con niveles', 'Tarjetas, suscripciones y cuentas', 'Portafolio cripto básico', 'Activa los módulos que quieras'],
+    cta: 'Comenzar gratis', featured: false, soon: false,
+  },
+  {
+    name: 'Premium Cripto', tagline: 'Para invertir con estrategia', price: '$99', period: 'MXN/mes',
+    features: ['Todo lo del plan Gratis', 'Alertas Grid/DCA en tiempo real', 'Análisis de tendencia (EMA 200 · RSI 14)', 'Gratis para familia · 50% con referido'],
+    cta: 'Obtener Premium', featured: true, soon: false,
+  },
+  {
+    name: 'Pro', tagline: 'Aprende y diversifica', price: 'Pronto', period: '',
+    features: ['Academia de finanzas con cursos', 'Bolsa de valores y ETFs', 'Simuladores de interés compuesto', 'Presupuesto y deuda externa'],
+    cta: 'Próximamente', featured: false, soon: true,
+  },
+];
+
+const FAQ = [
+  { q: '¿Cashi es gratis?', a: 'Sí. Crear tu cuenta y usar los módulos públicos no cuesta nada. Solo el Bot Premium Cripto tiene costo mensual, y es gratis para familiares y con 50% de descuento si tienes código de referido.' },
+  { q: '¿Cómo funcionan los préstamos?', a: 'Solicitas el monto y plazo, un administrador revisa y te propone condiciones, tú las aceptas y recibes la transferencia. Las cuotas son fijas con interés simple y cualquier abono extra reduce tus pagos futuros.' },
+  { q: '¿Cómo pago mis cuotas?', a: 'Por transferencia SPEI a la cuenta indicada. Subes tu comprobante desde la app y, en cuanto se valida, tu cuota se marca como pagada.' },
+  { q: '¿Cómo subo de nivel?', a: 'Cada cuota pagada a tiempo suma 10 puntos y cada préstamo liquidado 50 más. Con más puntos subes de Novato a Cumplidor y Socio, con mayor límite y menor tasa. El atraso resta niveles.' },
+  { q: '¿Puedo desactivar un módulo?', a: 'Sí, desde la Tienda puedes activar o desactivar módulos cuando quieras. La única excepción son los préstamos: no se desactivan mientras tengas uno vigente.' },
+];
+
+// Variables CSS para retrasos/escalonado de animaciones
+const v = (vars: Record<string, string | number>) => vars as CSSProperties;
+
+/** Sección visible en pantalla, para resaltar el enlace del menú. */
+function useActiveSection(ids: string[]) {
+  const [active, setActive] = useState(ids[0]);
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => entries.forEach((e) => e.isIntersecting && setActive(e.target.id)),
+      { rootMargin: '-45% 0px -50% 0px' },
+    );
+    ids.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    });
+    return () => observer.disconnect();
+  }, [ids]);
+  return active;
+}
+
+const NAV_IDS = NAV.map((n) => n.id);
+
 export default function Landing() {
-  const [activeLevel, setActiveLevel] = useState(1);
   const [menuOpen, setMenuOpen] = useState(false);
-  const level = LEVELS[activeLevel];
+  const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const active = useActiveSection(NAV_IDS);
 
   return (
-    <div className="min-h-screen bg-surface-950 text-white font-sans selection:bg-brand-green/30 overflow-x-hidden">
+    <div className="min-h-screen bg-surface-950 text-white font-sans selection:bg-brand-green/30 overflow-x-clip">
 
-      {/* Brillos radiales de fondo — atmosféricos, 5-7% opacidad */}
-      <div className="fixed top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-brand-green-dark/[6%] rounded-full blur-[180px]"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-violet-700/[5%] rounded-full blur-[180px]"></div>
-        <div className="absolute top-[35%] right-[5%] w-[35%] h-[35%] bg-sky-700/[4%] rounded-full blur-[150px]"></div>
+      {/* Brillos radiales de fondo */}
+      <div className="fixed inset-0 overflow-hidden -z-10 pointer-events-none">
+        <div className="lp-drift absolute top-[-10%] right-[-10%] w-[60%] h-[60%] bg-brand-green-dark/[7%] rounded-full blur-[180px]" />
+        <div className="lp-drift absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-teal-700/[5%] rounded-full blur-[180px]" style={v({ '--dur': '24s' })} />
       </div>
 
       {/* --- HEADER --- */}
-      <header className="fixed top-0 w-full z-[100] bg-surface-950/80 backdrop-blur-md border-b border-surface-800/50 transition-all">
-        <nav className="container mx-auto px-4 md:px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-surface-card rounded-lg border border-surface-border shadow-md shadow-brand-green/10">
-              <Landmark className="h-6 w-6 text-brand-green-light" />
-            </div>
-            <span className="text-xl font-extrabold tracking-tight">Finanzas<span className="text-brand-green-light">DMS</span></span>
+      <header className="lp-header fixed top-0 w-full z-[100] bg-surface-950/80 backdrop-blur-md border-b border-white/5">
+        <nav className={`${WRAP} py-3 flex justify-between items-center`}>
+          <a href="#inicio" className="shrink-0"><img src="/brand/cashi-logo.png" alt="Cashi" className="h-9 sm:h-10 w-auto" /></a>
+
+          <div className="hidden lg:flex items-center gap-7">
+            {NAV.map((n) => (
+              <a
+                key={n.id}
+                href={`#${n.id}`}
+                data-active={active === n.id}
+                className={`lp-navlink text-sm font-medium transition-colors ${active === n.id ? 'text-brand-green-light' : 'text-text-secondary hover:text-white'}`}
+              >
+                {n.label}
+              </a>
+            ))}
           </div>
 
-          {/* Links de escritorio */}
-          <div className="hidden md:flex items-center gap-4">
-            <Link to="/login" className="text-sm font-semibold text-text-primary hover:text-white transition-colors">
-              Iniciar Sesión
-            </Link>
-            <Link to="/register" className="text-sm font-bold bg-brand-green hover:bg-brand-green-light text-white px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-brand-green/20">
-              Crear Cuenta
+          <div className="hidden lg:flex items-center gap-4">
+            <Link to="/login" className="text-sm font-semibold text-text-primary hover:text-brand-green-light transition-colors">Iniciar Sesión</Link>
+            <Link to="/register" className="lp-shine group flex items-center gap-1.5 text-sm font-bold bg-brand-green hover:bg-brand-green-light text-white px-5 py-2.5 rounded-full transition-all shadow-lg shadow-brand-green/20">
+              Crear Cuenta <ArrowRight size={15} className="group-hover:translate-x-0.5 transition-transform" />
             </Link>
           </div>
 
-          {/* Botón hamburguesa — solo móvil */}
-          <button
-            className="md:hidden text-text-secondary hover:text-white transition-colors p-1"
-            onClick={() => setMenuOpen((v) => !v)}
-            aria-label="Abrir menú"
-          >
-            {menuOpen ? <X size={22} /> : <Menu size={22} />}
+          <button className="lg:hidden text-text-secondary hover:text-white transition-colors p-2 -mr-2" onClick={() => setMenuOpen((o) => !o)} aria-label="Abrir menú" aria-expanded={menuOpen}>
+            <span className="relative block w-6 h-6">
+              <Menu size={24} className={`absolute inset-0 transition-all duration-300 ${menuOpen ? 'opacity-0 rotate-90 scale-50' : ''}`} />
+              <X size={24} className={`absolute inset-0 transition-all duration-300 ${menuOpen ? '' : 'opacity-0 -rotate-90 scale-50'}`} />
+            </span>
           </button>
         </nav>
 
-        {/* Menú móvil desplegable */}
-        {menuOpen && (
-          <div className="md:hidden bg-surface-950/95 backdrop-blur-md border-t border-surface-800/50 px-6 py-4 flex flex-col gap-3">
-            <Link
-              to="/login"
-              onClick={() => setMenuOpen(false)}
-              className="text-sm font-semibold text-text-primary hover:text-white transition-colors py-2"
-            >
-              Iniciar Sesión
-            </Link>
-            <Link
-              to="/register"
-              onClick={() => setMenuOpen(false)}
-              className="text-sm font-bold bg-brand-green hover:bg-brand-green-light text-white px-5 py-2.5 rounded-xl transition-all text-center"
-            >
-              Crear Cuenta
-            </Link>
+        <div className="lp-collapse lg:hidden" data-open={menuOpen}>
+          <div className="bg-surface-950/95 backdrop-blur-xl">
+            <div className={`${WRAP} pb-5 pt-1 flex flex-col gap-1 border-t border-white/5`}>
+              {NAV.map((n, i) => (
+                <a
+                  key={n.id}
+                  href={`#${n.id}`}
+                  onClick={() => setMenuOpen(false)}
+                  className={`text-base font-medium py-2.5 transition-all duration-300 ${active === n.id ? 'text-brand-green-light' : 'text-text-secondary'} ${menuOpen ? 'translate-x-0 opacity-100' : '-translate-x-4 opacity-0'}`}
+                  style={{ transitionDelay: menuOpen ? `${i * 50}ms` : '0ms' }}
+                >
+                  {n.label}
+                </a>
+              ))}
+              <div className="flex gap-3 pt-4 mt-2 border-t border-white/5">
+                <Link to="/login" className="flex-1 text-center text-sm font-semibold text-text-primary border border-white/15 rounded-full py-3">Iniciar Sesión</Link>
+                <Link to="/register" className="flex-1 text-center text-sm font-bold bg-brand-green hover:bg-brand-green-light text-white rounded-full py-3">Crear Cuenta</Link>
+              </div>
+            </div>
           </div>
-        )}
+        </div>
       </header>
 
-      {/* --- HERO SECTION --- */}
-      <section className="relative pt-24 pb-32 lg:pt-28 lg:pb-60 overflow-hidden">
-        <div className="container mx-auto px-6 relative z-10 text-center">
+      {/* --- HERO --- */}
+      <section id="inicio" className="relative pt-24 sm:pt-28 lg:pt-36 pb-14 overflow-hidden">
+        {/* Ondas verdes decorativas */}
+        <div className="lp-drift absolute -top-32 -right-40 w-[42rem] h-[42rem] rounded-full bg-gradient-to-bl from-brand-green/25 via-teal-600/10 to-transparent blur-3xl pointer-events-none" />
+        <div className="lp-drift absolute top-40 right-0 w-[60%] h-80 bg-gradient-to-tr from-transparent via-emerald-500/10 to-teal-400/20 rounded-[50%] blur-2xl pointer-events-none" style={v({ '--dur': '14s' })} />
 
-          {/* Announcement pill */}
-          <div className="flex flex-col items-center gap-4 mb-8">
-            <a href="#features" className="group inline-flex items-center gap-2 bg-brand-green/10 hover:bg-brand-green/20 border border-brand-green/30 hover:border-brand-green/60 text-brand-green-light text-sm font-semibold px-4 py-2 rounded-full transition-all">
-              <span className="flex items-center gap-1.5 bg-brand-green text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                <Sparkles size={10} /> NEW
-              </span>
-              Gamificación financiera v2 ya disponible
-              <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
-            </a>
-            <div className="flex items-center gap-3">
-              <div className="flex -space-x-3">
-                <div className="w-8 h-8 rounded-full border-2 border-surface-950 bg-brand-green/20 flex items-center justify-center text-brand-green-light text-xs font-bold">JD</div>
-                <div className="w-8 h-8 rounded-full border-2 border-surface-950 bg-violet-500/20 flex items-center justify-center text-violet-400 text-xs font-bold">AM</div>
-                <div className="w-8 h-8 rounded-full border-2 border-surface-950 bg-brand-violet/20 flex items-center justify-center text-brand-violet text-xs font-bold">RS</div>
-                <div className="w-8 h-8 rounded-full border-2 border-surface-950 bg-surface-card flex items-center justify-center text-text-secondary">
-                  <Users size={12} />
-                </div>
-              </div>
-              <p className="text-xs text-text-muted font-medium">Únete a la nueva <span className="text-text-secondary">era financiera</span></p>
+        <div className={`${WRAP} relative grid lg:grid-cols-2 gap-10 lg:gap-12 items-center`}>
+          <div className="text-center lg:text-left">
+            <h1 className="text-[1.85rem] min-[400px]:text-[2.1rem] leading-[1.15] sm:text-5xl 2xl:text-6xl font-extrabold tracking-tight sm:leading-tight mb-5 sm:mb-6">
+              <span className="lp-enter block text-balance" style={v({ '--d': '0.05s' })}>Organiza, controla y haz crecer tu dinero con</span>
+              <span className="lp-enter lp-shimmer block text-6xl sm:text-7xl xl:text-8xl mt-1 sm:mt-2 pb-2" style={v({ '--d': '0.3s' })}>Cashi</span>
+            </h1>
+            <p className="lp-enter text-base sm:text-lg text-text-secondary mb-8 sm:mb-10 max-w-xl mx-auto lg:mx-0 leading-relaxed" style={v({ '--d': '0.45s' })}>
+              Tu plataforma financiera todo en uno: préstamos familiares con gamificación, tarjetas, suscripciones,
+              inversiones y cripto. Activa solo los módulos que necesitas.
+            </p>
+            <div className="lp-enter flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 sm:gap-4" style={v({ '--d': '0.6s' })}>
+              <Link to="/register" className="lp-shine lp-pulse group w-full sm:w-auto flex items-center justify-center gap-2 bg-brand-green hover:bg-brand-green-light text-white px-8 py-4 rounded-full font-bold transition-colors">
+                Comenzar gratis <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+              </Link>
+              <a href="#caracteristicas" className="group w-full sm:w-auto flex items-center justify-center gap-2 border border-white/15 hover:border-brand-green/50 hover:bg-white/5 text-white px-8 py-4 rounded-full font-bold transition-all">
+                <PlayCircle size={20} className="group-hover:scale-110 group-hover:text-brand-green-light transition-all" /> Ver cómo funciona
+              </a>
             </div>
           </div>
 
-          <h1 className="text-5xl md:text-7xl lg:text-8xl font-extrabold tracking-tight mb-8 max-w-5xl mx-auto leading-[1.1]">
-            Eleva tus finanzas al <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-cyan-400 to-emerald-400">Siguiente Nivel</span>
-          </h1>
-
-          <p className="text-lg md:text-2xl text-text-secondary mb-12 max-w-3xl mx-auto leading-relaxed">
-            No es solo una hoja de cálculo. Es tu centro de mando  diseñada para gestionar préstamos, gamificar tu historial crediticio y desbloquear módulos financieros exclusivos. 
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-5 w-full sm:w-auto mb-24">
-            <Link to="/register" className="group flex items-center justify-center gap-2 bg-brand-green hover:bg-brand-green text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all shadow-[0_0_30px_rgba(16,185,129,0.25)] hover:shadow-[0_0_40px_rgba(16,185,129,0.4)] w-full sm:w-auto">
-              Comenzar mi viaje <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
-            </Link>
-            <Link to="/login" className="flex items-center justify-center gap-2 bg-surface-card/80 hover:bg-surface-elevated backdrop-blur-md text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all border border-surface-border w-full sm:w-auto">
-              Acceder a mi cuenta
-            </Link>
-          </div>
-
-          {/* Mockup del Dashboard — con datos vivos */}
-          <div className="relative max-w-6xl mx-auto">
-            <div className="absolute inset-0 bg-gradient-to-t from-emerald-500/30 via-cyan-500/10 to-transparent blur-3xl -z-10 opacity-60 animate-pulse"></div>
-            <div className="w-full overflow-x-auto pb-4 snap-x">
-            <div className="bg-surface-base rounded-[2rem] border border-surface-800/50 shadow-2xl overflow-hidden min-w-[700px] aspect-[16/9] md:aspect-[21/9] lg:aspect-[16/7] flex">
-
-              {/* Sidebar */}
-              <div className="w-16 md:w-60 border-r border-surface-800/50 bg-surface-950/50 p-4 hidden md:flex flex-col gap-3">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-8 h-8 rounded-lg bg-brand-green/10 border border-brand-green/20 shrink-0"></div>
-                  <div className="h-4 w-24 bg-surface-card rounded"></div>
-                </div>
-                {[1, 2, 3, 4, 5].map(i => (
-                  <div key={i} className={`flex items-center gap-3 px-2 py-1.5 rounded-lg ${i === 1 ? 'bg-brand-green/10' : ''}`}>
-                    <div className={`w-7 h-7 rounded-lg shrink-0 ${i === 1 ? 'bg-brand-green/20 border border-brand-green/30' : 'bg-surface-card/50'}`}></div>
-                    <div className={`h-2.5 w-28 rounded ${i === 1 ? 'bg-brand-green/30' : 'bg-surface-card/50'}`}></div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Main content */}
-              <div className="flex-1 p-6 overflow-hidden bg-surface-base/50 flex flex-col gap-4">
-
-                {/* Header con balance real */}
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-text-muted text-xs mb-1 tracking-widest uppercase">Balance Total</p>
-                    <div className="flex items-baseline gap-3">
-                      <span className="text-white text-2xl md:text-3xl font-bold">$15,420.00</span>
-                      <span className="text-brand-green-light text-sm font-semibold">↑ +12.4%</span>
-                    </div>
-                  </div>
-                  <div className="h-8 w-28 bg-brand-green/20 rounded-xl border border-brand-green/20 hidden md:block"></div>
-                </div>
-
-                {/* Tarjetas de métricas */}
-                <div className="grid grid-cols-3 gap-3 flex-1">
-                  {METRICS.map(({ label, value, progress, bar }) => (
-                    <div key={label} className="bg-surface-card/30 border border-surface-border/50 p-4 rounded-2xl flex flex-col justify-between">
-                      <p className="text-text-muted text-[10px] md:text-xs font-medium mb-1 truncate">{label}</p>
-                      <p className="text-white text-base md:text-xl font-bold mb-3">{value}</p>
-                      <div className="h-1.5 w-full bg-surface-elevated/50 rounded-full overflow-hidden">
-                        <div className={`h-full bg-gradient-to-r ${bar} rounded-full`} style={{ width: `${progress}%` }}></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Gráfica de barras con neón */}
-                <div className="bg-surface-card/20 border border-surface-border/50 rounded-2xl p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-text-secondary text-xs font-semibold">Historial de Pagos</span>
-                    <span className="text-text-muted text-[10px] bg-surface-card px-2 py-0.5 rounded-full">Últimos 10 meses</span>
-                  </div>
-                  <div className="flex items-end gap-1.5 h-16 md:h-20">
-                    {[40, 70, 45, 90, 65, 80, 50, 85, 60, 95].map((h, i) => (
-                      <div
-                        key={i}
-                        className="bg-gradient-to-t from-emerald-500/40 to-emerald-500/5 border-t-2 border-brand-green-400 rounded-t w-full"
-                        style={{ height: `${h}%` }}
-                      ></div>
-                    ))}
-                  </div>
-                </div>
-
-              </div>
+          <div className="lp-enter relative" style={v({ '--d': '0.35s' })}>
+            <div className="absolute inset-x-10 bottom-4 h-24 bg-brand-green/25 blur-3xl rounded-full lp-float" style={v({ '--dur': '6s' })} />
+            <div className="lp-float" style={v({ '--dur': '6s' })}>
+              <img
+                src="/landing/laptop.webp"
+                alt="Dashboard de Cashi en una laptop"
+                width={1200}
+                height={781}
+                fetchPriority="high"
+                className="relative w-full max-w-xl lg:max-w-2xl mx-auto drop-shadow-2xl lg:scale-115 lg:origin-left"
+              />
             </div>
-            </div>{/* /overflow-x-auto wrapper */}
+          </div>
+        </div>
+
+        {/* Franja de atributos */}
+        <div className={`${WRAP} mt-12 sm:mt-16`}>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-6 lg:divide-x divide-white/10">
+            {HIGHLIGHTS.map(({ Icon, title, desc }, i) => (
+              <div key={title} className="lp-enter group flex flex-col sm:flex-row items-center sm:items-start lg:items-center gap-2 sm:gap-3 text-center sm:text-left lg:justify-center lg:px-4" style={v({ '--d': `${0.75 + i * 0.1}s` })}>
+                <Icon strokeWidth={1.5} className="shrink-0 w-7 h-7 sm:w-8 sm:h-8 text-brand-green-light group-hover:scale-110 group-hover:-rotate-6 transition-transform" />
+                <div>
+                  <p className="text-sm font-semibold text-text-primary">{title}</p>
+                  <p className="text-xs text-text-muted">{desc}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* --- FEATURES GRID (Bento Box) --- */}
-      <section id="features" className="py-24 bg-surface-base/50 border-y border-surface-800/50 relative">
-        <div className="container mx-auto px-6">
-          <div className="text-center mb-20">
-            <h2 className="text-3xl md:text-5xl font-bold mb-6">Un ecosistema financiero <span className="text-brand-green-light">modular</span></h2>
-            <p className="text-text-secondary max-w-2xl mx-auto text-lg">Activa solo las herramientas que necesitas. Gana puntos, sube de nivel y mejora tus condiciones.</p>
+      {/* --- MÓDULOS --- */}
+      <section id="modulos" className="py-16 sm:py-20 scroll-mt-16">
+        <div className={`${WRAP} grid lg:grid-cols-[1fr_2fr] gap-10 items-start`}>
+          <div className="lp-reveal-left lg:sticky lg:top-28 text-center lg:text-left">
+            <SectionEyebrow>Módulos que se adaptan a ti</SectionEyebrow>
+            <h2 className="text-3xl md:text-4xl font-bold leading-tight mb-4">Herramientas para una mejor gestión financiera</h2>
+            <p className="text-text-secondary mb-8">Activa desde la Tienda solo los módulos que necesitas y desactívalos cuando quieras. Tu menú se adapta a ti.</p>
+            <Link to="/register" className="group inline-flex items-center gap-2 border border-brand-green/60 hover:bg-brand-green/10 hover:border-brand-green-light text-white text-sm font-bold px-6 py-3 rounded-full transition-all">
+              Explorar módulos <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+            </Link>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-
-            {/* Préstamos Familiares */}
-            <div className="group h-full bg-surface-card/40 p-8 rounded-[2.5rem] border border-surface-border/50 hover:bg-surface-card/80 transition-all hover:border-brand-green/50 relative overflow-hidden flex flex-col justify-between">
-              <svg className="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="85%" cy="15%" r="50" fill="none" stroke="rgba(16,185,129,0.12)" strokeWidth="1"/>
-                <circle cx="85%" cy="15%" r="85" fill="none" stroke="rgba(16,185,129,0.07)" strokeWidth="1"/>
-                <circle cx="85%" cy="15%" r="120" fill="none" stroke="rgba(16,185,129,0.04)" strokeWidth="1"/>
-              </svg>
-              <div className="w-14 h-14 bg-brand-green/10 rounded-2xl flex items-center justify-center mb-6 border border-brand-green/20 text-brand-green-light group-hover:scale-110 transition-transform group-hover:[filter:drop-shadow(0_0_10px_rgba(16,185,129,0.5))]">
-                <Wallet size={28} />
-              </div>
-              <div>
-                <h3 className="text-2xl font-bold text-white mb-3">Préstamos Familiares</h3>
-                <p className="text-text-secondary leading-relaxed">Gestión clara y transparente de créditos con tasas justas e interés simple. Diseñado para fortalecer la confianza familiar sin las complicaciones de la banca tradicional.</p>
-              </div>
-            </div>
-
-            {/* Screener de Señales Cripto */}
-            <div className="group h-full bg-surface-card/40 p-8 rounded-[2.5rem] border border-surface-border/50 hover:bg-surface-card/80 transition-all hover:border-cyan-500/50 relative overflow-hidden flex flex-col justify-between">
-              <svg className="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="85%" cy="15%" r="50" fill="none" stroke="rgba(6,182,212,0.12)" strokeWidth="1"/>
-                <circle cx="85%" cy="15%" r="85" fill="none" stroke="rgba(6,182,212,0.07)" strokeWidth="1"/>
-                <circle cx="85%" cy="15%" r="120" fill="none" stroke="rgba(6,182,212,0.04)" strokeWidth="1"/>
-              </svg>
-              <div className="w-14 h-14 bg-cyan-500/10 rounded-2xl flex items-center justify-center mb-6 border border-cyan-500/20 text-cyan-400 group-hover:scale-110 transition-transform group-hover:[filter:drop-shadow(0_0_10px_rgba(6,182,212,0.5))]">
-                <LineChart size={28} />
-              </div>
-              <div>
-                <h3 className="text-2xl font-bold text-white mb-3">Screener de Señales Cripto</h3>
-                <p className="text-text-secondary leading-relaxed">No es un bot automático. Es tu programa de alertas técnicas personalizadas analizando EMA, RSI y Estocástico en tiempo real.</p>
-              </div>
-            </div>
-
-            {/* Portafolio Bursátil */}
-            <div className="group h-full bg-surface-card/40 p-8 rounded-[2.5rem] border border-surface-border/50 hover:bg-surface-card/80 transition-all hover:border-blue-500/50 relative overflow-hidden flex flex-col justify-between">
-              <svg className="absolute inset-0 w-full h-full opacity-[0.07] pointer-events-none" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                  <pattern id="lines-portfolio" x="0" y="0" width="16" height="16" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-                    <line x1="0" y1="0" x2="0" y2="16" stroke="rgba(59,130,246,0.8)" strokeWidth="1.5"/>
-                  </pattern>
-                </defs>
-                <rect fill="url(#lines-portfolio)" width="100%" height="100%" />
-              </svg>
-              <div className="w-14 h-14 bg-blue-500/10 rounded-2xl flex items-center justify-center mb-6 border border-blue-500/20 text-blue-400 group-hover:scale-110 transition-transform group-hover:[filter:drop-shadow(0_0_10px_rgba(59,130,246,0.5))]">
-                <PieChart size={28} />
-              </div>
-              <div>
-                <h3 className="text-2xl font-bold text-white mb-3">Portafolio Bursátil</h3>
-                <p className="text-text-secondary leading-relaxed">Seguimiento preciso de tus acciones, ETFs y diversificación de patrimonio.</p>
-              </div>
-            </div>
-
-            {/* Academia FinanzasDMS */}
-            <div className="group h-full bg-surface-card/40 p-8 rounded-[2.5rem] border border-surface-border/50 hover:bg-surface-card/80 transition-all hover:border-violet-500/50 relative overflow-hidden flex flex-col justify-between">
-              <svg className="absolute inset-0 w-full h-full opacity-[0.07] pointer-events-none" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                  <pattern id="lines-academia" x="0" y="0" width="16" height="16" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-                    <line x1="0" y1="0" x2="0" y2="16" stroke="rgba(139,92,246,0.8)" strokeWidth="1.5"/>
-                  </pattern>
-                </defs>
-                <rect fill="url(#lines-academia)" width="100%" height="100%" />
-              </svg>
-              <div className="w-14 h-14 bg-violet-500/10 rounded-2xl flex items-center justify-center mb-6 border border-violet-500/20 text-violet-400 group-hover:scale-110 transition-transform group-hover:[filter:drop-shadow(0_0_10px_rgba(139,92,246,0.5))]">
-                <BookOpen size={28} />
-              </div>
-              <div>
-                <h3 className="text-2xl font-bold text-white mb-3">Academia FinanzasDMS</h3>
-                <p className="text-text-secondary leading-relaxed">Aprende a invertir desde cero. Módulo de cursos y calculadoras de interés compuesto. <span className="text-violet-400/70">(Próximamente)</span></p>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </section>
-
-      {/* --- GAMIFICATION SHOWCASE — simulador interactivo --- */}
-      <section className="py-24 relative overflow-hidden">
-        <div className="container mx-auto px-6">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-5xl font-bold mb-6">Tu comportamiento <span className="text-brand-violet">tiene recompensas</span></h2>
-            <p className="text-text-secondary max-w-2xl mx-auto text-lg">Selecciona un nivel y descubre qué condiciones te esperan.</p>
-          </div>
-
-          <div className="max-w-3xl mx-auto">
-            {/* Tabs */}
-            <div className="flex gap-2 p-1.5 bg-surface-base border border-surface-800 rounded-2xl mb-6">
-              {LEVELS.map((l, i) => (
-                <button
-                  key={l.id}
-                  onClick={() => setActiveLevel(i)}
-                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-bold border transition-all duration-200 ${
-                    activeLevel === i ? l.tabActive : l.tabInactive
-                  }`}
-                >
-                  <l.Icon size={15} className={activeLevel === i && l.id === 'elite' ? 'fill-amber-400' : ''} />
-                  <span className="hidden sm:inline">{l.label}</span>
-                </button>
+          <div className="min-w-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {MODULES.map(({ Icon, name, desc, tone }, i) => (
+                <div key={name} className="lp-reveal" style={v({ '--i': i % 3 })}>
+                  <div className="lp-card h-full flex sm:block items-start gap-4 bg-surface-card/60 backdrop-blur-md border border-white/5 rounded-2xl p-5 shadow-card">
+                    <div className={`lp-icon shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br ${tone} flex items-center justify-center sm:mb-4 shadow-lg shadow-black/30`}>
+                      <Icon size={24} className="text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-text-primary mb-1">{name}</h3>
+                      <p className="text-sm text-text-secondary leading-relaxed">{desc}</p>
+                    </div>
+                  </div>
+                </div>
               ))}
             </div>
 
-            {/* Panel de detalle */}
-            <div className={`rounded-2xl border p-8 transition-all duration-300 ${level.panelBg}`}>
-              <div className="flex items-center gap-2 mb-6">
-                <level.Icon size={18} className={`${level.accent} ${level.id === 'elite' ? 'fill-amber-400' : ''}`} />
-                <span className={`font-bold text-lg ${level.accent}`}>{level.label}</span>
-                <span className="ml-auto text-xs text-text-muted bg-surface-card px-3 py-1 rounded-full">{level.pts}</span>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <p className="text-text-muted text-xs uppercase tracking-widest mb-2">Límite de crédito</p>
-                  <p className={`text-3xl md:text-4xl font-extrabold ${level.accent}`}>{level.limit}</p>
+            <div className="lp-reveal mt-6">
+              <p className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-3 text-center lg:text-left">Próximamente</p>
+              <div className="lp-marquee overflow-hidden">
+                <div className="flex gap-2">
+                  {[...UPCOMING, ...UPCOMING].map(({ Icon, name }, i) => (
+                    <span key={i} aria-hidden={i >= UPCOMING.length} className="inline-flex items-center gap-1.5 shrink-0 text-xs text-text-secondary bg-surface-card/60 border border-white/5 px-3 py-1.5 rounded-full">
+                      <Icon size={13} className="text-brand-green-light" /> {name}
+                    </span>
+                  ))}
                 </div>
-                <div className="border-x border-surface-border/50">
-                  <p className="text-text-muted text-xs uppercase tracking-widest mb-2">Tasa de interés</p>
-                  <p className={`text-3xl md:text-4xl font-extrabold ${level.accent}`}>{level.rate}</p>
-                </div>
-                <div>
-                  <p className="text-text-muted text-xs uppercase tracking-widest mb-2">Plazo máximo</p>
-                  <p className={`text-3xl md:text-4xl font-extrabold ${level.accent}`}>{level.term}</p>
-                </div>
-              </div>
-
-              <div className="mt-6 pt-5 border-t border-surface-border/40 flex items-center justify-between">
-                <p className="text-text-muted text-sm">
-                  {level.id === 'elite'
-                    ? 'Nivel por invitación manual del administrador.'
-                    : `Requiere ${level.pts} de puntos acumulados por pagos puntuales.`}
-                </p>
-                <Link to="/register" className={`shrink-0 text-xs font-bold px-4 py-2 rounded-xl transition-all border ${level.id === 'elite' ? 'bg-brand-violet/20 border-brand-violet/40 text-brand-violet hover:bg-brand-violet/30' : 'bg-brand-green/20 border-brand-green/40 text-brand-green-light hover:bg-brand-green/30'}`}>
-                  Comenzar →
-                </Link>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* --- CTA SECTION --- */}
-      <section className="py-20 relative">
-        <div className="container mx-auto px-6">
-          <div className="bg-gradient-to-br from-emerald-600/20 to-cyan-600/20 rounded-[3rem] p-10 md:p-20 text-center border border-brand-green/20 relative overflow-hidden">
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6 relative z-10">¿Listo para tomar el control?</h2>
-            <p className="text-xl text-brand-green-100/80 mb-10 max-w-2xl mx-auto relative z-10">
-              Únete a la plataforma que está revolucionando la forma en que gestionamos nuestras finanzas.
-            </p>
-            <Link to="/register" className="inline-flex items-center justify-center gap-2 bg-brand-green hover:bg-brand-green-light text-white px-8 py-4 rounded-xl font-bold text-lg transition-all shadow-xl shadow-brand-green/25 relative z-10">
-              Crear mi cuenta gratis
-            </Link>
+      {/* --- EXPERIENCIA (banner con modelo) --- */}
+      <section id="caracteristicas" className="py-10 sm:py-12 scroll-mt-16">
+        <div className={WRAP}>
+          <div className="lp-reveal relative grid lg:grid-cols-2 rounded-3xl lg:rounded-[2rem] overflow-hidden border border-white/5 bg-gradient-to-br from-emerald-900/40 via-surface-card to-surface-card shadow-card">
+            <div className="relative h-80 sm:h-96 lg:h-auto lg:min-h-[28rem] overflow-hidden">
+              <img src="/landing/modelo.webp" alt="Mujer revisando sus finanzas en Cashi desde su celular" loading="lazy" className="absolute inset-0 w-full h-full object-cover object-[center_30%] hover:scale-105 transition-transform duration-[1.5s]" />
+              <div className="absolute inset-0 bg-gradient-to-b lg:bg-gradient-to-r from-transparent via-transparent to-surface-card" />
+
+              {/* Tarjetas flotantes */}
+              <div className="lp-float absolute top-4 left-4 lg:top-6 lg:left-6" style={v({ '--dur': '5s' })}>
+                <div className="bg-surface-950/70 backdrop-blur-md border border-brand-green/30 rounded-2xl p-3 sm:p-4 flex items-center gap-3 shadow-xl">
+                  <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-brand-green/20 flex items-center justify-center text-brand-green-light"><TrendingUp size={20} /></div>
+                  <div>
+                    <p className="text-[11px] sm:text-xs text-text-secondary">Tu patrimonio</p>
+                    <p className="font-bold sm:text-lg leading-tight">$15,420.00</p>
+                    <p className="text-[11px] sm:text-xs font-semibold text-brand-green-light">↑ +12.4%</p>
+                  </div>
+                </div>
+              </div>
+              <div className="lp-float absolute bottom-5 right-4 lg:bottom-6 lg:right-16" style={v({ '--dur': '6.5s', '--d': '-2s' })}>
+                <div className="bg-surface-950/70 backdrop-blur-md border border-white/10 rounded-2xl p-3 flex items-center gap-3 shadow-xl">
+                  <div className="w-9 h-9 rounded-lg bg-amber-400/20 flex items-center justify-center text-amber-300"><Trophy size={18} /></div>
+                  <div>
+                    <p className="text-sm font-semibold">Pago puntual · +10 pts</p>
+                    <p className="text-xs text-text-secondary">Subiste a Cumplidor</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="relative p-6 sm:p-10 lg:p-12 flex flex-col justify-center">
+              <SectionEyebrow align="justify-start">Control total en tus manos</SectionEyebrow>
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold leading-tight mb-4">Una experiencia simple, poderosa y segura</h2>
+              <p className="text-text-secondary mb-6">Visualiza tu patrimonio, toma decisiones informadas y mejora tus condiciones de crédito pagando a tiempo.</p>
+              <ul className="space-y-3">
+                {EXPERIENCE.map((t, i) => (
+                  <li key={t} className="lp-reveal-right flex items-start gap-3 text-sm sm:text-base text-text-primary" style={v({ '--i': i })}>
+                    <span className="mt-0.5 shrink-0 w-5 h-5 rounded-full border border-brand-green-light/60 bg-brand-green/10 flex items-center justify-center text-brand-green-light"><Check size={12} strokeWidth={3} /></span>
+                    {t}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {/* Niveles de crédito */}
+          <div className="mt-14">
+            <div className="lp-reveal flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-6 text-center md:text-left">
+              <div>
+                <SectionEyebrow align="justify-center md:justify-start">Gamificación de crédito</SectionEyebrow>
+                <h3 className="text-2xl md:text-3xl font-bold">Tu puntualidad tiene recompensas</h3>
+              </div>
+              <p className="text-sm text-text-secondary max-w-md mx-auto md:mx-0">+10 puntos por cuota a tiempo y +50 al liquidar un préstamo. Más nivel = más límite y menor tasa.</p>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              {LEVELS.map((l, i) => (
+                <div key={l.name} className="lp-reveal" style={v({ '--i': i })}>
+                  <div className="lp-card h-full bg-surface-card/60 backdrop-blur-md border border-white/5 rounded-2xl p-4 sm:p-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-3 sm:mb-4">
+                      <span className={`font-bold flex items-center gap-1.5 ${l.accent}`}>
+                        {l.name === 'Élite' && <Star size={14} className="lp-icon fill-amber-300" />}{l.name}
+                      </span>
+                      <span className="self-start sm:self-auto text-[11px] text-text-muted bg-surface-base/60 px-2 py-0.5 rounded-full">{l.pts}</span>
+                    </div>
+                    <p className="text-xs text-text-muted">Límite</p>
+                    <p className={`text-xl sm:text-2xl font-extrabold ${l.accent}`}>{l.limit}</p>
+                    <p className="text-xs text-text-secondary mt-1">Tasa desde {l.rate}</p>
+                    <div className="mt-3 h-1 rounded-full bg-surface-base/60 overflow-hidden">
+                      <div className="lp-grow-x h-full rounded-full bg-gradient-to-r from-brand-green to-emerald-300" style={{ width: `${(i + 1) * 25}%` }} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* --- PLANES --- */}
+      <section id="planes" className="py-16 sm:py-20 scroll-mt-16">
+        <div className={`${WRAP} grid lg:grid-cols-[1fr_3fr] gap-10 items-center`}>
+          <div className="lp-reveal-left text-center lg:text-left">
+            <SectionEyebrow>Planes para cada etapa</SectionEyebrow>
+            <h2 className="text-3xl md:text-4xl font-bold leading-tight mb-4">Elige el plan ideal para ti</h2>
+            <p className="text-text-secondary">Comienza gratis y desbloquea las herramientas avanzadas cuando las necesites.</p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6 md:gap-5 pt-3">
+            {PLANS.map((p, i) => (
+              <div key={p.name} className={`lp-reveal ${p.featured ? 'order-first md:order-none' : ''}`} style={v({ '--i': i })}>
+                <div
+                  className={`lp-card relative h-full flex flex-col rounded-2xl p-6 ${
+                    p.featured
+                      ? 'lp-border-spin shadow-[0_0_40px_rgba(16,185,129,0.18)] md:scale-[1.03]'
+                      : 'bg-surface-card/60 backdrop-blur-md border border-white/5'
+                  } ${p.soon ? 'opacity-75' : ''}`}
+                >
+                  {p.featured && (
+                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand-green-light text-surface-950 text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap shadow-lg shadow-brand-green/30">Recomendado</span>
+                  )}
+                  <h3 className="text-xl font-bold">{p.name}</h3>
+                  <p className="text-sm text-text-secondary mb-4">{p.tagline}</p>
+                  <p className="mb-5">
+                    <span className="text-4xl font-extrabold">{p.price}</span>
+                    {p.period && <span className="text-sm text-text-secondary ml-1">{p.period}</span>}
+                  </p>
+                  <ul className="space-y-2.5 mb-6 flex-1">
+                    {p.features.map((f) => (
+                      <li key={f} className="flex items-start gap-2 text-sm text-text-primary">
+                        <Check size={16} className="mt-0.5 shrink-0 text-brand-green-light" /> {f}
+                      </li>
+                    ))}
+                  </ul>
+                  {p.soon ? (
+                    <span className="flex items-center justify-center gap-2 text-sm font-bold text-text-muted border border-white/10 rounded-full py-3 cursor-not-allowed">
+                      <Lock size={14} /> {p.cta}
+                    </span>
+                  ) : (
+                    <Link
+                      to="/register"
+                      className={`lp-shine text-center text-sm font-bold rounded-full py-3 transition-all ${
+                        p.featured
+                          ? 'bg-brand-green hover:bg-brand-green-light text-white shadow-lg shadow-brand-green/20'
+                          : 'border border-white/20 hover:border-brand-green/50 hover:bg-white/5 text-white'
+                      }`}
+                    >
+                      {p.cta}
+                    </Link>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* --- FAQ --- */}
+      <section id="faq" className="py-16 sm:py-20 scroll-mt-16">
+        <div className={`${WRAP} grid lg:grid-cols-[1fr_2fr] gap-8 lg:gap-10`}>
+          <div className="lp-reveal-left text-center lg:text-left">
+            <SectionEyebrow>Resolvemos tus dudas</SectionEyebrow>
+            <h2 className="text-3xl md:text-4xl font-bold leading-tight mb-4">Preguntas frecuentes</h2>
+            <p className="text-text-secondary">¿No encuentras lo que buscas? <Link to="/contact" className="text-brand-green-light hover:underline">Contáctanos</Link>.</p>
+          </div>
+          <div className="space-y-3">
+            {FAQ.map((f, i) => {
+              const open = openFaq === i;
+              return (
+                <div key={f.q} className="lp-reveal" style={v({ '--i': i })}>
+                  <div className={`bg-surface-card/60 backdrop-blur-md border rounded-2xl transition-colors duration-300 ${open ? 'border-brand-green/30' : 'border-white/5 hover:border-white/15'}`}>
+                    <button onClick={() => setOpenFaq(open ? null : i)} className="w-full flex items-center justify-between gap-4 text-left px-5 py-4 font-semibold text-text-primary" aria-expanded={open}>
+                      {f.q}
+                      <ChevronDown size={18} className={`shrink-0 transition-transform duration-300 ${open ? 'rotate-180 text-brand-green-light' : 'text-text-muted'}`} />
+                    </button>
+                    <div className="lp-collapse" data-open={open}>
+                      <div><p className="px-5 pb-5 text-sm text-text-secondary leading-relaxed">{f.a}</p></div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* --- CTA FINAL --- */}
+      <section className="py-12 sm:py-16">
+        <div className={WRAP}>
+          <div className="lp-reveal relative overflow-hidden rounded-3xl lg:rounded-[2rem] border border-brand-green/20 bg-gradient-to-br from-emerald-700/25 to-surface-card p-8 sm:p-12 lg:p-14 grid md:grid-cols-[2fr_1fr] gap-8 items-center text-center md:text-left">
+            <div className="lp-drift absolute -right-20 -top-20 w-72 h-72 rounded-full bg-brand-green/15 blur-3xl pointer-events-none" />
+            <div className="relative">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4">¿Listo para tomar el control de tu dinero?</h2>
+              <p className="text-text-secondary mb-8 max-w-xl mx-auto md:mx-0">Crea tu cuenta gratis en minutos y empieza a construir tu historial con Cashi.</p>
+              <Link to="/register" className="lp-shine lp-pulse group inline-flex items-center gap-2 bg-brand-green hover:bg-brand-green-light text-white px-8 py-4 rounded-full font-bold transition-colors">
+                Crear mi cuenta gratis <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </div>
+            <div className="relative flex items-end justify-center gap-3 h-28 md:h-40" aria-hidden>
+              {[35, 55, 75, 100].map((h, i) => (
+                <div key={h} className="lp-grow w-8 md:w-10 rounded-t-lg bg-gradient-to-t from-emerald-700 to-brand-green-light shadow-[0_0_25px_rgba(16,185,129,0.35)]" style={{ height: `${h}%`, ['--i' as string]: i }} />
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
       {/* --- FOOTER --- */}
-      <footer className="bg-surface-950 py-12 border-t border-surface-800/50 mt-10">
-        <div className="container mx-auto px-6">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-            <span className="text-xl font-bold text-text-primary">Finanzas<span className="text-brand-green-light">DMS</span></span>
-            <div className="flex gap-6 text-sm text-text-muted">
-              <Link to="/privacy" className="hover:text-text-primary transition-colors">Privacidad</Link>
-              <Link to="/terms" className="hover:text-text-primary transition-colors">Términos</Link>
-              <Link to="/contact" className="hover:text-text-primary transition-colors">Contacto</Link>
-            </div>
-            <div className="text-text-muted text-sm">
-              &copy; {new Date().getFullYear()} FinanzasDMS. Proyecto Privado.
-            </div>
+      <footer className="bg-surface-950 border-t border-white/5 mt-8">
+        <div className={`${WRAP} py-12 grid grid-cols-2 md:grid-cols-4 gap-8`}>
+          <div className="col-span-2 md:col-span-1">
+            <img src="/brand/cashi-logo.png" alt="Cashi" className="h-10 w-auto mb-3" />
+            <p className="text-sm text-text-muted">Tu ecosistema financiero en un solo lugar.</p>
+          </div>
+          <FooterCol title="Producto" links={[['#caracteristicas', 'Características'], ['#modulos', 'Módulos'], ['#planes', 'Planes']]} />
+          <FooterCol title="Soporte" links={[['#faq', 'Preguntas Frecuentes'], ['/contact', 'Contacto']]} />
+          <FooterCol title="Legal" links={[['/terms', 'Términos de Servicio'], ['/privacy', 'Política de Privacidad']]} />
+        </div>
+        <div className="border-t border-white/5">
+          <div className={`${WRAP} py-6 text-xs text-text-muted text-center sm:text-left`}>
+            <span>&copy; {new Date().getFullYear()} Cashi. Todos los derechos reservados.</span>
           </div>
         </div>
       </footer>
+    </div>
+  );
+}
 
+function SectionEyebrow({ children, align = 'justify-center lg:justify-start' }: { children: ReactNode; align?: string }) {
+  return (
+    <p className={`flex items-center ${align} gap-3 text-xs font-semibold text-text-secondary mb-3`}>
+      <span className="w-8 h-0.5 bg-brand-green-light rounded-full" />
+      {children}
+    </p>
+  );
+}
+
+function FooterCol({ title, links }: { title: string; links: [string, string][] }) {
+  return (
+    <div>
+      <p className="text-sm font-semibold text-text-primary mb-3">{title}</p>
+      <ul className="space-y-2">
+        {links.map(([href, label]) => (
+          <li key={href}>
+            {href.startsWith('#')
+              ? <a href={href} className="text-sm text-text-muted hover:text-brand-green-light transition-colors">{label}</a>
+              : <Link to={href} className="text-sm text-text-muted hover:text-brand-green-light transition-colors">{label}</Link>}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
