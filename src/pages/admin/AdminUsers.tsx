@@ -5,6 +5,8 @@ import { toast } from 'sonner';
 import {
   Users, X, Tag, CheckCircle2, XCircle, Lock, Unlock, ShieldCheck, ShieldOff,
 } from 'lucide-react';
+import UserLoanProfileModal from './UserLoanProfileModal';
+import { useLoanLevels } from '../../hooks/useLoanLevels';
 
 interface AppUser {
   id: string;
@@ -76,6 +78,9 @@ export default function AdminUsers() {
   const [isLoading, setIsLoading] = useState(true);
 
   const [editTarget, setEditTarget] = useState<AppUser | null>(null);
+  // Perfil de préstamos al hacer clic en una fila
+  const [profileTarget, setProfileTarget] = useState<AppUser | null>(null);
+  const { levels } = useLoanLevels(true);
   const [selectedCode, setSelectedCode] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -241,7 +246,14 @@ export default function AdminUsers() {
                 const badge = roleBadge(user.role);
                 const isSelf = user.id === currentUserId;
                 return (
-                <tr key={user.id} className="hover:bg-surface-elevated/20 transition-colors">
+                <tr
+                  key={user.id}
+                  tabIndex={0}
+                  onClick={() => setProfileTarget(user)}
+                  onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setProfileTarget(user); } }}
+                  title="Ver perfil de préstamos"
+                  className="hover:bg-surface-elevated/20 transition-colors cursor-pointer focus:outline-none focus-visible:bg-surface-elevated/30"
+                >
                   {/* Usuario */}
                   <td className="px-5 py-4">
                     <div className="flex flex-wrap items-center gap-2">
@@ -291,8 +303,8 @@ export default function AdminUsers() {
                       : <span className="bg-brand-green/20 text-brand-green-light text-xs font-bold px-2 py-1 rounded-full">ACTIVO</span>}
                   </td>
 
-                  {/* Acción */}
-                  <td className="px-5 py-4 text-center">
+                  {/* Acción — no abre el perfil */}
+                  <td className="px-5 py-4 text-center cursor-default" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
                     <div className="inline-flex items-center gap-2">
                       <button
                         onClick={() => openEdit(user)}
@@ -329,6 +341,10 @@ export default function AdminUsers() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {profileTarget && (
+        <UserLoanProfileModal user={profileTarget} levels={levels} onClose={() => setProfileTarget(null)} />
       )}
 
       {/* Modal confirmar cambio de rol (SUPER_ADMIN) */}

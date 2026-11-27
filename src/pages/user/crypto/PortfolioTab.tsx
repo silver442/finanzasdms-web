@@ -16,7 +16,7 @@ import type { TradePreset } from './TradeForm';
 import CashMovementModal from './CashMovementModal';
 import CoinIcon from './components/CoinIcon';
 import PortfolioValueCard from './components/PortfolioValueCard';
-import DangerConfirmModal from './components/DangerConfirmModal';
+import DangerConfirmModal from '../../../components/DangerConfirmModal';
 import { usePortfolioHistory } from './hooks/usePortfolioHistory';
 
 const STATUS_ORDER: Record<PositionStatus, number> = { BOUGHT: 0, WATCHLIST: 1, SOLD: 2 };

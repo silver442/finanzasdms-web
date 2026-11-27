@@ -37,6 +37,7 @@ import AdminMigration from './pages/admin/AdminMigration';
 import AdminReferrals from './pages/admin/AdminReferrals';
 import AdminUsers from './pages/admin/AdminUsers';
 import AdminAuditLogs from './pages/admin/AdminAuditLogs';
+import AdminLoanLevels from './pages/admin/loan-levels/AdminLoanLevels';
 import ModulePlaceholder from './pages/user/ModulePlaceholder';
 import CompoundInterest from './pages/user/compound-interest/CompoundInterest';
 import Budget from './pages/user/budget/Budget';
@@ -104,9 +105,10 @@ function App() {
           <Route path="/admin/banks" element={<AdminBanks />} />
           <Route path="/admin/home" element={<AdminHome />} />
           <Route path="/admin/referrals" element={<AdminReferrals />} />
-          <Route path="/admin/users" element={<AdminUsers />} />
           <Route element={<SuperAdminRoute />}>
+            <Route path="/admin/users" element={<AdminUsers />} />
             <Route path="/admin/audit-logs" element={<AdminAuditLogs />} />
+            <Route path="/admin/loan-levels" element={<AdminLoanLevels />} />
           </Route>
           <Route path="/profile" element={<Profile />} />
           <Route element={<ModuleRoute flag="hasMakeMoneyModule" />}>

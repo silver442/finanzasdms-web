@@ -9,6 +9,7 @@ import {
   LogOut, ShieldCheck, ClipboardList, Briefcase, DatabaseZap, ClipboardCheck,
   TrendingUp, BarChart2, Users, ChevronDown, ShoppingBag,
   Zap, Shield, Star, Crown, X, ScrollText, PanelLeftClose, PanelLeftOpen,
+  KeyRound, SlidersHorizontal,
 } from 'lucide-react';
 
 // ─── Config de niveles (espejo exacto de levels.config.ts del backend) ────────
@@ -88,12 +89,13 @@ const adminModules = [
   { name: 'Bancos',                 path: '/admin/banks',        icon: Landmark       },
   { name: 'Migrar Datos',           path: '/admin/migration',    icon: DatabaseZap    },
   { name: 'Tarjetas Referidos',     path: '/admin/referrals',    icon: TrendingUp     },
-  { name: 'Gestión de Usuarios',    path: '/admin/users',        icon: Users          },
 ];
 
-// Solo SUPER_ADMIN (el backend también lo exige con @Roles('SUPER_ADMIN'))
+// Solo SUPER_ADMIN (rutas protegidas con SuperAdminRoute en App.tsx)
 const superAdminModules = [
-  { name: 'Bitácora de Auditoría',  path: '/admin/audit-logs',   icon: ScrollText     },
+  { name: 'Gestión de Usuarios',    path: '/admin/users',        icon: Users             },
+  { name: 'Bitácora de Auditoría',  path: '/admin/audit-logs',   icon: ScrollText        },
+  { name: 'Edición de Préstamos',   path: '/admin/loan-levels',  icon: SlidersHorizontal },
 ];
 
 // En modo colapsado (solo md+) el ítem se centra y pierde el padding horizontal
@@ -210,13 +212,13 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
   const name = getUserName();
 
   const [pendingCount, setPendingCount] = useState(0);
-  const [openSections, setOpenSections] = useState({ user: true, admin: false });
+  const [openSections, setOpenSections] = useState({ user: true, admin: false, superAdmin: false });
   const [flags, setFlags]   = useState<UserFlags>(getUserFlags);
   const [points, setPoints] = useState(getUserPoints);
   const [level,  setLevel]  = useState<LevelKey>(getUserLevel);
   const moduleStatuses = useModuleStatuses();
 
-  const toggleSection = (section: 'user' | 'admin') =>
+  const toggleSection = (section: keyof typeof openSections) =>
     setOpenSections((prev) => ({ ...prev, [section]: !prev[section] }));
 
   useEffect(() => {
@@ -344,7 +346,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
             </button>
 
             <div className={sectionCls(openSections.admin)}>
-              {[...adminModules, ...(isSuperAdminRole(role) ? superAdminModules : [])].map(({ name: mName, path, icon: Icon }) => (
+              {adminModules.map(({ name: mName, path, icon: Icon }) => (
                 <NavLink key={path} to={path} className={itemCls} onClick={onClose} title={isCollapsed ? mName : undefined}>
                   <Icon size={20} className="shrink-0" />
                   <span className={`truncate ${hideWhenCollapsed}`}>{mName}</span>
@@ -354,6 +356,34 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
                       <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500" />
                     </span>
                   )}
+                </NavLink>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* SuperAdmin — solo SUPER_ADMIN */}
+        {isSuperAdminRole(role) && (
+          <div className={`pt-2 ${isCollapsed ? 'md:mt-2 md:border-t md:border-surface-border' : ''}`}>
+            <button
+              onClick={() => toggleSection('superAdmin')}
+              className={`w-full flex items-center justify-between px-2 py-2 text-xs font-bold text-text-muted uppercase tracking-wider hover:text-text-secondary transition-colors ${hideWhenCollapsed}`}
+            >
+              <span className="flex items-center gap-2">
+                <KeyRound size={14} />
+                SuperAdmin
+              </span>
+              <ChevronDown
+                size={14}
+                className={`transition-transform duration-200 ${openSections.superAdmin ? 'rotate-180' : ''}`}
+              />
+            </button>
+
+            <div className={sectionCls(openSections.superAdmin)}>
+              {superAdminModules.map(({ name: mName, path, icon: Icon }) => (
+                <NavLink key={path} to={path} className={itemCls} onClick={onClose} title={isCollapsed ? mName : undefined}>
+                  <Icon size={20} className="shrink-0" />
+                  <span className={`truncate ${hideWhenCollapsed}`}>{mName}</span>
                 </NavLink>
               ))}
             </div>

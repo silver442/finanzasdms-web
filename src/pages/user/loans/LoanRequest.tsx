@@ -8,6 +8,8 @@ import {
   ChevronRight, ChevronLeft, Send, CalendarCheck, X,
   MessageCircle, CheckCircle2, HelpCircle,
 } from 'lucide-react';
+import { FREQUENCY_LABEL, useLoanLevels } from '../../../hooks/useLoanLevels';
+import { useCollectionSettings } from '../../../hooks/useCollectionSettings';
 
 type Frequency = 'Semanal' | 'Quincenal' | 'Mensual';
 
@@ -16,12 +18,6 @@ const FREQ_CONFIG: Record<Frequency, { periodsPerMonth: number; dayStep: number;
   Quincenal: { periodsPerMonth: 2, dayStep: 15, label: 'quincenal' },
   Semanal:   { periodsPerMonth: 4, dayStep: 7,  label: 'semanal'   },
 };
-
-function getAvailableFrequencies(level: string): Frequency[] {
-  if (level === 'NOVATO_1') return ['Semanal'];
-  if (level === 'NOVATO_2' || level === 'NOVATO_3') return ['Semanal', 'Quincenal'];
-  return ['Semanal', 'Quincenal', 'Mensual'];
-}
 
 const TOOLTIP_LEVEL_TEXT = 'Tu límite y tasa están determinados por tu nivel actual. Sube de nivel realizando tus pagos puntualmente.';
 
@@ -79,7 +75,11 @@ const COLOMBIA_DEPARTMENTS = [
 const COUNTRIES = ['México', 'Colombia', 'Otro'];
 const STEP_LABELS = ['Datos del Préstamo', 'Información Personal', 'Resumen Final'];
 
-const TERMS_CONTENT = (
+// La mora (días de gracia y monto diario) la configura el SUPER_ADMIN
+function TermsContent() {
+  const { settings } = useCollectionSettings();
+  const feeLabel = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(settings.moratoriumFeePerDay);
+  return (
   <div className="space-y-4 text-sm text-text-primary leading-relaxed">
     <h3 className="text-base font-bold text-white">TÉRMINOS Y CONDICIONES DE SERVICIO – FINANZASDMS</h3>
     <p>
@@ -115,8 +115,8 @@ const TERMS_CONTENT = (
           de retraso en una cuota, su nivel de confianza bajará un escalón automáticamente.
         </li>
         <li>
-          <strong className="text-white">Interés Moratorio:</strong> A partir del día 11 de retraso,
-          se generará un recargo administrativo de $10.00 MXN diarios que se sumará al saldo pendiente
+          <strong className="text-white">Interés Moratorio:</strong> A partir del día {settings.moratoriumGraceDays + 1} de retraso,
+          se generará un recargo administrativo de {feeLabel} MXN diarios que se sumará al saldo pendiente
           de la cuota vencida.
         </li>
         <li>
@@ -131,7 +131,8 @@ const TERMS_CONTENT = (
       </ul>
     </div>
   </div>
-);
+  );
+}
 
 const PRIVACY_CONTENT = (
   <div className="space-y-4 text-sm text-text-primary leading-relaxed">
@@ -381,13 +382,20 @@ export default function LoanRequest() {
   const isFamiliar = Boolean(getFamilyCode());
   const availableTerms = isFamiliar ? [1, 2, 3, 6, 9, 12, 18, 24] : [1, 2, 3, 6];
   const userLevel = useMemo(() => getUserLevel(), []);
-  const availableFreqs = useMemo(() => getAvailableFrequencies(userLevel), [userLevel]);
+  // Frecuencias permitidas para el nivel del usuario (configuradas por el SUPER_ADMIN)
+  const { levels } = useLoanLevels();
+  const availableFreqs = useMemo<Frequency[]>(() => {
+    const rule = levels.find((l) => l.level === userLevel);
+    const freqs = rule?.frequencies.map((f) => FREQUENCY_LABEL[f]) ?? [];
+    return freqs.length > 0 ? freqs : ['Semanal'];
+  }, [levels, userLevel]);
 
   const [step, setStep] = useState(1);
-  const [freq, setFreq] = useState<Frequency>(() => {
-    const freqs = getAvailableFrequencies(getUserLevel());
-    return freqs[freqs.length - 1];
-  });
+  const [freqChoice, setFreq] = useState<Frequency | null>(null);
+  // Sin elección (o si ya no está permitida) se usa la frecuencia más larga disponible
+  const freq: Frequency = freqChoice && availableFreqs.includes(freqChoice)
+    ? freqChoice
+    : availableFreqs[availableFreqs.length - 1];
   const [form, setForm] = useState({
     concept: '',
     amount: '',
@@ -1071,7 +1079,7 @@ export default function LoanRequest() {
       {showTermsModal && (
         <LegalModal
           title="Términos y Condiciones"
-          body={TERMS_CONTENT}
+          body={<TermsContent />}
           onClose={() => setShowTermsModal(false)}
         />
       )}

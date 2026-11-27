@@ -10,7 +10,7 @@ interface DangerConfirmModalProps {
   children: ReactNode;
 }
 
-// Confirmación de acciones destructivas e irreversibles (borrar moneda, reiniciar portafolio)
+// Confirmación de acciones destructivas (borrar moneda, reiniciar portafolio, eliminar nivel)
 export default function DangerConfirmModal({ title, confirmLabel, isSubmitting, onConfirm, onClose, children }: DangerConfirmModalProps) {
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-4">
