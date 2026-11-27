@@ -87,8 +87,8 @@ export default function Crypto() {
   };
 
   return (
-    <div className="p-4 sm:p-6 md:p-8 text-white font-sans max-w-7xl mx-auto relative">
-      <header className="flex items-start justify-between gap-3 mb-5 md:mb-7">
+    <div className="px-4 sm:px-6 md:px-8 pt-0 mt-0 pb-4 sm:pb-6 md:pb-8 text-white font-sans max-w-7xl mx-auto relative">
+      <header className="flex items-start justify-between gap-3 pt-3 md:pt-4 mb-3 md:mb-4">
         <div className="flex items-center gap-3 md:gap-4 min-w-0">
           <Bitcoin className="w-10 h-10 md:w-14 md:h-14 shrink-0 text-brand-green-light" strokeWidth={2.5} />
           <div className="min-w-0">
@@ -107,7 +107,7 @@ export default function Crypto() {
         </button>
       </header>
 
-      <div role="tablist" aria-label="Secciones de inversiones cripto" className="flex gap-1 sm:gap-2 overflow-x-auto overflow-y-hidden mb-6 md:mb-8 border-b border-brand-green/40">
+      <div role="tablist" aria-label="Secciones de inversiones cripto" className="flex gap-1 sm:gap-2 overflow-x-auto overflow-y-hidden mb-4 md:mb-5 border-b border-brand-green/40">
         {TABS.map(({ id, label, shortLabel, icon: Icon }) => {
           const isActive = activeTab === id;
           return (
