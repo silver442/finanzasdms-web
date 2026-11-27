@@ -1,22 +1,21 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { ArrowLeftRight, CircleDollarSign, Coins, Eye, Layers, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Layers, Pencil, RefreshCw, Trash2 } from 'lucide-react';
 import axios from 'axios';
 import type { CryptoPosition, PortfolioResponse, PositionStatus, ReferenceMode } from './types';
 import { API, apiErrorMessage, authHeaders } from './utils/api';
 import { formatMoney, formatPercent, formatPrice, formatShortDate, formatTokens } from './utils/format';
 import { getPeriodStart } from './utils/periods';
-import { readPref, writePref } from './utils/storage';
+import { currentUserId, readNumberPref, readPref, writePref } from './utils/storage';
 import { useCurrency } from './hooks/useCurrency';
 import { CurrencyControls } from './components/CurrencyControls';
 import { SegmentedToggle } from './components/SegmentedToggle';
 import { usePeriodOpens } from './hooks/usePeriodOpens';
-import RegisterTradeModal from './RegisterTradeModal';
-import WatchlistModal from './WatchlistModal';
+import TradePanel, { type PanelTab } from './TradePanel';
+import type { TradePreset } from './TradeForm';
 import CashMovementModal from './CashMovementModal';
 import CoinIcon from './components/CoinIcon';
 import PortfolioValueCard from './components/PortfolioValueCard';
-import PortfolioDistributionCard from './components/PortfolioDistributionCard';
 import DangerConfirmModal from './components/DangerConfirmModal';
 import { usePortfolioHistory } from './hooks/usePortfolioHistory';
 
@@ -53,9 +52,14 @@ export default function PortfolioTab() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [referenceMode, setReferenceMode] = useState<ReferenceMode>(() => readPref('crypto.referenceMode', ['DAY', 'SWING'] as const, 'DAY'));
-  const [tradeModal, setTradeModal] = useState<{ symbol?: string; price?: number } | null>(null);
+  const [panelTab, setPanelTab] = useState<PanelTab>('BUY');
+  const [tradePreset, setTradePreset] = useState<TradePreset | null>(null);
+  const [watchlistEditing, setWatchlistEditing] = useState<CryptoPosition | null>(null);
+  const panelRef = useRef<HTMLElement>(null);
   const [isCashModalOpen, setIsCashModalOpen] = useState(false);
-  const [watchlistModal, setWatchlistModal] = useState<{ editing: CryptoPosition | null } | null>(null);
+  // Valor del portafolio en MXN capturado a mano para cuadrar con el exchange (por usuario, solo en este navegador)
+  const manualValueKey = `crypto.manualPortfolioMxn.${currentUserId() ?? 'anon'}`;
+  const [manualValueMxn, setManualValueMxn] = useState<number | null>(() => readNumberPref(manualValueKey));
   const [deleteTarget, setDeleteTarget] = useState<CryptoPosition | null>(null);
   const [isDangerSubmitting, setIsDangerSubmitting] = useState(false);
 
@@ -162,7 +166,14 @@ export default function PortfolioTab() {
   const valueHistory = usePortfolioHistory(boughtRows.map((r) => ({ symbol: r.position.symbol, quantity: r.quantity })));
   // El histórico solo trae las monedas: se suma el efectivo actual para que la curva termine en el valor del portafolio
   const chartHistory = valueHistory.map((h) => ({ time: h.time, value: toCurrency(h.value + usdBalance) }));
-  const distribution = boughtRows.map((r) => ({ symbol: r.position.symbol, value: r.quantity * (r.marketPrice ?? r.price ?? 0) }));
+  // El valor manual se guarda en MXN; en la vista USD se muestra convertido con el tipo de cambio actual
+  const displayedValue = manualValueMxn !== null ? (currency === 'MXN' ? manualValueMxn : manualValueMxn / rate) : toCurrency(totalBalance);
+
+  const changeManualValue = (value: number | null) => {
+    const mxn = value === null ? null : currency === 'MXN' ? value : Math.round(value * rate * 100) / 100;
+    setManualValueMxn(mxn);
+    writePref(manualValueKey, mxn === null ? null : String(mxn));
+  };
 
   const changeReferenceMode = (value: ReferenceMode) => {
     setReferenceMode(value);
@@ -203,7 +214,7 @@ export default function PortfolioTab() {
   const renderActions = (r: RowMetrics) => (
     <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
       {r.quantity === 0 && (
-        <button onClick={() => setWatchlistModal({ editing: r.position })} className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-elevated/60 transition-colors" aria-label={`Editar referencia de ${r.position.symbol}`} title="Editar precio de referencia">
+        <button onClick={() => editReference(r.position)} className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-elevated/60 transition-colors" aria-label={`Editar referencia de ${r.position.symbol}`} title="Editar precio de referencia">
           <Pencil size={14} />
         </button>
       )}
@@ -213,13 +224,28 @@ export default function PortfolioTab() {
     </div>
   );
 
-  const openTradeFor = (r: RowMetrics) => setTradeModal({ symbol: r.position.symbol, price: r.marketPrice });
+  const showPanel = (tab: PanelTab) => {
+    setPanelTab(tab);
+    // En móvil el panel queda arriba de la lista: se desplaza hasta él
+    panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  };
+
+  const openTradeFor = (r: RowMetrics) => {
+    setTradePreset((prev) => ({ symbol: r.position.symbol, price: r.marketPrice, nonce: (prev?.nonce ?? 0) + 1 }));
+    // Se queda en Vender solo si la moneda tiene saldo; si no, abre Comprar
+    showPanel(panelTab === 'SELL' && r.status === 'BOUGHT' ? 'SELL' : 'BUY');
+  };
+
+  const editReference = (position: CryptoPosition) => {
+    setWatchlistEditing(position);
+    showPanel('WATCHLIST');
+  };
 
   // Fila/tarjeta clicable: abre el registro de compra o venta con la moneda precargada
   const rowTradeProps = (r: RowMetrics) => ({
     role: 'button',
     tabIndex: 0,
-    title: `Registrar operación de ${r.position.symbol}`,
+    title: `Operar ${r.position.symbol}`,
     onClick: () => openTradeFor(r),
     onKeyDown: (e: React.KeyboardEvent) => {
       if (e.key === 'Enter' || e.key === ' ') {
@@ -241,199 +267,166 @@ export default function PortfolioTab() {
     </div>
   );
 
-  const emptyMessage = isLoading ? 'Cargando portafolio...' : 'Aún no tienes monedas. Registra una operación o enlista una moneda para seguirla.';
+  const emptyMessage = isLoading ? 'Cargando portafolio...' : 'Aún no tienes monedas. Registra una compra o enlista una moneda desde el panel de operación.';
 
   return (
-    <div className="space-y-6 md:space-y-8">
-      {/* ── Controles ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <CurrencyControls {...fx} />
+    <div className="space-y-4 md:space-y-5">
+      {/* Sección superior. Escritorio: controles + KPIs a la izquierda, panel de operación a la derecha. Móvil: controles → KPIs → panel */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div className="lg:col-span-7 flex flex-col gap-3 md:gap-4 min-w-0">
+          {/* ── Controles ── */}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <CurrencyControls {...fx} />
 
-          <span className="hidden sm:block w-px h-8 bg-white/10" aria-hidden="true" />
+            <span className="hidden sm:block w-px h-8 bg-white/10" aria-hidden="true" />
 
-          <SegmentedToggle ariaLabel="Referencia de seguimiento" value={referenceMode} onChange={changeReferenceMode} options={[{ value: 'DAY', label: 'Day (00:00)' }, { value: 'SWING', label: 'Swing (Lunes 00:00)' }]} />
+            <SegmentedToggle ariaLabel="Referencia de seguimiento" value={referenceMode} onChange={changeReferenceMode} options={[{ value: 'DAY', label: 'Day (00:00)' }, { value: 'SWING', label: 'Swing (Lunes 00:00)' }]} />
+          </div>
 
+          {/* ── Resumen unificado (invertido y rendimiento: solo monedas compradas); crece para empatar con el panel ── */}
+          <div className="flex-1">
+            <PortfolioValueCard
+              currency={currency}
+              formattedValue={formatMoney(displayedValue, currency)}
+              formattedProfit={money(totalProfit)}
+              profit={totalProfit}
+              yieldRatio={totalYield}
+              history={chartHistory}
+              editable
+              editValue={displayedValue}
+              isManual={manualValueMxn !== null}
+              formattedAutomatic={money(totalBalance)}
+              onManualChange={changeManualValue}
+              formattedInvested={money(totalInvested)}
+              formattedCash={money(usdBalance)}
+              onCashClick={() => setIsCashModalOpen(true)}
+            />
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <button onClick={() => setWatchlistModal({ editing: null })} className="flex items-center justify-center gap-2 px-4 py-2.5 bg-surface-card/60 hover:bg-surface-elevated text-text-primary text-sm font-semibold rounded-xl border border-white/10 transition-all whitespace-nowrap">
-            <Eye size={16} /> Enlistar moneda
-          </button>
-          <button onClick={() => setTradeModal({})} className="flex items-center justify-center gap-2 px-5 py-2.5 bg-brand-green hover:bg-brand-green-light text-white text-sm font-bold rounded-xl border border-brand-green-light/40 transition-all shadow-lg shadow-brand-green/30 whitespace-nowrap">
-            <Plus size={18} /> Registrar operación
-          </button>
-        </div>
-      </div>
-
-      {/* ── KPIs (invertido y rendimiento: solo monedas compradas) ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
-        <div className="lg:col-span-5">
-          <PortfolioValueCard
-            currency={currency}
-            formattedValue={money(totalBalance)}
-            formattedProfit={money(totalProfit)}
-            profit={totalProfit}
-            yieldRatio={totalYield}
-            history={chartHistory}
+        {/* ── Panel de operación (sustituye a los modales de operación y de enlistar) ── */}
+        <div className="lg:col-span-5 lg:self-start">
+          <TradePanel
+            ref={panelRef}
+            tab={panelTab}
+            onTabChange={setPanelTab}
+            positions={positions}
+            usdBalance={usdBalance}
+            livePrices={livePrices}
+            referenceMode={referenceMode}
+            tradePreset={tradePreset}
+            watchlistEditing={watchlistEditing}
+            onCancelWatchlistEdit={() => setWatchlistEditing(null)}
+            onSaved={loadPortfolio}
           />
         </div>
-
-        <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4 md:gap-6">
-          <div className="bg-surface-card/60 backdrop-blur-md p-4 md:p-5 rounded-2xl border border-white/5 shadow-card flex items-center gap-4">
-            <div className="w-12 h-12 shrink-0 rounded-xl bg-brand-green/15 border border-brand-green/20 flex items-center justify-center text-brand-green-light">
-              <Coins size={24} />
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-sm text-text-secondary">Total Invertido</h2>
-              <p className="text-xl md:text-2xl font-bold text-white tabular-nums truncate">
-                {money(totalInvested)} <span className="text-sm font-medium text-text-secondary">{currency}</span>
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-surface-card/60 backdrop-blur-md p-4 md:p-5 rounded-2xl border border-white/5 shadow-card flex items-center gap-4">
-            <div className="w-12 h-12 shrink-0 rounded-xl bg-brand-green/15 border border-brand-green/20 flex items-center justify-center text-brand-green-light">
-              <CircleDollarSign size={24} />
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-sm text-text-secondary">Disponible ({currency})</h2>
-              <p className="text-xl md:text-2xl font-bold text-white tabular-nums truncate">
-                {money(usdBalance)} <span className="text-sm font-medium text-text-secondary">{currency}</span>
-              </p>
-              <button onClick={() => setIsCashModalOpen(true)} className="mt-1 inline-flex items-center gap-1.5 text-sm font-medium text-brand-green-light hover:text-brand-green-light/80 transition-colors">
-                <ArrowLeftRight size={14} /> Depositar / Retirar
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="lg:col-span-4">
-          <PortfolioDistributionCard slices={distribution} currency={currency} formattedTotal={money(totalCurrentValue)} />
-        </div>
       </div>
 
-      {/* ── Posiciones: tarjetas apiladas (móvil) ── */}
-      <div className="md:hidden space-y-3">
-        {investmentsHeader}
-        {rows.length === 0 ? (
-          <div className="bg-surface-card/60 backdrop-blur-md rounded-2xl border border-white/5 shadow-card p-6 text-center text-sm text-text-muted">{emptyMessage}</div>
-        ) : (
-          rows.map((r) => (
-            <div key={r.position.symbol} {...rowTradeProps(r)} className="bg-surface-card/60 backdrop-blur-md rounded-2xl border border-white/5 shadow-card p-4 cursor-pointer hover:border-brand-green/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/50 transition-colors">
-              <div className="flex items-center justify-between gap-3 mb-3">
-                <div className="flex items-center gap-2 font-bold text-text-primary min-w-0">
-                  <CoinIcon symbol={r.position.symbol} size="md" />
-                  <span className="truncate">{r.position.symbol}</span>
-                  <StatusBadge status={r.status} />
+      {/* Sección inferior: Mis Inversiones a todo el ancho */}
+      <div className="min-w-0">
+        {/* ── Posiciones: tarjetas apiladas (móvil) ── */}
+        <div className="md:hidden space-y-3">
+          {investmentsHeader}
+          {rows.length === 0 ? (
+            <div className="bg-surface-card/60 backdrop-blur-md rounded-2xl border border-white/5 shadow-card p-6 text-center text-sm text-text-muted">{emptyMessage}</div>
+          ) : (
+            rows.map((r) => (
+              <div key={r.position.symbol} {...rowTradeProps(r)} className="bg-surface-card/60 backdrop-blur-md rounded-2xl border border-white/5 shadow-card p-4 cursor-pointer hover:border-brand-green/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/50 transition-colors">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div className="flex items-center gap-2 font-bold text-text-primary min-w-0">
+                    <CoinIcon symbol={r.position.symbol} size="md" />
+                    <span className="truncate">{r.position.symbol}</span>
+                    <StatusBadge status={r.status} />
+                  </div>
+                  {renderActions(r)}
                 </div>
-                {renderActions(r)}
+
+                <div className="flex items-end justify-between gap-3 pb-3 mb-3 border-b border-white/5">
+                  <div className="min-w-0">
+                    <p className="text-xs text-text-muted">Precio de mercado</p>
+                    <p className="text-xl font-bold text-text-primary truncate">{r.marketPrice !== undefined ? price(r.marketPrice) : '...'}</p>
+                  </div>
+                  <span className="shrink-0">{renderPercent(r)}</span>
+                </div>
+
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                  <div className="min-w-0">
+                    <dt className="text-xs text-text-muted">{r.status === 'BOUGHT' ? 'Precio promedio' : r.status === 'SOLD' ? 'Precio de venta' : 'Precio de referencia'}</dt>
+                    <dd className="text-text-primary truncate">{r.price !== null ? price(r.price) : '...'}</dd>
+                  </div>
+                  <div className="min-w-0">
+                    <dt className="text-xs text-text-muted">Invertido</dt>
+                    <dd className="text-text-primary truncate">{money(r.invested)}</dd>
+                    <dd className="text-xs text-text-muted truncate">{formatTokens(r.quantity)} {r.position.symbol}</dd>
+                  </div>
+                  <div className="min-w-0">
+                    <dt className="text-xs text-text-muted">Ganancia</dt>
+                    <dd className="truncate">{renderProfit(r)}</dd>
+                  </div>
+                  <div className="min-w-0">
+                    <dt className="text-xs text-text-muted">Fecha</dt>
+                    <dd className="text-text-secondary truncate">{r.date ? formatShortDate(r.date) : '—'}</dd>
+                  </div>
+                </dl>
               </div>
+            ))
+          )}
+        </div>
 
-              <div className="flex items-end justify-between gap-3 pb-3 mb-3 border-b border-white/5">
-                <div className="min-w-0">
-                  <p className="text-xs text-text-muted">Precio de mercado</p>
-                  <p className="text-xl font-bold text-text-primary truncate">{r.marketPrice !== undefined ? price(r.marketPrice) : '...'}</p>
-                </div>
-                <span className="shrink-0">{renderPercent(r)}</span>
-              </div>
-
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                <div className="min-w-0">
-                  <dt className="text-xs text-text-muted">{r.status === 'BOUGHT' ? 'Precio promedio' : r.status === 'SOLD' ? 'Precio de venta' : 'Precio de referencia'}</dt>
-                  <dd className="text-text-primary truncate">{r.price !== null ? price(r.price) : '...'}</dd>
-                </div>
-                <div className="min-w-0">
-                  <dt className="text-xs text-text-muted">Invertido</dt>
-                  <dd className="text-text-primary truncate">{money(r.invested)}</dd>
-                  <dd className="text-xs text-text-muted truncate">{formatTokens(r.quantity)} {r.position.symbol}</dd>
-                </div>
-                <div className="min-w-0">
-                  <dt className="text-xs text-text-muted">Ganancia</dt>
-                  <dd className="truncate">{renderProfit(r)}</dd>
-                </div>
-                <div className="min-w-0">
-                  <dt className="text-xs text-text-muted">Fecha</dt>
-                  <dd className="text-text-secondary truncate">{r.date ? formatShortDate(r.date) : '—'}</dd>
-                </div>
-              </dl>
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* ── Posiciones: tabla (md+) ── */}
-      <div className="hidden md:block bg-surface-card/60 backdrop-blur-md rounded-2xl border border-white/5 shadow-card p-4 lg:p-5">
-        {investmentsHeader}
-        <div className="overflow-x-auto rounded-xl border border-white/5">
-          <table className="w-full text-left border-collapse whitespace-nowrap text-sm">
-            <thead>
-              <tr className="bg-surface-base/40 text-text-primary text-xs uppercase tracking-wider border-b border-white/5">
-                <th className="p-4 font-semibold">Moneda</th>
-                <th className="p-4 font-semibold text-right">Precio</th>
-                <th className="p-4 font-semibold text-right">Invertido</th>
-                <th className="p-4 font-semibold">Estado</th>
-                <th className="p-4 font-semibold text-center">Fecha</th>
-                <th className="p-4 font-semibold text-right">Precio de mercado</th>
-                <th className="p-4 font-semibold text-center">Rendimiento</th>
-                <th className="p-4 font-semibold text-right">Ganancia</th>
-                <th className="p-4 w-px"><span className="sr-only">Acciones</span></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {rows.length === 0 ? (
-                <tr><td colSpan={9} className="p-6 text-center text-text-muted">{emptyMessage}</td></tr>
-              ) : (
-                rows.map((r) => (
-                  <tr key={r.position.symbol} {...rowTradeProps(r)} className="cursor-pointer hover:bg-surface-elevated/40 focus:outline-none focus-visible:bg-surface-elevated/40 transition-colors">
-                    <td className="p-4 font-bold text-white">
-                      <div className="flex items-center gap-3">
-                        <CoinIcon symbol={r.position.symbol} size="md" />
-                        {r.position.symbol}
-                      </div>
-                    </td>
-                    <td className="p-4 text-right text-text-primary tabular-nums">{r.price !== null ? price(r.price) : '...'}</td>
-                    <td className="p-4 text-right tabular-nums">
-                      <div className="text-text-primary">{money(r.invested)}</div>
-                      <div className="text-xs text-text-muted">{formatTokens(r.quantity)} {r.position.symbol}</div>
-                    </td>
-                    <td className="p-4"><StatusBadge status={r.status} /></td>
-                    <td className="p-4 text-center text-text-secondary">{r.date ? formatShortDate(r.date) : '—'}</td>
-                    <td className="p-4 text-right font-bold text-white tabular-nums">
-                      {r.marketPrice !== undefined ? price(r.marketPrice) : '...'}
-                    </td>
-                    <td className="p-4 text-center tabular-nums">{renderPercent(r)}</td>
-                    <td className="p-4 text-right tabular-nums">{renderProfit(r)}</td>
-                    <td className="p-2 pr-4">{renderActions(r)}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        {/* ── Posiciones: tabla (md+) ── */}
+        <div className="hidden md:block bg-surface-card/60 backdrop-blur-md rounded-2xl border border-white/5 shadow-card p-4 lg:p-5">
+          {investmentsHeader}
+          <div className="overflow-x-auto rounded-xl border border-white/5">
+            <table className="w-full text-left border-collapse whitespace-nowrap text-sm">
+              <thead>
+                <tr className="bg-surface-base/40 text-text-primary text-xs uppercase tracking-wider border-b border-white/5">
+                  <th className="p-4 font-semibold">Moneda</th>
+                  <th className="p-4 font-semibold text-right">Precio</th>
+                  <th className="p-4 font-semibold text-right">Invertido</th>
+                  <th className="p-4 font-semibold">Estado</th>
+                  <th className="p-4 font-semibold text-center">Fecha</th>
+                  <th className="p-4 font-semibold text-right">Precio de mercado</th>
+                  <th className="p-4 font-semibold text-center">Rendimiento</th>
+                  <th className="p-4 font-semibold text-right">Ganancia</th>
+                  <th className="p-4 w-px"><span className="sr-only">Acciones</span></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {rows.length === 0 ? (
+                  <tr><td colSpan={9} className="p-6 text-center text-text-muted">{emptyMessage}</td></tr>
+                ) : (
+                  rows.map((r) => (
+                    <tr key={r.position.symbol} {...rowTradeProps(r)} className="cursor-pointer hover:bg-surface-elevated/40 focus:outline-none focus-visible:bg-surface-elevated/40 transition-colors">
+                      <td className="p-4 font-bold text-white">
+                        <div className="flex items-center gap-3">
+                          <CoinIcon symbol={r.position.symbol} size="md" />
+                          {r.position.symbol}
+                        </div>
+                      </td>
+                      <td className="p-4 text-right text-text-primary tabular-nums">{r.price !== null ? price(r.price) : '...'}</td>
+                      <td className="p-4 text-right tabular-nums">
+                        <div className="text-text-primary">{money(r.invested)}</div>
+                        <div className="text-xs text-text-muted">{formatTokens(r.quantity)} {r.position.symbol}</div>
+                      </td>
+                      <td className="p-4"><StatusBadge status={r.status} /></td>
+                      <td className="p-4 text-center text-text-secondary">{r.date ? formatShortDate(r.date) : '—'}</td>
+                      <td className="p-4 text-right font-bold text-white tabular-nums">
+                        {r.marketPrice !== undefined ? price(r.marketPrice) : '...'}
+                      </td>
+                      <td className="p-4 text-center tabular-nums">{renderPercent(r)}</td>
+                      <td className="p-4 text-right tabular-nums">{renderProfit(r)}</td>
+                      <td className="p-2 pr-4">{renderActions(r)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
-      {tradeModal && (
-        <RegisterTradeModal
-          positions={positions}
-          usdBalance={usdBalance}
-          initialSymbol={tradeModal.symbol}
-          initialPrice={tradeModal.price}
-          onClose={() => setTradeModal(null)}
-          onSaved={loadPortfolio}
-        />
-      )}
       {isCashModalOpen && (
         <CashMovementModal usdBalance={usdBalance} marketRate={rate} onClose={() => setIsCashModalOpen(false)} onSaved={loadPortfolio} />
-      )}
-      {watchlistModal && (
-        <WatchlistModal
-          positions={positions}
-          referenceMode={referenceMode}
-          editing={watchlistModal.editing}
-          onClose={() => setWatchlistModal(null)}
-          onSaved={loadPortfolio}
-        />
       )}
       {deleteTarget && (
         <DangerConfirmModal

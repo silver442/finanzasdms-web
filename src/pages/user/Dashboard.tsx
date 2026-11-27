@@ -1,15 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import {
   Landmark, CreditCard, RefreshCw, Bitcoin,
-  BarChart2, Percent, LayoutDashboard,
+  BarChart2, LayoutDashboard,
   AlertCircle, TrendingUp, TrendingDown,
   CalendarClock, CheckCircle,
 } from 'lucide-react';
 import { EmptyState, PortfolioEmptyIllustration, LoansEmptyIllustration } from '../../components/EmptyState';
 import InstallAppButton from '../../components/InstallAppButton';
+import { DashboardCard, type CardControls } from './dashboard/DashboardCard';
+import { useDashboardLayout } from './dashboard/useDashboardLayout';
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -20,7 +22,6 @@ type UserFlags = {
   hasMakeMoneyModule: boolean;
   hasCryptoModule: boolean;
   hasStockMarketModule: boolean;
-  hasCompoundInterestModule: boolean;
 };
 
 interface CategorySlice { category: string; value: number; percentage: number; }
@@ -59,19 +60,18 @@ interface ModuleSummary {
 function getFlags(): UserFlags {
   try {
     const raw = localStorage.getItem('user');
-    if (!raw) return { hasCreditCardsModule: true, hasLoansModule: true, hasSubscriptionsModule: true, hasMakeMoneyModule: true, hasCryptoModule: false, hasStockMarketModule: false, hasCompoundInterestModule: false };
+    if (!raw) return { hasCreditCardsModule: true, hasLoansModule: true, hasSubscriptionsModule: true, hasMakeMoneyModule: true, hasCryptoModule: false, hasStockMarketModule: false };
     const p = JSON.parse(raw) as Record<string, unknown>;
     return {
-      hasCreditCardsModule:      p.hasCreditCardsModule     !== false,
-      hasLoansModule:            p.hasLoansModule           !== false,
-      hasSubscriptionsModule:    p.hasSubscriptionsModule   !== false,
-      hasMakeMoneyModule:        p.hasMakeMoneyModule       !== false,
-      hasCryptoModule:           p.hasCryptoModule          === true,
-      hasStockMarketModule:      p.hasStockMarketModule     === true,
-      hasCompoundInterestModule: p.hasCompoundInterestModule === true,
+      hasCreditCardsModule:   p.hasCreditCardsModule   !== false,
+      hasLoansModule:         p.hasLoansModule         !== false,
+      hasSubscriptionsModule: p.hasSubscriptionsModule !== false,
+      hasMakeMoneyModule:     p.hasMakeMoneyModule     !== false,
+      hasCryptoModule:        p.hasCryptoModule        === true,
+      hasStockMarketModule:   p.hasStockMarketModule   === true,
     };
   } catch {
-    return { hasCreditCardsModule: true, hasLoansModule: true, hasSubscriptionsModule: true, hasMakeMoneyModule: true, hasCryptoModule: false, hasStockMarketModule: false, hasCompoundInterestModule: false };
+    return { hasCreditCardsModule: true, hasLoansModule: true, hasSubscriptionsModule: true, hasMakeMoneyModule: true, hasCryptoModule: false, hasStockMarketModule: false };
   }
 }
 
@@ -179,7 +179,7 @@ function StatCard({ label, value, color = 'text-white' }: { label: string; value
 
 // ─── Widget: Portafolio ───────────────────────────────────────────────────────
 
-function PortfolioDashboardWidget({ data }: { data: ModuleSummary['portfolio'] | null }) {
+function PortfolioDashboardWidget({ data, card }: { data: ModuleSummary['portfolio'] | null; card: CardControls }) {
   if (!data) return null;
 
   const empty = data.accountCount === 0;
@@ -192,23 +192,25 @@ function PortfolioDashboardWidget({ data }: { data: ModuleSummary['portfolio'] |
   const gainPositive = data.totalGain >= 0;
 
   return (
-    <div className="col-span-full bg-surface-card border border-surface-border rounded-3xl p-6">
-      <div className="flex items-center gap-3 mb-6">
+    <DashboardCard
+      {...card}
+      to="/portfolio"
+      icon={
         <div className="bg-brand-violet/10 border border-brand-violet/20 rounded-2xl p-3">
           <BarChart2 size={22} className="text-brand-violet-light" />
         </div>
-        <div>
-          <p className="font-bold text-white">Portafolio de Inversiones</p>
-          <p className="text-text-muted text-xs">{data.accountCount} cuenta{data.accountCount !== 1 ? 's' : ''} registrada{data.accountCount !== 1 ? 's' : ''}</p>
-        </div>
-        <div className="ml-auto flex items-center gap-1.5">
+      }
+      title="Portafolio de Inversiones"
+      subtitle={`${data.accountCount} cuenta${data.accountCount !== 1 ? 's' : ''} registrada${data.accountCount !== 1 ? 's' : ''}`}
+      headerExtra={
+        <div className="flex items-center gap-1.5">
           {gainPositive ? <TrendingUp size={16} className="text-brand-green-light" /> : <TrendingDown size={16} className="text-red-400" />}
           <span className={`text-sm font-bold ${gainPositive ? 'text-brand-green-light' : 'text-red-400'}`}>
             {gainPositive ? '+' : ''}{fmt(data.totalGain)}
           </span>
         </div>
-      </div>
-
+      }
+    >
       {empty ? (
         <EmptyState
           illustration={<PortfolioEmptyIllustration />}
@@ -218,7 +220,7 @@ function PortfolioDashboardWidget({ data }: { data: ModuleSummary['portfolio'] |
           ctaTo="/portfolio"
         />
       ) : (
-        <>
+        <div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
             <StatCard label="Total depositado"  value={fmt(data.totalDeposited)} />
             <StatCard label="Valor real actual" value={fmt(data.totalRealValue)} color={gainPositive ? 'text-brand-green-light' : 'text-red-400'} />
@@ -257,28 +259,28 @@ function PortfolioDashboardWidget({ data }: { data: ModuleSummary['portfolio'] |
               </div>
             )}
           </div>
-        </>
+        </div>
       )}
-    </div>
+    </DashboardCard>
   );
 }
 
 // ─── Widget: Préstamos ────────────────────────────────────────────────────────
 
-function LoansDashboardWidget({ data }: { data: ModuleSummary['loans'] | null }) {
+function LoansDashboardWidget({ data, card }: { data: ModuleSummary['loans'] | null; card: CardControls }) {
   return (
-    <Link to="/loans" className="block hover:opacity-90 transition-opacity">
-      <div className="bg-surface-card border border-surface-border rounded-3xl p-6 flex flex-col gap-5">
-        <div className="flex items-center gap-3">
-          <div className="bg-brand-green/10 border border-brand-green/20 rounded-2xl p-3">
-            <Landmark size={22} className="text-brand-green-light" />
-          </div>
-          <div>
-            <p className="font-bold text-white">Préstamos</p>
-            <p className="text-text-muted text-xs">Créditos activos</p>
-          </div>
+    <DashboardCard
+      {...card}
+      to="/loans"
+      icon={
+        <div className="bg-brand-green/10 border border-brand-green/20 rounded-2xl p-3">
+          <Landmark size={22} className="text-brand-green-light" />
         </div>
-
+      }
+      title="Préstamos"
+      subtitle="Créditos activos"
+    >
+      <Link to="/loans" className="block hover:opacity-90 transition-opacity">
         {!data ? (
           <p className="text-text-muted text-sm">Cargando...</p>
         ) : data.activeCount === 0 ? (
@@ -293,13 +295,13 @@ function LoansDashboardWidget({ data }: { data: ModuleSummary['loans'] | null })
             <StatCard label="Pagados" value={String(data.paidCount)} color="text-text-primary" />
 
             {/* Deuda total — valor con jerarquía */}
-            <div className="bg-surface-base rounded-lg p-4 col-span-2">
+            <div className="bg-surface-base rounded-lg p-4 sm:col-span-2">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-text-muted mb-2">Deuda total pendiente</p>
               <BigMoney value={data.totalOutstanding} size="lg" color="text-red-400" />
             </div>
 
             {data.nextInstallment && (
-              <div className="bg-surface-elevated/60 border border-surface-border rounded-lg p-3 col-span-2 flex items-start gap-2">
+              <div className="bg-surface-elevated/60 border border-surface-border rounded-lg p-3 sm:col-span-2 flex items-start gap-2">
                 <AlertCircle size={16} className="text-brand-violet-light mt-0.5 shrink-0" />
                 <div>
                   <p className="text-brand-violet-light text-xs font-semibold mb-0.5">Próximo pago</p>
@@ -310,14 +312,14 @@ function LoansDashboardWidget({ data }: { data: ModuleSummary['loans'] | null })
             )}
           </div>
         )}
-      </div>
-    </Link>
+      </Link>
+    </DashboardCard>
   );
 }
 
 // ─── Widget: Tarjetas de crédito ──────────────────────────────────────────────
 
-function CreditCardsDashboardWidget({ data }: { data: ModuleSummary['creditCards'] | null }) {
+function CreditCardsDashboardWidget({ data, card }: { data: ModuleSummary['creditCards'] | null; card: CardControls }) {
   const utilColor = !data ? 'bg-surface-elevated'
     : data.utilizationPct < 30 ? 'bg-brand-green'
     : data.utilizationPct < 70 ? 'bg-brand-violet-light'
@@ -329,17 +331,17 @@ function CreditCardsDashboardWidget({ data }: { data: ModuleSummary['creditCards
     : 'text-red-400';
 
   return (
-    <div className="bg-surface-card border border-surface-border rounded-3xl p-6 flex flex-col gap-5">
-      <div className="flex items-center gap-3">
+    <DashboardCard
+      {...card}
+      to="/credit-cards"
+      icon={
         <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-3">
           <CreditCard size={22} className="text-blue-400" />
         </div>
-        <div>
-          <p className="font-bold text-white">Tarjetas de Crédito</p>
-          <p className="text-text-muted text-xs">{data ? `${data.cardCount} tarjeta${data.cardCount !== 1 ? 's' : ''}` : '—'}</p>
-        </div>
-      </div>
-
+      }
+      title="Tarjetas de Crédito"
+      subtitle={data ? `${data.cardCount} tarjeta${data.cardCount !== 1 ? 's' : ''}` : '—'}
+    >
       {!data ? (
         <p className="text-text-muted text-sm">Cargando...</p>
       ) : data.cardCount === 0 ? (
@@ -379,25 +381,25 @@ function CreditCardsDashboardWidget({ data }: { data: ModuleSummary['creditCards
           )}
         </div>
       )}
-    </div>
+    </DashboardCard>
   );
 }
 
 // ─── Widget: Suscripciones ────────────────────────────────────────────────────
 
-function SubscriptionsDashboardWidget({ data }: { data: ModuleSummary['subscriptions'] | null }) {
+function SubscriptionsDashboardWidget({ data, card }: { data: ModuleSummary['subscriptions'] | null; card: CardControls }) {
   return (
-    <div className="bg-surface-card border border-surface-border rounded-3xl p-6 flex flex-col gap-5">
-      <div className="flex items-center gap-3">
+    <DashboardCard
+      {...card}
+      to="/subscriptions"
+      icon={
         <div className="bg-violet-500/10 border border-violet-500/20 rounded-2xl p-3">
           <RefreshCw size={22} className="text-violet-400" />
         </div>
-        <div>
-          <p className="font-bold text-white">Suscripciones</p>
-          <p className="text-text-muted text-xs">{data ? `${data.count} activa${data.count !== 1 ? 's' : ''}` : '—'}</p>
-        </div>
-      </div>
-
+      }
+      title="Suscripciones"
+      subtitle={data ? `${data.count} activa${data.count !== 1 ? 's' : ''}` : '—'}
+    >
       {!data ? (
         <p className="text-text-muted text-sm">Cargando...</p>
       ) : data.count === 0 ? (
@@ -434,61 +436,83 @@ function SubscriptionsDashboardWidget({ data }: { data: ModuleSummary['subscript
           )}
         </div>
       )}
-    </div>
+    </DashboardCard>
   );
 }
 
 // ─── Widget: Cripto ───────────────────────────────────────────────────────────
 
-function CryptoDashboardWidget() {
+function CryptoDashboardWidget({ card }: { card: CardControls }) {
   return (
-    <div className="bg-surface-card border border-surface-border rounded-3xl p-6 flex flex-col gap-4">
-      <div className="flex items-center gap-3">
+    <DashboardCard
+      {...card}
+      to="/crypto"
+      icon={
         <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-3">
           <Bitcoin size={22} className="text-orange-400" />
         </div>
-        <div>
-          <p className="font-bold text-white">Inversiones Cripto</p>
-          <p className="text-text-muted text-xs">Seguimiento de portafolio</p>
+      }
+      title="Inversiones Cripto"
+      subtitle="Seguimiento de portafolio"
+    >
+      <div className="flex flex-col gap-4">
+        <p className="text-text-secondary text-sm leading-relaxed">
+          Tu portafolio de criptomonedas se gestiona directamente en la sección Cripto, donde puedes registrar operaciones y ver precios en tiempo real.
+        </p>
+        <div className="bg-orange-500/5 border border-orange-500/20 rounded-lg p-3 flex items-center gap-2">
+          <TrendingUp size={14} className="text-orange-400 shrink-0" />
+          <p className="text-orange-300 text-xs">Los precios de mercado se obtienen en tiempo real al abrir la sección.</p>
         </div>
       </div>
-      <p className="text-text-secondary text-sm leading-relaxed">
-        Tu portafolio de criptomonedas se gestiona directamente en la sección Cripto, donde puedes registrar operaciones y ver precios en tiempo real.
-      </p>
-      <div className="bg-orange-500/5 border border-orange-500/20 rounded-lg p-3 flex items-center gap-2">
-        <TrendingUp size={14} className="text-orange-400 shrink-0" />
-        <p className="text-orange-300 text-xs">Los precios de mercado se obtienen en tiempo real al abrir la sección.</p>
-      </div>
-    </div>
+    </DashboardCard>
   );
 }
 
 // ─── Widget: placeholder genérico ────────────────────────────────────────────
 
-function PlaceholderWidget({ icon: Icon, title, desc, color }: {
-  icon: React.ElementType; title: string; desc: string; color: string;
+function PlaceholderWidget({ icon: Icon, title, desc, color, card }: {
+  icon: React.ElementType; title: string; desc: string; color: string; card: CardControls;
 }) {
   return (
-    <div className="bg-surface-card border border-surface-border rounded-3xl p-6 flex flex-col gap-4">
-      <div className="flex items-center gap-3">
+    <DashboardCard
+      {...card}
+      icon={
         <div className={`${color} rounded-2xl p-3`}>
           <Icon size={22} className="text-white" />
         </div>
-        <p className="font-bold text-white">{title}</p>
-      </div>
+      }
+      title={title}
+    >
       <p className="text-text-secondary text-sm leading-relaxed">{desc}</p>
-    </div>
+    </DashboardCard>
   );
 }
+
+// ─── Configuración de cards ──────────────────────────────────────────────────
+// Solo módulos de resumen/saldos; Presupuesto e Interés compuesto no tienen card en Mi Panel.
+
+type WidgetId = 'portfolio' | 'loans' | 'creditCards' | 'subscriptions' | 'crypto' | 'stocks';
+
+const WIDGETS: { id: WidgetId; flag: keyof UserFlags; fullWidth?: boolean }[] = [
+  { id: 'portfolio',     flag: 'hasMakeMoneyModule', fullWidth: true },
+  { id: 'loans',         flag: 'hasLoansModule' },
+  { id: 'creditCards',   flag: 'hasCreditCardsModule' },
+  { id: 'subscriptions', flag: 'hasSubscriptionsModule' },
+  { id: 'crypto',        flag: 'hasCryptoModule' },
+  { id: 'stocks',        flag: 'hasStockMarketModule' },
+];
 
 // ─── Dashboard principal ──────────────────────────────────────────────────────
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [summary, setSummary] = useState({ totalAssets: 0, totalLiabilities: 0, netWorth: 0 });
   const [moduleSummary, setModuleSummary] = useState<ModuleSummary | null>(null);
-  const [, setIsLoading] = useState(true);
   const [userFlags, setUserFlags] = useState<UserFlags>(getFlags);
+
+  // Drag & drop nativo: solo se puede arrastrar desde el ícono de agarre
+  const [armedId, setArmedId]     = useState<WidgetId | null>(null);
+  const [draggingId, setDragging] = useState<WidgetId | null>(null);
+  const [overId, setOverId]       = useState<WidgetId | null>(null);
 
   useEffect(() => {
     const token   = localStorage.getItem('token');
@@ -497,18 +521,12 @@ export default function Dashboard() {
 
     const fetchAll = async () => {
       try {
-        const [summaryRes, moduleRes] = await Promise.all([
-          axios.get(`${base}/dashboard/summary`,        { headers }),
-          axios.get(`${base}/dashboard/module-summary`, { headers }),
-        ]);
-        setSummary(summaryRes.data);
+        const moduleRes = await axios.get(`${base}/dashboard/module-summary`, { headers });
         setModuleSummary(moduleRes.data);
       } catch (error) {
         console.error('Error al cargar el dashboard:', error);
         localStorage.removeItem('token');
         navigate('/login');
-      } finally {
-        setIsLoading(false);
       }
     };
 
@@ -521,56 +539,43 @@ export default function Dashboard() {
     return () => window.removeEventListener('user-flags-updated', handler);
   }, []);
 
-  const MODULE_WIDGET_MAP: Partial<Record<keyof UserFlags, React.ReactNode>> = {
-    hasMakeMoneyModule:        <PortfolioDashboardWidget data={moduleSummary?.portfolio ?? null} />,
-    hasLoansModule:            <LoansDashboardWidget data={moduleSummary?.loans ?? null} />,
-    hasCreditCardsModule:      <CreditCardsDashboardWidget data={moduleSummary?.creditCards ?? null} />,
-    hasSubscriptionsModule:    <SubscriptionsDashboardWidget data={moduleSummary?.subscriptions ?? null} />,
-    hasCryptoModule:           <CryptoDashboardWidget />,
-    hasStockMarketModule:      <PlaceholderWidget icon={BarChart2} title="Bolsa de Valores" desc="Seguimiento de acciones, ETFs y mercados bursátiles." color="bg-cyan-500/10 border border-cyan-500/20" />,
-    hasCompoundInterestModule: <PlaceholderWidget icon={Percent}   title="Interés Compuesto" desc="Proyección de crecimiento patrimonial a largo plazo."  color="bg-pink-500/10 border border-pink-500/20" />,
+  useEffect(() => {
+    if (!armedId) return;
+    const disarm = () => setArmedId(null);
+    window.addEventListener('pointerup', disarm);
+    return () => window.removeEventListener('pointerup', disarm);
+  }, [armedId]);
+
+  const activeIds = useMemo(
+    () => WIDGETS.filter((w) => userFlags[w.flag] === true).map((w) => w.id),
+    [userFlags],
+  );
+  const { orderedIds, isCollapsed, toggleCollapsed, moveCard } = useDashboardLayout(activeIds);
+
+  const controlsFor = (id: WidgetId): CardControls => ({
+    collapsed: isCollapsed(id),
+    onToggle: () => toggleCollapsed(id),
+    onGripPointerDown: () => setArmedId(id),
+  });
+
+  const renderWidget = (id: WidgetId) => {
+    const card = controlsFor(id);
+    switch (id) {
+      case 'portfolio':     return <PortfolioDashboardWidget     data={moduleSummary?.portfolio ?? null}     card={card} />;
+      case 'loans':         return <LoansDashboardWidget         data={moduleSummary?.loans ?? null}         card={card} />;
+      case 'creditCards':   return <CreditCardsDashboardWidget   data={moduleSummary?.creditCards ?? null}   card={card} />;
+      case 'subscriptions': return <SubscriptionsDashboardWidget data={moduleSummary?.subscriptions ?? null} card={card} />;
+      case 'crypto':        return <CryptoDashboardWidget card={card} />;
+      case 'stocks':        return <PlaceholderWidget icon={BarChart2} title="Bolsa de Valores" desc="Seguimiento de acciones, ETFs y mercados bursátiles." color="bg-cyan-500/10 border border-cyan-500/20" card={card} />;
+    }
   };
 
-  const activeWidgets = (Object.keys(MODULE_WIDGET_MAP) as (keyof UserFlags)[])
-    .filter((key) => userFlags[key] === true);
+  const endDrag = () => { setArmedId(null); setDragging(null); setOverId(null); };
 
   return (
     <div className="p-4 md:p-8 text-white font-sans max-w-7xl mx-auto">
 
-      <h1 className="text-3xl font-extrabold text-brand-green-light mb-10">Resumen Financiero</h1>
-
-      {/* ── HERO: 3 métricas principales ─────────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-12">
-
-        {/* Activos */}
-        <div className="bg-surface-card border border-surface-border rounded-3xl p-7 flex flex-col gap-4">
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-text-muted">Activos totales</p>
-          <BigMoney value={summary.totalAssets} size="xl" color="text-white" />
-          <p className="text-text-muted text-xs">Suma de cuentas de inversión</p>
-        </div>
-
-        {/* Pasivos */}
-        <div className="bg-surface-card border border-surface-border rounded-3xl p-7 flex flex-col gap-4">
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-text-muted">Pasivos totales</p>
-          <BigMoney value={summary.totalLiabilities} size="xl" color="text-red-400" />
-          <p className="text-text-muted text-xs">Deuda total pendiente</p>
-        </div>
-
-        {/* Patrimonio Neto — hero card con acento verde */}
-        <div className="bg-brand-green/5 border border-brand-green/20 rounded-3xl p-7 flex flex-col gap-4 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-brand-green/8 via-transparent to-transparent pointer-events-none" />
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-brand-green relative z-10">Patrimonio neto</p>
-          <div className="relative z-10">
-            <BigMoney
-              value={summary.netWorth}
-              size="xl"
-              color={summary.netWorth < 0 ? 'text-red-400' : 'text-brand-green-light'}
-            />
-          </div>
-          <p className="text-text-muted text-xs relative z-10">Activos menos pasivos</p>
-        </div>
-
-      </div>
+      <h1 className="text-3xl font-extrabold text-brand-green-light mb-6">Resumen Financiero</h1>
 
       {/* ── PANEL DINÁMICO ───────────────────────────────────────────────── */}
       <div className="flex items-center gap-4 mb-6">
@@ -579,7 +584,7 @@ export default function Dashboard() {
         <InstallAppButton />
       </div>
 
-      {activeWidgets.length === 0 ? (
+      {orderedIds.length === 0 ? (
         <div className="bg-surface-card border border-surface-border rounded-3xl p-12 flex flex-col items-center gap-5 text-center">
           <div className="bg-surface-elevated/50 border border-surface-border rounded-2xl p-5">
             <LayoutDashboard size={40} className="text-text-muted" />
@@ -596,12 +601,41 @@ export default function Dashboard() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {activeWidgets.map((key) => (
-            <div key={key} className={key === 'hasMakeMoneyModule' ? 'col-span-full' : ''}>
-              {MODULE_WIDGET_MAP[key]}
-            </div>
-          ))}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          {orderedIds.map((id) => {
+            const fullWidth = WIDGETS.find((w) => w.id === id)?.fullWidth;
+            const isDragging = draggingId === id;
+            const isOver = overId === id && draggingId !== null && draggingId !== id;
+            return (
+              <div
+                key={id}
+                draggable={armedId === id}
+                onDragStart={(e) => {
+                  e.dataTransfer.effectAllowed = 'move';
+                  e.dataTransfer.setData('text/plain', id);
+                  setDragging(id);
+                }}
+                onDragOver={(e) => {
+                  if (!draggingId) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  if (overId !== id) setOverId(id);
+                }}
+                onDragLeave={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node | null) && overId === id) setOverId(null);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  if (draggingId) moveCard(draggingId, id);
+                  endDrag();
+                }}
+                onDragEnd={endDrag}
+                className={`rounded-3xl transition-all duration-200 ${fullWidth ? 'col-span-full' : ''} ${isDragging ? 'opacity-40 scale-[0.98]' : ''} ${isOver ? 'ring-2 ring-brand-green/40 ring-offset-2 ring-offset-surface-base' : ''}`}
+              >
+                {renderWidget(id)}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
