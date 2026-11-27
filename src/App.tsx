@@ -21,7 +21,6 @@ import Investments from './pages/user/Investments';
 import CreditCards from './pages/user/credit-cards/CreditCards';
 import CreditCardDetail from './pages/user/credit-cards/CreditCardDetail';
 import Subscriptions from './pages/user/subscriptions/Subscriptions';
-import SharedSubscriptions from './pages/user/subscriptions/SharedSubscriptions';
 import Loans from './pages/user/loans/Loans';
 import LoanDetail from './pages/user/loans/LoanDetail';
 import LoanSimulator from './pages/user/loans/LoanSimulator';
@@ -83,7 +82,7 @@ function App() {
           </Route>
           <Route element={<ModuleRoute flag="hasSubscriptionsModule" />}>
             <Route path="/subscriptions" element={<Subscriptions />} />
-            <Route path="/subscriptions/shared" element={<SharedSubscriptions />} />
+            <Route path="/subscriptions/shared" element={<Navigate to="/subscriptions?tab=compartidas" replace />} />
           </Route>
           <Route element={<ModuleRoute flag="hasLoansModule" />}>
             <Route path="/loans" element={<Loans />} />

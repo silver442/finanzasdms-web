@@ -25,3 +25,13 @@ export function writePref(key: string, value: string | null) {
     // sin persistencia: la preferencia vive solo en memoria
   }
 }
+
+// Id del usuario en sesión para separar preferencias por cuenta en un mismo navegador
+export function currentUserId(): string | null {
+  try {
+    const user = JSON.parse(localStorage.getItem('user') ?? 'null') as { id?: unknown } | null;
+    return user?.id !== undefined && user.id !== null ? String(user.id) : null;
+  } catch {
+    return null;
+  }
+}
