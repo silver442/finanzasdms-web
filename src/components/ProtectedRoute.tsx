@@ -5,6 +5,7 @@ import { PhoneCall, AlertTriangle, Menu, LogOut } from 'lucide-react';
 import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
 import DomainMigrationBanner from './DomainMigrationBanner';
+import NotificationBell from './NotificationBell';
 
 const API = import.meta.env.VITE_API_URL;
 const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER;
@@ -145,7 +146,15 @@ export default function ProtectedRoute() {
             <Menu size={22} />
           </button>
           <img src="/brand/cashi-logo.png" alt="Cashi" className="h-9 w-auto" />
+          <div className="ml-auto -mr-2">
+            <NotificationBell />
+          </div>
         </header>
+
+        {/* Barra superior — escritorio: campana de notificaciones a la derecha */}
+        <div className="hidden md:flex items-center justify-end px-6 pt-3 shrink-0">
+          <NotificationBell />
+        </div>
 
         <DomainMigrationBanner className="shrink-0 mx-4 mt-3 md:mx-6 md:mt-4" />
 
