@@ -11,7 +11,7 @@ import SubscriptionForm from './SubscriptionForm';
 import HowSharingWorks from './HowSharingWorks';
 import MemberPicker from './MemberPicker';
 import { SharedByMeTable, SharedWithMeTable } from './SharedTables';
-import { ServiceLogo } from './serviceBrand';
+import ServiceLogo from '../../../components/ServiceLogo';
 import {
   API, EMPTY_FORM, FREQ_LABEL, apiMessage, authHeaders, fmt, nextPaymentLabel,
   type PickedMember, type SharedByMe, type SharedMember, type SharedWithMe, type Sub, type SubFormValues,

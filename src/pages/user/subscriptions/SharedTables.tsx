@@ -2,7 +2,7 @@ import { Fragment, useState } from 'react';
 import {
   Check, CheckCircle2, ChevronDown, ChevronUp, Clock, Trash2, UserPlus, Users, XCircle,
 } from 'lucide-react';
-import { ServiceLogo } from './serviceBrand';
+import ServiceLogo from '../../../components/ServiceLogo';
 import {
   FREQ_LABEL, fmt, nextPaymentLabel,
   type MemberStatus, type SharedByMe, type SharedMember, type SharedWithMe,
