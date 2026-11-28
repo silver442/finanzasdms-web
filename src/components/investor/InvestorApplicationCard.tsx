@@ -17,7 +17,7 @@ export default function InvestorApplicationCard({ status }: InvestorApplicationC
   if (!isPending && !isRejected && !status.acceptingInvestors) return null;
 
   return (
-    <section className="bg-surface-card/60 backdrop-blur-md border border-white/5 rounded-2xl shadow-card p-5 mb-8">
+    <section className="bg-surface-card/60 backdrop-blur-md border border-white/5 rounded-2xl shadow-card p-5">
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <span className="bg-brand-green/10 border border-brand-green/20 rounded-xl p-3 self-start shrink-0">
           <HandCoins size={24} className="text-brand-green-light" />

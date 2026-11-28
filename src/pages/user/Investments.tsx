@@ -1,274 +1,121 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
+import { ArrowRight, Coins, Gift, Info, TrendingUp } from 'lucide-react';
 import InvestorSection from '../../components/investor/InvestorSection';
+import ReferralCardView from '../../components/referrals/ReferralCardView';
+import CategoryTabs from '../../components/referrals/CategoryTabs';
+import HowItWorksModal from '../../components/referrals/HowItWorksModal';
 import {
-  TrendingUp, ExternalLink, Star, Zap, X, Send, Copy, Bitcoin,
-} from 'lucide-react';
-
-interface ReferralCard {
-  id: string;
-  brand: string;
-  title: string;
-  description: string;
-  code: string;
-  link: string;
-}
-
-const CARD_STYLES = [
-  { bg: 'bg-sky-500/10',     border: 'border-sky-500/30',     accent: 'text-sky-400',     badge: 'bg-sky-500/20 text-sky-300 border-sky-500/30' },
-  { bg: 'bg-brand-green/10', border: 'border-brand-green/30', accent: 'text-brand-green-light', badge: 'bg-brand-green/20 text-brand-green-light border-brand-green/30' },
-  { bg: 'bg-purple-500/10',  border: 'border-purple-500/30',  accent: 'text-purple-400',  badge: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
-  { bg: 'bg-violet-500/10',  border: 'border-violet-500/30',  accent: 'text-violet-400',  badge: 'bg-violet-500/20 text-violet-300 border-violet-500/30' },
-  { bg: 'bg-brand-violet/10',   border: 'border-brand-violet/30',   accent: 'text-brand-violet',   badge: 'bg-brand-violet/20 text-brand-violet border-brand-violet/30' },
-  { bg: 'bg-rose-500/10',    border: 'border-rose-500/30',    accent: 'text-rose-400',    badge: 'bg-rose-500/20 text-rose-300 border-rose-500/30' },
-];
-
-const API = import.meta.env.VITE_API_URL;
-
-function authHeaders() {
-  return { Authorization: `Bearer ${localStorage.getItem('token')}` };
-}
+  API, CATEGORY_META, authHeaders, type ReferralCard, type ReferralCategory,
+} from '../../components/referrals/referralTypes';
 
 export default function Investments() {
   const [cards, setCards] = useState<ReferralCard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  const [showReportModal, setShowReportModal] = useState(false);
-  const [platform, setPlatform] = useState('');
-  const [notes, setNotes] = useState('');
-  const [isSending, setIsSending] = useState(false);
+  const [category, setCategory] = useState<ReferralCategory | 'ALL'>('ALL');
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
 
   const fetchCards = useCallback(async () => {
     try {
       const { data } = await axios.get<ReferralCard[]>(`${API}/referral-cards`, { headers: authHeaders() });
       setCards(data);
     } catch {
-      toast.error('No se pudieron cargar las tarjetas de referidos');
+      toast.error('No se pudieron cargar las promociones');
     } finally {
       setIsLoading(false);
     }
   }, []);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- sincroniza con la API al montar
   useEffect(() => { void fetchCards(); }, [fetchCards]);
 
-  const copyCode = (code: string) => {
-    void navigator.clipboard.writeText(code);
-    toast.success('Código copiado');
-  };
+  const visible = useMemo(
+    () => (category === 'ALL' ? cards : cards.filter((c) => c.category === category)),
+    [cards, category],
+  );
 
-  const handleReport = async () => {
-    if (!platform.trim()) {
-      toast.error('Indica en qué plataforma invertiste');
-      return;
-    }
-    setIsSending(true);
-    try {
-      const { data } = await axios.post<{ pointsEarned: number; totalPoints: number }>(
-        `${API}/users/report-investment`,
-        {},
-        { headers: authHeaders() },
-      );
-      toast.success(`+${data.pointsEarned} puntos de confianza añadidos. Total: ${data.totalPoints} pts`);
-      setShowReportModal(false);
-      setPlatform('');
-      setNotes('');
-    } catch {
-      toast.error('No se pudo registrar tu inversión');
-    } finally {
-      setIsSending(false);
-    }
-  };
-
-  const inputCls = 'w-full bg-surface-base border border-surface-border text-white rounded-lg px-4 py-2.5 focus:outline-none focus:border-brand-green transition-colors placeholder:text-text-muted';
+  // En escritorio van 3 por fila; si la última fila queda con 2, cada una ocupa media fila
+  const lastRowStart = visible.length % 3 === 2 ? visible.length - 2 : visible.length;
 
   return (
-    <div className="p-8 text-white font-sans max-w-6xl mx-auto">
+    <div className="p-4 sm:p-8 text-white font-sans max-w-7xl mx-auto space-y-5">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-extrabold text-white flex items-center gap-3">
+      <div>
+        <h1 className="text-3xl font-extrabold text-text-primary flex items-center gap-3">
           <TrendingUp size={32} className="text-brand-green-light" />
           Gana Dinero
         </h1>
-        <p className="text-text-secondary mt-2">
-          Plataformas recomendadas para hacer crecer tu patrimonio
+        <p className="text-text-secondary mt-1">
+          Descubre beneficios, recompensas y oportunidades financieras para hacer crecer tu patrimonio.
         </p>
       </div>
 
-      {/* Crowdlending: solicitud para ser inversionista o panel del inversionista */}
+      {/* Crowdlending: solicitud para ser inversionista o acceso a su sección */}
       <InvestorSection />
 
-      {/* ── Banner de gamificación cruzada ── */}
-      <div className="mb-8 bg-brand-green/10 border border-brand-green/30 rounded-2xl px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-        <div className="w-10 h-10 rounded-xl bg-brand-green/20 flex items-center justify-center shrink-0">
-          <Zap size={20} className="text-brand-green-light" />
+      {/* Hero */}
+      <section className="relative overflow-hidden bg-gradient-to-r from-brand-green/20 via-surface-card/70 to-brand-green/10 border border-brand-green/30 rounded-2xl px-5 py-4 flex flex-col md:flex-row md:items-center gap-4 shadow-card">
+        <div className="relative w-20 h-14 shrink-0 hidden sm:block" aria-hidden>
+          <Gift size={48} strokeWidth={1.5} className="absolute left-0 top-0 text-brand-green-light" />
+          <Coins size={32} strokeWidth={1.5} className="absolute right-0 bottom-0 text-amber-400" />
         </div>
-        <div className="flex-1">
-          <p className="text-brand-green-light font-bold">¿Ya invertiste? Súbete de nivel en Cashi</p>
-          <p className="text-brand-green-light/70 text-sm mt-0.5">
-            Envía tu comprobante y gana <strong>+10 puntos de confianza</strong> para avanzar en el sistema de niveles.
+        <div className="hidden md:block w-px self-stretch bg-white/10" />
+        <div className="flex-1 min-w-0">
+          <h2 className="text-xl font-extrabold text-text-primary">Tu dinero, más oportunidades</h2>
+          <p className="text-text-secondary text-sm mt-0.5 max-w-xl">
+            Explora promociones, bonos de bienvenida y beneficios de distintas plataformas financieras desde Cashi.
           </p>
         </div>
         <button
-          onClick={() => setShowReportModal(true)}
-          className="shrink-0 flex items-center gap-2 bg-brand-green hover:bg-brand-green-light text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-brand-green/20"
+          type="button"
+          onClick={() => setShowHowItWorks(true)}
+          className="shrink-0 inline-flex items-center justify-center gap-2 border border-brand-green-light/60 hover:bg-brand-green/15 text-text-primary font-semibold rounded-xl px-5 py-2.5 transition-colors"
         >
-          <Send size={16} />
-          Reportar Inversión
+          <Info size={18} /> ¿Cómo funciona? <ArrowRight size={16} />
         </button>
-      </div>
+      </section>
 
-      {/* ── Catálogo de tarjetas ── */}
-      {isLoading ? (
-        <div className="flex justify-center py-20 text-text-secondary">Cargando plataformas...</div>
-      ) : cards.length === 0 ? (
-        <div className="text-center py-20 text-text-muted">
-          <TrendingUp size={48} className="mx-auto mb-4 opacity-30" />
-          <p>No hay tarjetas de referidos publicadas aún.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-          {cards.map((card, idx) => {
-            const style = CARD_STYLES[idx % CARD_STYLES.length];
-            return (
-              <div
-                key={card.id}
-                className={`${style.bg} border ${style.border} rounded-2xl p-5 flex flex-col gap-4 hover:scale-[1.01] transition-transform`}
-              >
-                {/* Card header */}
-                <div className="flex items-start gap-3">
-                  <div className="w-11 h-11 rounded-xl bg-surface-card border border-surface-border flex items-center justify-center shrink-0">
-                    <TrendingUp size={22} className={style.accent} />
-                  </div>
-                  <div>
-                    <h3 className="text-white font-extrabold text-base leading-tight">{card.brand}</h3>
-                    <p className={`text-xs mt-0.5 font-semibold ${style.accent}`}>{card.title}</p>
-                  </div>
-                </div>
+      {/* Promociones */}
+      <section className="space-y-4">
+        <h2 className="text-xl font-extrabold text-text-primary">Promociones y recompensas</h2>
+        <CategoryTabs value={category} onChange={setCategory} />
 
-                {/* Descripción */}
-                <div className="flex gap-2.5 flex-1">
-                  <Star size={14} className="text-brand-violet shrink-0 mt-0.5" />
-                  <p className="text-text-primary text-xs leading-relaxed">{card.description}</p>
-                </div>
-
-                {/* Código de referido */}
-                <button
-                  onClick={() => copyCode(card.code)}
-                  className={`flex items-center justify-between gap-2 border rounded-xl px-4 py-2.5 transition-colors hover:opacity-80 ${style.badge}`}
-                >
-                  <span className="font-mono font-bold text-sm tracking-wider">{card.code}</span>
-                  <Copy size={14} className="shrink-0 opacity-70" />
-                </button>
-
-                {/* CTA */}
-                <a
-                  href={card.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 bg-surface-card hover:bg-surface-elevated border border-surface-border hover:border-surface-500 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-all"
-                >
-                  <ExternalLink size={15} />
-                  Ver Promoción
-                </a>
-              </div>
-            );
-          })}
-
-          {/* Cripto — Próximamente */}
-          <div className="relative bg-surface-card/50 border border-surface-border/50 rounded-2xl p-5 flex flex-col gap-4 overflow-hidden">
-            <div className="absolute inset-0 bg-black/60 rounded-2xl flex flex-col items-center justify-center gap-3 z-10">
-              <span className="bg-violet-500/20 border border-violet-500/40 text-violet-300 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-                Próximamente
-              </span>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="w-11 h-11 rounded-xl bg-surface-elevated flex items-center justify-center shrink-0">
-                <Bitcoin size={22} className="text-orange-400" />
-              </div>
-              <div>
-                <h3 className="text-white font-extrabold text-base">Cripto</h3>
-                <p className="text-xs text-orange-400 font-semibold">Portafolio de criptomonedas</p>
-              </div>
-            </div>
-            <p className="text-text-secondary text-xs">Próximamente podrás registrar y rastrear tu portafolio cripto.</p>
-            <button disabled className="flex items-center justify-center gap-2 bg-surface-elevated border border-surface-border text-text-muted px-4 py-2.5 rounded-xl font-bold text-sm cursor-not-allowed">
-              Ver Cripto
-            </button>
+        {isLoading ? (
+          <div className="flex justify-center py-20 text-text-secondary">Cargando promociones...</div>
+        ) : visible.length === 0 ? (
+          <div className="text-center py-16 text-text-muted bg-surface-card/40 border border-white/5 rounded-2xl">
+            <Gift size={44} className="mx-auto mb-3 opacity-30" />
+            <p>
+              {category === 'ALL'
+                ? 'Aún no hay promociones publicadas.'
+                : `Aún no hay promociones de ${CATEGORY_META[category].plural}.`}
+            </p>
           </div>
-        </div>
-      )}
-
-      {/* ── Modal: Reportar Inversión ── */}
-      {showReportModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-surface-card border border-surface-border rounded-2xl shadow-2xl w-full max-w-md">
-            {/* Modal header */}
-            <div className="flex justify-between items-center p-6 border-b border-surface-border">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <Zap size={18} className="text-brand-green-light" />
-                Reportar Inversión
-              </h3>
-              <button onClick={() => setShowReportModal(false)} className="text-text-secondary hover:text-white transition-colors">
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Modal body */}
-            <div className="p-6 space-y-4">
-              <div className="bg-brand-green/10 border border-brand-green/20 rounded-xl p-4 text-sm">
-                <p className="text-brand-green-light font-bold mb-0.5">+10 puntos de confianza</p>
-                <p className="text-brand-green-light/70">
-                  Al reportar tu inversión, recibirás puntos que te ayudarán a subir de nivel y obtener mejores condiciones de crédito.
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm text-text-primary font-medium mb-1.5">
-                  ¿En qué plataforma invertiste? <span className="text-red-400">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={platform}
-                  onChange={(e) => setPlatform(e.target.value)}
-                  className={inputCls}
-                  placeholder="Ej: Cetes Directo, Bitso, Nu..."
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-text-primary font-medium mb-1.5">
-                  Notas adicionales <span className="text-text-muted">(opcional)</span>
-                </label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className={`${inputCls} resize-none h-24`}
-                  placeholder="Monto aproximado, tipo de instrumento, etc."
-                />
-              </div>
-            </div>
-
-            {/* Modal footer */}
-            <div className="p-6 border-t border-surface-border flex gap-3 justify-end">
-              <button
-                onClick={() => setShowReportModal(false)}
-                className="px-4 py-2 rounded-lg text-text-primary hover:text-white transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => void handleReport()}
-                disabled={isSending}
-                className="flex items-center gap-2 bg-brand-green hover:bg-brand-green-light text-white px-5 py-2 rounded-lg font-bold transition-colors disabled:opacity-50"
-              >
-                <Send size={15} />
-                {isSending ? 'Enviando...' : 'Enviar y ganar puntos'}
-              </button>
-            </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4">
+            {visible.map((card, i) => {
+              const wide = i >= lastRowStart;
+              return (
+                <div key={card.id} className={wide ? 'xl:col-span-3' : 'xl:col-span-2'}>
+                  <ReferralCardView card={card} wide={wide} />
+                </div>
+              );
+            })}
           </div>
-        </div>
-      )}
+        )}
+      </section>
+
+      {/* Aviso legal */}
+      <footer className="flex gap-3 items-start bg-surface-card/60 border border-white/5 rounded-2xl px-5 py-3 text-sm text-text-secondary">
+        <Info size={20} className="shrink-0 mt-0.5" />
+        <p>
+          Algunos enlaces contienen códigos de referido por los que Cashi puede recibir una comisión. Las promociones están
+          sujetas a los términos y condiciones de cada institución. Las inversiones implican riesgos y no garantizan rendimientos.
+        </p>
+      </footer>
+
+      {showHowItWorks && <HowItWorksModal onClose={() => setShowHowItWorks(false)} />}
     </div>
   );
 }

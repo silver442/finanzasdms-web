@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import {
   Plus, CreditCard, Calendar, CalendarDays, Search, CircleCheck, Clock,
   ChartColumn, Trash2, RefreshCw, Pencil, SquareCheck, Square, CircleDot,
+  ArrowUp, ArrowDown, ArrowUpDown,
 } from 'lucide-react';
 import BankLogo from '../../../components/credit-cards/BankLogo';
 import CreditCardVisual from '../../../components/credit-cards/CreditCardVisual';
@@ -13,6 +14,40 @@ import CardFormModal from './CardFormModal';
 import { fmt, fmtDayMonth, type CreditCardItem } from '../../../utils/creditCards';
 
 type StatusTab = 'ALL' | 'PENDING' | 'PAID';
+
+type SortKey = 'periodStart' | 'cutoffDate' | 'dueDate' | 'debt';
+type SortDir = 'asc' | 'desc';
+interface SortState { key: SortKey; dir: SortDir }
+
+const SORT_STORAGE_KEY = 'creditCards.sort';
+
+const SORT_LABELS: Record<SortKey, string> = {
+  periodStart: 'Fecha de inicio',
+  cutoffDate: 'Fecha de corte',
+  dueDate: 'Fecha límite de pago',
+  debt: 'Deuda',
+};
+
+// Primer clic: fechas de la más próxima a la más lejana; deuda de mayor a menor
+const DEFAULT_DIR: Record<SortKey, SortDir> = {
+  periodStart: 'asc', cutoffDate: 'asc', dueDate: 'asc', debt: 'desc',
+};
+
+function loadSort(): SortState | null {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SORT_STORAGE_KEY) ?? 'null') as SortState | null;
+    if (parsed && parsed.key in SORT_LABELS && (parsed.dir === 'asc' || parsed.dir === 'desc')) return parsed;
+  } catch { /* preferencia corrupta o storage bloqueado */ }
+  return null;
+}
+
+/** Valor numérico para ordenar; null = vacío/ inválido (siempre al final). */
+function sortValue(card: CreditCardItem, key: SortKey): number | null {
+  const raw = card.statement?.[key];
+  if (raw === null || raw === undefined || raw === '') return null;
+  const value = key === 'debt' ? Number(raw) : new Date(raw as string).getTime();
+  return Number.isFinite(value) ? value : null;
+}
 
 const API = import.meta.env.VITE_API_URL;
 
@@ -31,6 +66,17 @@ export default function CreditCards() {
 
   const [tab, setTab] = useState<StatusTab>('ALL');
   const [search, setSearch] = useState('');
+  const [sort, setSort] = useState<SortState | null>(loadSort);
+
+  useEffect(() => {
+    try {
+      if (sort) localStorage.setItem(SORT_STORAGE_KEY, JSON.stringify(sort));
+      else localStorage.removeItem(SORT_STORAGE_KEY);
+    } catch { /* storage no disponible */ }
+  }, [sort]);
+
+  const toggleSort = (key: SortKey) => setSort(prev =>
+    prev?.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: DEFAULT_DIR[key] });
 
   const fetchCards = useCallback(async () => {
     try {
@@ -66,10 +112,18 @@ export default function CreditCards() {
 
   const visibleCards = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return cards
+    const filtered = cards
       .filter(c => tab === 'ALL' || (tab === 'PAID' ? c.statement.isPaid : !c.statement.isPaid))
       .filter(c => !term || c.name.toLowerCase().includes(term));
-  }, [cards, tab, search]);
+    if (!sort) return filtered;
+    const sign = sort.dir === 'asc' ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      const va = sortValue(a, sort.key);
+      const vb = sortValue(b, sort.key);
+      if (va === null || vb === null) return va === vb ? 0 : va === null ? 1 : -1;
+      return (va - vb) * sign;
+    });
+  }, [cards, tab, search, sort]);
 
   const upcomingCutoffs = useMemo(
     () => [...cards]
@@ -113,6 +167,29 @@ export default function CreditCards() {
   const paidMark = (isPaid: boolean) => isPaid
     ? <SquareCheck size={22} className="text-emerald-400" aria-label="Pagado" />
     : <Square size={22} className="text-text-muted" aria-label="Pendiente" />;
+
+  const sortHeader = (key: SortKey, label: string, align: 'left' | 'right' = 'left') => {
+    const active = sort?.key === key;
+    const Icon = !active ? ArrowUpDown : sort.dir === 'asc' ? ArrowUp : ArrowDown;
+    return (
+      <th
+        className={`px-3 py-3 font-semibold ${align === 'right' ? 'text-right' : ''}`}
+        aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      >
+        <button
+          type="button"
+          onClick={() => toggleSort(key)}
+          className={`inline-flex items-center gap-1 uppercase tracking-wider transition-colors ${
+            active ? 'text-brand-green-light' : 'hover:text-text-primary'
+          } ${align === 'right' ? 'flex-row-reverse' : ''}`}
+          title={`Ordenar por ${label.toLowerCase()}`}
+        >
+          {label}
+          <Icon size={13} className={active ? '' : 'opacity-40'} />
+        </button>
+      </th>
+    );
+  };
 
   const metrics = [
     { icon: CreditCard, label: 'Tarjetas registradas', value: String(cards.length) },
@@ -213,6 +290,35 @@ export default function CreditCards() {
                 </div>
               </div>
 
+              {/* Ordenar por (móvil) */}
+              <div className="md:hidden flex items-center gap-2 mb-3">
+                <label htmlFor="card-sort" className="text-xs text-text-secondary whitespace-nowrap">Ordenar por</label>
+                <select
+                  id="card-sort"
+                  value={sort?.key ?? ''}
+                  onChange={e => {
+                    const key = e.target.value as SortKey | '';
+                    setSort(key ? { key, dir: sort?.dir ?? DEFAULT_DIR[key] } : null);
+                  }}
+                  className="flex-1 min-w-0 bg-surface-base/60 border border-white/5 text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:border-brand-green transition-colors"
+                >
+                  <option value="">Sin orden</option>
+                  {(Object.keys(SORT_LABELS) as SortKey[]).map(key => (
+                    <option key={key} value={key}>{SORT_LABELS[key]}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => sort && toggleSort(sort.key)}
+                  disabled={!sort}
+                  className="flex items-center gap-1 bg-surface-base/60 border border-white/5 text-sm rounded-xl px-3 py-2 text-text-secondary hover:text-white transition-colors disabled:opacity-40"
+                  title="Invertir dirección"
+                >
+                  {sort?.dir === 'desc' ? <ArrowDown size={15} /> : <ArrowUp size={15} />}
+                  {sort?.dir === 'desc' ? 'Desc' : 'Asc'}
+                </button>
+              </div>
+
               {visibleCards.length === 0 ? (
                 <p className="text-center text-text-muted py-10 text-sm">No hay tarjetas que coincidan.</p>
               ) : (
@@ -222,11 +328,11 @@ export default function CreditCards() {
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="text-text-secondary text-xs uppercase tracking-wider">
-                          <th className="px-3 py-3 font-semibold">Fecha de inicio</th>
-                          <th className="px-3 py-3 font-semibold">Fecha de corte</th>
+                          {sortHeader('periodStart', SORT_LABELS.periodStart)}
+                          {sortHeader('cutoffDate', SORT_LABELS.cutoffDate)}
                           <th className="px-3 py-3 font-semibold">Tarjeta de crédito</th>
-                          <th className="px-3 py-3 font-semibold">Fecha límite de pago</th>
-                          <th className="px-3 py-3 font-semibold text-right">Deuda</th>
+                          {sortHeader('dueDate', SORT_LABELS.dueDate)}
+                          {sortHeader('debt', SORT_LABELS.debt, 'right')}
                           <th className="px-3 py-3 font-semibold text-center">Pagado</th>
                           <th className="px-1 py-3 w-16" />
                         </tr>
