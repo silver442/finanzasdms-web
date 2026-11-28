@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Fragment, useState, useMemo, useEffect } from 'react';
+import { Fragment, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -50,6 +50,10 @@ const CLABE_BANK_CODES: Record<string, string> = {
 const API = import.meta.env.VITE_API_URL;
 const DEFAULT_CREDIT_LIMIT = 1000;
 const DEFAULT_RATE = 50;
+// Opciones de plazo (meses); se recortan al plazo máximo del nivel del usuario
+const TERM_CHOICES = [1, 2, 3, 6, 9, 12, 18, 24];
+const FAMILY_MAX_TERM = 24;
+const DEFAULT_TERM = 6;
 const HOUSING_OPTIONS = ['Propia', 'Rentada', 'Familiar'];
 const WHATSAPP_URL = `https://wa.me/${import.meta.env.VITE_WHATSAPP_NUMBER}?text=Verificaci%C3%B3n+de+identidad+Cashi`;
 
@@ -380,15 +384,20 @@ export default function LoanRequest() {
   const { creditLimit, currentRate } = useMemo(() => getUserDefaults(), []);
 
   const isFamiliar = Boolean(getFamilyCode());
-  const availableTerms = isFamiliar ? [1, 2, 3, 6, 9, 12, 18, 24] : [1, 2, 3, 6];
   const userLevel = useMemo(() => getUserLevel(), []);
-  // Frecuencias permitidas para el nivel del usuario (configuradas por el SUPER_ADMIN)
+  // Plazo máximo y frecuencias del nivel del usuario (configurados por el SUPER_ADMIN en Edición de Préstamos)
   const { levels } = useLoanLevels();
+  const levelRule = levels.find((l) => l.level === userLevel);
+  // Trato familiar: sin tope de nivel (igual que el backend)
+  const maxTerm = isFamiliar ? FAMILY_MAX_TERM : Math.max(levelRule?.term ?? 1, 1);
+  const availableTerms = useMemo(() => {
+    const terms = TERM_CHOICES.filter((m) => m <= maxTerm);
+    return terms.includes(maxTerm) ? terms : [...terms, maxTerm];
+  }, [maxTerm]);
   const availableFreqs = useMemo<Frequency[]>(() => {
-    const rule = levels.find((l) => l.level === userLevel);
-    const freqs = rule?.frequencies.map((f) => FREQUENCY_LABEL[f]) ?? [];
+    const freqs = levelRule?.frequencies.map((f) => FREQUENCY_LABEL[f]) ?? [];
     return freqs.length > 0 ? freqs : ['Semanal'];
-  }, [levels, userLevel]);
+  }, [levelRule]);
 
   const [step, setStep] = useState(1);
   const [freqChoice, setFreq] = useState<Frequency | null>(null);
@@ -399,7 +408,7 @@ export default function LoanRequest() {
   const [form, setForm] = useState({
     concept: '',
     amount: '',
-    termMonths: '6',
+    termMonths: String(DEFAULT_TERM),
     phone: '',
     income: '',
     expenses: '',
@@ -409,12 +418,6 @@ export default function LoanRequest() {
     referralCode: '',
     disbursementAccount: '',
   });
-  useEffect(() => {
-    if (!isFamiliar && parseInt(form.termMonths, 10) > 6) {
-      setForm(f => ({ ...f, termMonths: '6' }));
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [acceptPrivacy, setAcceptPrivacy] = useState(false);
@@ -424,7 +427,8 @@ export default function LoanRequest() {
 
   // ── Derived financial values ──────────────────────────────────────────────
   const amountN = parseFloat(form.amount) || 0;
-  const termN = parseInt(form.termMonths, 10) || 0;
+  // Si el plazo elegido rebasa el máximo del nivel (p. ej. al cargar la configuración), se usa el máximo
+  const termN = Math.min(parseInt(form.termMonths, 10) || 0, maxTerm);
   const isOverLimit = creditLimit > 0 && amountN > creditLimit;
   const timeFactor = termN >= 12 ? termN / 12 : 1;
   const interest = amountN > 0 && termN > 0 ? amountN * (currentRate / 100) * timeFactor : 0;
@@ -461,7 +465,6 @@ export default function LoanRequest() {
   const endDate = rows.length > 0 ? rows[rows.length - 1].dueDate : null;
 
   // ── Step validation ───────────────────────────────────────────────────────
-  const maxTerm = isFamiliar ? 24 : 6;
   const step1Valid = form.concept.trim().length > 0 && amountN > 0 && !isOverLimit && termN > 0 && termN <= maxTerm;
   const phoneValid = /^\d{10}$/.test(form.phone);
   const clabeValid = form.disbursementAccount.length === 18;
@@ -496,7 +499,7 @@ export default function LoanRequest() {
   // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     const amount = parseFloat(form.amount);
-    const termMonths = parseInt(form.termMonths, 10);
+    const termMonths = termN;
     const income = parseFloat(form.income);
     const expenses = parseFloat(form.expenses);
 
@@ -617,7 +620,7 @@ export default function LoanRequest() {
                     Plazo <span className="text-red-400">*</span>
                   </label>
                   <select
-                    value={form.termMonths}
+                    value={String(termN)}
                     onChange={e => setForm(f => ({ ...f, termMonths: e.target.value }))}
                     className={`${inputCls} cursor-pointer`}
                   >

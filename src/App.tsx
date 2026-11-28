@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import Landing from './pages/public/Landing';
@@ -18,6 +19,15 @@ import AccountMonitor from './pages/user/AccountMonitor';
 import ModuleStore from './pages/user/ModuleStore';
 import Crypto from './pages/user/Crypto';
 import Investments from './pages/user/Investments';
+import InvestorApplicationPage from './pages/user/investments/InvestorApplicationPage';
+import InvestorLayout from './pages/investor/InvestorLayout';
+import InvestorWallet from './pages/investor/InvestorWallet';
+import InvestorLend from './pages/investor/InvestorLend';
+import InvestorLendDetail from './pages/investor/InvestorLendDetail';
+import InvestorMyLoans from './pages/investor/InvestorMyLoans';
+import InvestorMovements from './pages/investor/InvestorMovements';
+import InvestorCalendar from './pages/investor/InvestorCalendar';
+import InvestorProfile from './pages/investor/InvestorProfile';
 import CreditCards from './pages/user/credit-cards/CreditCards';
 import CreditCardDetail from './pages/user/credit-cards/CreditCardDetail';
 import Subscriptions from './pages/user/subscriptions/Subscriptions';
@@ -38,10 +48,15 @@ import AdminReferrals from './pages/admin/AdminReferrals';
 import AdminUsers from './pages/admin/AdminUsers';
 import AdminAuditLogs from './pages/admin/AdminAuditLogs';
 import AdminLoanLevels from './pages/admin/loan-levels/AdminLoanLevels';
+import AdminInvestorPayouts from './pages/admin/AdminInvestorPayouts';
+import AdminPlatformConfig from './pages/admin/AdminPlatformConfig';
+import AdminInvestorApplications from './pages/admin/AdminInvestorApplications';
+import AdminWallets from './pages/admin/AdminWallets';
 import ModulePlaceholder from './pages/user/ModulePlaceholder';
 import CompoundInterest from './pages/user/compound-interest/CompoundInterest';
 import Budget from './pages/user/budget/Budget';
-import { isSuperAdminRole } from './utils/roles';
+import { isInvestorAreaRole, isSuperAdminRole } from './utils/roles';
+import { syncRoleFromServer } from './utils/userSync';
 import { getUserFlags, type UserFlags } from './config/navigation';
 
 function ModuleRoute({ flag }: { flag: keyof UserFlags }) {
@@ -52,6 +67,26 @@ function SuperAdminRoute() {
   let role: unknown = null;
   try { role = (JSON.parse(localStorage.getItem('user') ?? 'null') as Record<string, unknown> | null)?.role; } catch { /* sin user */ }
   return isSuperAdminRole(typeof role === 'string' ? role : null) ? <Outlet /> : <Navigate to="/dashboard" replace />;
+}
+
+function getStoredRole(): string | null {
+  try {
+    const role = (JSON.parse(localStorage.getItem('user') ?? 'null') as Record<string, unknown> | null)?.role;
+    return typeof role === 'string' ? role : null;
+  } catch { return null; }
+}
+
+// Sección Inversionista: si el rol guardado aún no es INVESTOR (recién aprobado), se confirma con el servidor antes de expulsar
+function InvestorRoute() {
+  const [role, setRole] = useState<string | null | undefined>(() => (isInvestorAreaRole(getStoredRole()) ? getStoredRole() : undefined));
+
+  useEffect(() => {
+    if (role !== undefined) return;
+    void syncRoleFromServer().then(setRole);
+  }, [role]);
+
+  if (role === undefined) return null;
+  return isInvestorAreaRole(role) ? <Outlet /> : <Navigate to="/dashboard" replace />;
 }
 
 function App() {
@@ -109,10 +144,29 @@ function App() {
             <Route path="/admin/users" element={<AdminUsers />} />
             <Route path="/admin/audit-logs" element={<AdminAuditLogs />} />
             <Route path="/admin/loan-levels" element={<AdminLoanLevels />} />
+            <Route path="/admin/investor-payouts" element={<AdminInvestorPayouts />} />
+            <Route path="/admin/investor-applications" element={<AdminInvestorApplications />} />
+            <Route path="/admin/platform-config" element={<AdminPlatformConfig />} />
+            <Route path="/admin/wallets" element={<AdminWallets />} />
           </Route>
           <Route path="/profile" element={<Profile />} />
+          <Route element={<InvestorRoute />}>
+            <Route element={<InvestorLayout />}>
+              <Route path="/investor/wallet" element={<InvestorWallet />} />
+              <Route path="/investor/lend" element={<InvestorLend />} />
+              <Route path="/investor/lend/:id" element={<InvestorLendDetail />} />
+              <Route path="/investor/loans" element={<InvestorMyLoans />} />
+              <Route path="/investor/movements" element={<InvestorMovements />} />
+              <Route path="/investor/calendar" element={<InvestorCalendar />} />
+              <Route path="/investor/profile" element={<InvestorProfile />} />
+            </Route>
+            {/* Rutas anteriores (avisos y enlaces ya enviados) */}
+            <Route path="/investor" element={<Navigate to="/investor/wallet" replace />} />
+            <Route path="/investor/requests" element={<Navigate to="/investor/lend" replace />} />
+          </Route>
           <Route element={<ModuleRoute flag="hasMakeMoneyModule" />}>
             <Route path="/investments" element={<Investments />} />
+            <Route path="/investments/apply" element={<InvestorApplicationPage />} />
           </Route>
           {/* Módulos aún sin contenido: página en blanco hasta que se construyan */}
           <Route element={<ModuleRoute flag="hasStockMarketModule" />}>
@@ -135,7 +189,8 @@ function App() {
         </Route>
         
         {/* Ruta comodín para URLs que de verdad no existen */}
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        {/* Ruta desconocida: con sesión se vuelve al inicio de la app; sin sesión, al login */}
+        <Route path="*" element={<Navigate to={localStorage.getItem('token') ? '/dashboard' : '/login'} replace />} />
       </Routes>
     </BrowserRouter>
   );
