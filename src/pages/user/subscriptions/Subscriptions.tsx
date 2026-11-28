@@ -11,7 +11,8 @@ import SubscriptionForm from './SubscriptionForm';
 import HowSharingWorks from './HowSharingWorks';
 import MemberPicker from './MemberPicker';
 import { SharedByMeTable, SharedWithMeTable } from './SharedTables';
-import { ServiceLogo } from './serviceBrand';
+import ServiceLogo from '../../../components/ServiceLogo';
+import DangerConfirmModal from '../../../components/DangerConfirmModal';
 import {
   API, EMPTY_FORM, FREQ_LABEL, apiMessage, authHeaders, fmt, nextPaymentLabel,
   type PickedMember, type SharedByMe, type SharedMember, type SharedWithMe, type Sub, type SubFormValues,
@@ -25,6 +26,12 @@ interface CardOption {
 
 // La lista, el formulario y la explicación comparten el mismo espacio: son "páginas internas" del módulo
 type View = { kind: 'list' } | { kind: 'create' } | { kind: 'edit'; sub: Sub } | { kind: 'howItWorks' };
+
+// Acción destructiva en espera de confirmación (modal propio en lugar de window.confirm)
+type PendingConfirm =
+  | { kind: 'delete'; id: string; name: string }
+  | { kind: 'stopSharing'; item: SharedByMe }
+  | { kind: 'removeMember'; member: SharedMember };
 
 // Pestañas tipo hoja de cálculo; la activa vive en la URL (?tab=) para poder enlazarla
 const TABS = [
@@ -161,6 +168,8 @@ export default function Subscriptions() {
   const [view, setView] = useState<View>({ kind: 'list' });
   const [isSaving, setIsSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm | null>(null);
+  const [isConfirming, setIsConfirming] = useState(false);
   const topRef = useRef<HTMLDivElement>(null);
 
   // Modal de compartir
@@ -308,7 +317,6 @@ export default function Subscriptions() {
   };
 
   const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`¿Eliminar la suscripción "${name}"?`)) return;
     setDeletingId(id);
     try {
       await axios.delete(`${API}/scheduled-expenses/${id}`, { headers: authHeaders() });
@@ -323,7 +331,6 @@ export default function Subscriptions() {
 
   const handleStopSharing = async (item: SharedByMe) => {
     const name = item.scheduledExpense.name;
-    if (!confirm(`¿Dejar de compartir "${name}"? Los miembros ya no podrán verla.`)) return;
     try {
       await axios.delete(`${API}/shared-subscriptions/${item.id}`, { headers: authHeaders() });
       toast.success(`Dejaste de compartir "${name}"`);
@@ -335,13 +342,26 @@ export default function Subscriptions() {
 
   const handleRemoveMember = async (member: SharedMember) => {
     const who = member.user?.name ?? member.email;
-    if (!confirm(`¿Remover a ${who} de esta suscripción compartida?`)) return;
     try {
       await axios.delete(`${API}/shared-subscriptions/members/${member.id}`, { headers: authHeaders() });
       toast.success(`${who} removido`);
       void fetchSubs();
     } catch {
       toast.error('Error al remover el miembro');
+    }
+  };
+
+  // El modal se queda abierto (con estado de carga) hasta que responde la API
+  const runPendingConfirm = async () => {
+    if (!pendingConfirm) return;
+    setIsConfirming(true);
+    try {
+      if (pendingConfirm.kind === 'delete') await handleDelete(pendingConfirm.id, pendingConfirm.name);
+      else if (pendingConfirm.kind === 'stopSharing') await handleStopSharing(pendingConfirm.item);
+      else await handleRemoveMember(pendingConfirm.member);
+    } finally {
+      setIsConfirming(false);
+      setPendingConfirm(null);
     }
   };
 
@@ -437,7 +457,7 @@ export default function Subscriptions() {
                     <RowMenu
                       disabled={deletingId === sub.id}
                       onEdit={() => openView({ kind: 'edit', sub })}
-                      onDelete={() => void handleDelete(sub.id, sub.name)}
+                      onDelete={() => setPendingConfirm({ kind: 'delete', id: sub.id, name: sub.name })}
                     />
                   </div>
                 </td>
@@ -460,7 +480,7 @@ export default function Subscriptions() {
               <RowMenu
                 disabled={deletingId === sub.id}
                 onEdit={() => openView({ kind: 'edit', sub })}
-                onDelete={() => void handleDelete(sub.id, sub.name)}
+                onDelete={() => setPendingConfirm({ kind: 'delete', id: sub.id, name: sub.name })}
               />
             </div>
             <div className="flex flex-wrap items-center gap-3">
@@ -561,9 +581,9 @@ export default function Subscriptions() {
                 <SharedByMeTable
                   items={sharedByMe}
                   onAddMembers={shareFromShared}
-                  onStopSharing={(item) => void handleStopSharing(item)}
+                  onStopSharing={(item) => setPendingConfirm({ kind: 'stopSharing', item })}
                   onTogglePaid={(id) => void handleTogglePaid(id)}
-                  onRemoveMember={(m) => void handleRemoveMember(m)}
+                  onRemoveMember={(m) => setPendingConfirm({ kind: 'removeMember', member: m })}
                 />
               ) : (
                 <SharedWithMeTable
@@ -660,6 +680,31 @@ export default function Subscriptions() {
             </div>
           </div>
         </div>
+      )}
+
+      {pendingConfirm && (
+        <DangerConfirmModal
+          title={pendingConfirm.kind === 'delete' ? 'Eliminar suscripción' : pendingConfirm.kind === 'stopSharing' ? 'Dejar de compartir' : 'Remover miembro'}
+          confirmLabel={pendingConfirm.kind === 'delete' ? 'Eliminar' : pendingConfirm.kind === 'stopSharing' ? 'Dejar de compartir' : 'Remover'}
+          loadingLabel={pendingConfirm.kind === 'delete' ? 'Eliminando...' : undefined}
+          isSubmitting={isConfirming}
+          onConfirm={() => void runPendingConfirm()}
+          onClose={() => setPendingConfirm(null)}
+        >
+          {pendingConfirm.kind === 'delete' ? (
+            <>
+              <div className="flex items-center gap-3 bg-surface-base/50 rounded-xl px-4 py-3">
+                <ServiceLogo name={pendingConfirm.name} />
+                <span className="font-semibold text-text-primary truncate">{pendingConfirm.name}</span>
+              </div>
+              <p>Se eliminará esta suscripción y dejará de contarse en tus gastos recurrentes. Esta acción no se puede deshacer.</p>
+            </>
+          ) : pendingConfirm.kind === 'stopSharing' ? (
+            <p>¿Dejar de compartir <strong className="text-text-primary">"{pendingConfirm.item.scheduledExpense.name}"</strong>? Los miembros ya no podrán verla.</p>
+          ) : (
+            <p>¿Remover a <strong className="text-text-primary">{pendingConfirm.member.user?.name ?? pendingConfirm.member.email}</strong> de esta suscripción compartida?</p>
+          )}
+        </DangerConfirmModal>
       )}
     </div>
   );

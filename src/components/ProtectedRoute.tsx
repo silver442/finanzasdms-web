@@ -6,6 +6,7 @@ import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
 import DomainMigrationBanner from './DomainMigrationBanner';
 import NotificationBell from './NotificationBell';
+import { syncRoleFromServer } from '../utils/userSync';
 
 const API = import.meta.env.VITE_API_URL;
 const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER;
@@ -107,6 +108,11 @@ export default function ProtectedRoute() {
     });
   };
   const token = localStorage.getItem('token');
+
+  // El rol pudo cambiar con la sesión abierta (p. ej. solicitud de inversionista aprobada)
+  useEffect(() => {
+    if (token) void syncRoleFromServer();
+  }, [token]);
 
   if (!token) {
     return <Navigate to="/login" replace />;

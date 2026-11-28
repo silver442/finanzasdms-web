@@ -82,13 +82,6 @@ export interface SubFormValues {
 
 export const EMPTY_FORM: SubFormValues = { name: '', amount: '', frequency: 'MONTHLY', chargeDay: '', creditCardId: '' };
 
-// Sugerencias del buscador del formulario
-export const POPULAR_SERVICES = [
-  'Netflix', 'Spotify', 'Prime Video', 'YouTube Premium', 'Disney+', 'Max',
-  'Apple Music', 'iCloud+', 'Google One', 'Xbox Game Pass', 'PlayStation Plus',
-  'ChatGPT Plus', 'Gimnasio', 'Internet', 'Telefonía móvil',
-];
-
 // Próximo cobro mensual a partir del día de cobro (si el mes es corto, el último día del mes)
 export function nextMonthlyCharge(chargeDay: number): Date {
   const [y, m, d] = todayMx().split('-').map(Number);

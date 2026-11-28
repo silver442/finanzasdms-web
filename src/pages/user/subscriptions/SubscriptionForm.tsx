@@ -1,12 +1,13 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import {
   CalendarClock, CalendarDays, Check, ChevronDown, Clock, CreditCard,
-  DollarSign, RefreshCw, Search, Star, Users, X,
+  DollarSign, RefreshCw, Users, X,
 } from 'lucide-react';
-import { ServiceLogo } from './serviceBrand';
+import ServiceLogo from '../../../components/ServiceLogo';
+import ServicePicker from './ServicePicker';
 import MemberPicker from './MemberPicker';
-import { POPULAR_SERVICES, type PickedMember, type SubFormValues } from './subscriptionUtils';
+import { type PickedMember, type SubFormValues } from './subscriptionUtils';
 
 interface CardOption { id: string; name: string; }
 
@@ -40,7 +41,7 @@ function FormHero() {
         <div className="relative w-64 h-64">
           <div className="absolute left-2 top-6 -rotate-12"><ServiceLogo name="Netflix" size="lg" /></div>
           <div className="absolute left-20 top-0 rotate-6"><ServiceLogo name="Spotify" size="lg" /></div>
-          <div className="absolute right-4 top-10 rotate-12"><ServiceLogo name="Prime Video" size="lg" /></div>
+          <div className="absolute right-4 top-10 rotate-12"><ServiceLogo name="Claude" size="lg" /></div>
           <div className="absolute right-0 top-32 rotate-6"><ServiceLogo name="YouTube" size="lg" /></div>
           <div className="absolute left-12 top-24 w-36 h-36 rounded-3xl bg-surface-elevated/90 border border-white/10 shadow-2xl shadow-black/40 flex items-center justify-center">
             <CalendarDays size={84} className="text-brand-green-light" strokeWidth={1.5} />
@@ -67,7 +68,6 @@ export default function SubscriptionForm({ mode, initialValues, cards, saving, o
   const [values, setValues] = useState<SubFormValues>(initialValues);
   const [shareEnabled, setShareEnabled] = useState(false);
   const [members, setMembers] = useState<PickedMember[]>([]);
-  const nameRef = useRef<HTMLInputElement>(null);
 
   const set = (key: keyof SubFormValues) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -75,6 +75,7 @@ export default function SubscriptionForm({ mode, initialValues, cards, saving, o
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!values.name.trim()) { toast.error('Selecciona un servicio o escribe su nombre'); return; }
     if (shareEnabled && members.length === 0) { toast.error('Agrega al menos un miembro de Cashi para compartir'); return; }
     onSubmit(values, shareEnabled ? members.map((m) => m.email) : []);
   };
@@ -103,24 +104,10 @@ export default function SubscriptionForm({ mode, initialValues, cards, saving, o
 
         <div>
           <label htmlFor="sub-name" className={labelCls}>Nombre del servicio *</label>
-          <div className="relative">
-            <FieldIcon><Star size={18} /></FieldIcon>
-            <input
-              id="sub-name" ref={nameRef} type="text" required list="popular-services" autoComplete="off"
-              placeholder="Ej. Netflix, Spotify, Gimnasio"
-              value={values.name} onChange={set('name')}
-              className={`${fieldCls} pr-14`}
-            />
-            <datalist id="popular-services">
-              {POPULAR_SERVICES.map((s) => <option key={s} value={s} />)}
-            </datalist>
-            <button
-              type="button" onClick={() => nameRef.current?.focus()} aria-label="Buscar servicio"
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-lg bg-surface-elevated/70 text-text-secondary hover:text-white flex items-center justify-center transition-colors"
-            >
-              <Search size={18} />
-            </button>
-          </div>
+          <ServicePicker
+            id="sub-name" value={values.name}
+            onChange={(name) => setValues((prev) => ({ ...prev, name }))}
+          />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">

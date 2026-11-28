@@ -6,6 +6,7 @@ import {
   AlertTriangle, Bell, BellOff, Bitcoin, CalendarClock, CheckCheck, CheckCircle2, Clock,
   CreditCard, Landmark, Receipt, RefreshCw, Users, X, XCircle,
 } from 'lucide-react';
+import { syncRoleFromServer } from '../utils/userSync';
 
 const API = import.meta.env.VITE_API_URL;
 const POLL_MS = 60_000;
@@ -45,6 +46,9 @@ const TYPE_STYLE: Record<string, { Icon: typeof Bell; cls: string }> = {
   CRYPTO_ALERT:             { Icon: Bitcoin,       cls: 'bg-orange-500/15 text-orange-400' },
   CARD_CUTOFF_SOON:         { Icon: CreditCard,    cls: 'bg-blue-500/15 text-blue-400' },
   CARD_PAYMENT_DUE:         { Icon: CreditCard,    cls: 'bg-yellow-500/15 text-yellow-400' },
+  INVESTOR_APPLICATION_SUBMITTED: { Icon: Users,        cls: 'bg-blue-500/15 text-blue-400' },
+  INVESTOR_APPLICATION_APPROVED:  { Icon: CheckCircle2, cls: 'bg-brand-green/15 text-brand-green-light' },
+  INVESTOR_APPLICATION_REJECTED:  { Icon: XCircle,      cls: 'bg-red-500/15 text-red-400' },
 };
 const DEFAULT_STYLE = { Icon: Bell, cls: 'bg-surface-elevated text-text-secondary' };
 
@@ -80,11 +84,15 @@ export default function NotificationBell() {
   const [loading, setLoading] = useState(false);
   const [respondingId, setRespondingId] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const lastCountRef = useRef<number | null>(null);
 
   const fetchCount = useCallback(async () => {
     try {
       const { data } = await axios.get<{ count: number }>(`${API}/notifications/unread-count`, { headers: authHeaders() });
       setUnread(data.count);
+      // Un aviso nuevo puede ser la aprobación como inversionista: el Sidebar debe mostrar su sección
+      if (lastCountRef.current !== null && data.count > lastCountRef.current) void syncRoleFromServer();
+      lastCountRef.current = data.count;
     } catch { /* silencioso: se reintenta en el siguiente ciclo */ }
   }, []);
 

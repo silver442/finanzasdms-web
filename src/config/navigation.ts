@@ -1,7 +1,7 @@
 import type React from 'react';
 import {
   Activity, LayoutDashboard, CreditCard, CalendarClock, Landmark, PieChart, Bitcoin, TrendingUp,
-  ChartLine, Calculator, HandCoins, Wallet, GraduationCap,
+  ChartLine, Calculator, HandCoins, Wallet, GraduationCap, UserRound, ArrowLeftRight, CalendarDays, Briefcase,
 } from 'lucide-react';
 
 // ─── Flags de módulos (localStorage.user) ─────────────────────────────────────
@@ -67,4 +67,16 @@ export const userModules: UserModule[] = [
   { name: 'Deuda Externa',       shortName: 'Deuda',       path: '/external-debt',     icon: HandCoins,     requiredFlag: 'hasExternalDebtModule'     },
   { name: 'Presupuesto',         shortName: 'Presupuesto', path: '/budget',            icon: Wallet,        requiredFlag: 'hasBudgetModule'           },
   { name: 'Academia de Finanzas', shortName: 'Academia',   path: '/academy',           icon: GraduationCap, requiredFlag: 'hasFinanceAcademyModule'   },
+];
+
+// ─── Sección Inversionista (rol INVESTOR / ADMIN / SUPER_ADMIN) ───────────────
+// También son las pestañas de InvestorLayout.
+
+export const investorModules: { name: string; path: string; icon: React.ElementType }[] = [
+  { name: 'Cartera',         path: '/investor/wallet',    icon: Wallet         },
+  { name: 'Ir a prestar',    path: '/investor/lend',      icon: HandCoins      },
+  { name: 'Mis préstamos',   path: '/investor/loans',     icon: Briefcase      },
+  { name: 'Mis movimientos', path: '/investor/movements', icon: ArrowLeftRight },
+  { name: 'Calendario',      path: '/investor/calendar',  icon: CalendarDays   },
+  { name: 'Mi perfil',       path: '/investor/profile',   icon: UserRound      },
 ];
