@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
+import InvestorSection from '../../components/investor/InvestorSection';
 import {
   TrendingUp, ExternalLink, Star, Zap, X, Send, Copy, Bitcoin,
 } from 'lucide-react';
@@ -93,6 +94,9 @@ export default function Investments() {
           Plataformas recomendadas para hacer crecer tu patrimonio
         </p>
       </div>
+
+      {/* Crowdlending: solicitud para ser inversionista o panel del inversionista */}
+      <InvestorSection />
 
       {/* ── Banner de gamificación cruzada ── */}
       <div className="mb-8 bg-brand-green/10 border border-brand-green/30 rounded-2xl px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">

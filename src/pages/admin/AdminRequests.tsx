@@ -4,6 +4,9 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import LoanImageInput from '../../components/LoanImageInput';
 import { uploadLoanImage } from '../../utils/loanImage';
+import LoanFundingProgress from '../../components/loan-funding/LoanFundingProgress';
+import { summarizeFunding, type LoanFunding } from '../../components/loan-funding/fundingTypes';
+import { isSuperAdminRole } from '../../utils/roles';
 import {
   ShieldCheck, ShieldAlert, User, Phone, MapPin, Wallet,
   CheckCircle2, XCircle, X, AlertTriangle, CreditCard, Banknote, Lock, Clock, Ban,
@@ -56,6 +59,7 @@ interface AdminLoan {
   referralCode?: string;
   disbursementAccount?: string;
   user: LoanUser;
+  fundings?: LoanFunding[];
 }
 
 const API = import.meta.env.VITE_API_URL;
@@ -64,13 +68,16 @@ function authHeaders() {
   return { Authorization: `Bearer ${localStorage.getItem('token')}` };
 }
 
-function getAdminId(): string {
+function getStoredUser(): { id: string; role: string } {
   try {
     const raw = localStorage.getItem('user');
-    if (!raw) return '';
+    if (!raw) return { id: '', role: '' };
     const parsed = JSON.parse(raw) as Record<string, unknown>;
-    return typeof parsed.id === 'string' ? parsed.id : '';
-  } catch { return ''; }
+    return {
+      id: typeof parsed.id === 'string' ? parsed.id : '',
+      role: typeof parsed.role === 'string' ? parsed.role : '',
+    };
+  } catch { return { id: '', role: '' }; }
 }
 
 function fmt(v: string | number) {
@@ -82,7 +89,21 @@ function pct(v?: string | number) {
 }
 
 export default function AdminRequests() {
-  const adminId = useMemo(() => getAdminId(), []);
+  const { id: adminId, role } = useMemo(() => getStoredUser(), []);
+  const isSuperAdmin = isSuperAdminRole(role);
+
+  // Barra de fondeo colectivo; el préstamo propio no se puede fondear (conflicto de interés)
+  const renderFunding = (loan: AdminLoan) => (
+    <LoanFundingProgress
+      loanId={loan.id}
+      concept={loan.concept}
+      amount={Number(loan.amount)}
+      fundings={loan.fundings}
+      canFund={loan.user.id !== adminId}
+      isSuperAdmin={isSuperAdmin}
+      onFunded={() => void fetchRequests()}
+    />
+  );
   const [loans, setLoans] = useState<AdminLoan[]>([]);
   const [pendingTransfer, setPendingTransfer] = useState<AdminLoan[]>([]);
   const [awaitingClient, setAwaitingClient] = useState<AdminLoan[]>([]);
@@ -304,6 +325,7 @@ export default function AdminRequests() {
                       Pendiente de firma
                     </span>
                   </div>
+                  {renderFunding(loan)}
                   {isOwnLoan ? (
                     <div className="flex items-center gap-2 bg-brand-violet/10 border border-brand-violet/30 rounded-xl px-4 py-2.5">
                       <ShieldAlert size={15} className="text-brand-violet shrink-0" />
@@ -340,6 +362,7 @@ export default function AdminRequests() {
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             {pendingTransfer.map(loan => {
               const isOwnLoan = loan.user.id === adminId;
+              const isFullyFunded = summarizeFunding(Number(loan.amount), loan.fundings).isFullyFunded;
               return (
                 <div key={loan.id} className="bg-surface-card border border-violet-500/30 rounded-2xl shadow-xl p-5 flex flex-col gap-3">
                   <div className="flex justify-between items-start">
@@ -353,6 +376,7 @@ export default function AdminRequests() {
                       Cliente aceptó
                     </span>
                   </div>
+                  {renderFunding(loan)}
                   {loan.disbursementAccount && (
                     <div className="bg-surface-base rounded-lg p-3 text-sm">
                       <p className="text-text-muted text-xs mb-0.5">CLABE de Depósito</p>
@@ -383,11 +407,12 @@ export default function AdminRequests() {
                       </button>
                       <button
                         onClick={() => void handleConfirmTransfer(loan)}
-                        disabled={confirmingId === loan.id}
+                        disabled={confirmingId === loan.id || !isFullyFunded}
+                        title={isFullyFunded ? undefined : 'Se desembolsa al llegar al 100% de fondeo'}
                         className="sm:flex-1 flex items-center justify-center gap-2 bg-brand-green hover:bg-brand-green-light text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-brand-green/20 disabled:opacity-50"
                       >
                         <Banknote size={18} />
-                        {confirmingId === loan.id ? 'Activando...' : 'Confirmar Transferencia'}
+                        {confirmingId === loan.id ? 'Activando...' : isFullyFunded ? 'Confirmar Transferencia' : 'Falta fondeo'}
                       </button>
                     </div>
                   )}
@@ -444,6 +469,9 @@ export default function AdminRequests() {
 
                 {/* KYC body */}
                 <div className="p-5 grid grid-cols-1 gap-4 flex-1">
+
+                  {/* Fondeo colectivo */}
+                  {renderFunding(loan)}
 
                   {/* Usuario */}
                   <div className="flex items-start gap-3">

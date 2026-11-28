@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { isAdminRole, isSuperAdminRole } from '../utils/roles';
-import { getUserFlags, userModules, type UserFlags } from '../config/navigation';
+import { isAdminRole, isInvestorAreaRole, isSuperAdminRole } from '../utils/roles';
+import { getUserFlags, investorModules, userModules, type UserFlags } from '../config/navigation';
 import { isStatusVisible, useModuleStatuses } from '../utils/moduleConfig';
+import { useWallet } from '../hooks/useWallet';
 import {
   Landmark,
   LogOut, ShieldCheck, ClipboardList, Briefcase, DatabaseZap, ClipboardCheck,
   TrendingUp, BarChart2, Users, ChevronDown, ShoppingBag,
   Zap, Shield, Star, Crown, X, ScrollText, PanelLeftClose, PanelLeftOpen,
+  KeyRound, SlidersHorizontal, HandCoins, Settings2, UserCheck, BadgeDollarSign, Wallet,
 } from 'lucide-react';
 
 // ─── Config de niveles (espejo exacto de levels.config.ts del backend) ────────
@@ -88,12 +90,17 @@ const adminModules = [
   { name: 'Bancos',                 path: '/admin/banks',        icon: Landmark       },
   { name: 'Migrar Datos',           path: '/admin/migration',    icon: DatabaseZap    },
   { name: 'Tarjetas Referidos',     path: '/admin/referrals',    icon: TrendingUp     },
-  { name: 'Gestión de Usuarios',    path: '/admin/users',        icon: Users          },
 ];
 
-// Solo SUPER_ADMIN (el backend también lo exige con @Roles('SUPER_ADMIN'))
+// Solo SUPER_ADMIN (rutas protegidas con SuperAdminRoute en App.tsx)
 const superAdminModules = [
-  { name: 'Bitácora de Auditoría',  path: '/admin/audit-logs',   icon: ScrollText     },
+  { name: 'Gestión de Usuarios',    path: '/admin/users',        icon: Users             },
+  { name: 'Bitácora de Auditoría',  path: '/admin/audit-logs',   icon: ScrollText        },
+  { name: 'Edición de Préstamos',   path: '/admin/loan-levels',  icon: SlidersHorizontal },
+  { name: 'Solicitudes de Inversionistas', path: '/admin/investor-applications', icon: UserCheck },
+  { name: 'Reparto a Inversionistas', path: '/admin/investor-payouts', icon: HandCoins },
+  { name: 'Carteras y Saldos',      path: '/admin/wallets',      icon: Wallet            },
+  { name: 'Configuración de Plataforma', path: '/admin/platform-config', icon: Settings2 },
 ];
 
 // En modo colapsado (solo md+) el ítem se centra y pierde el padding horizontal
@@ -195,6 +202,47 @@ function LevelBadge({ points, level }: { points: number; level: LevelKey }) {
   );
 }
 
+// ─── WalletMiniSummary — saldo de la cartera (perfil de inversionista) ────────
+
+const fmtMxn = (v: number) =>
+  new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
+
+function WalletMiniSummary({ isCollapsed, onNavigate }: { isCollapsed: boolean; onNavigate: () => void }) {
+  const { wallet } = useWallet();
+  const available = wallet ? fmtMxn(wallet.availableBalance) : '—';
+  const total = wallet ? fmtMxn(wallet.totalAccountValue) : '—';
+  return (
+    <>
+      <Link
+        to="/investor/wallet" onClick={onNavigate}
+        className={`mx-3 mb-3 block bg-surface-elevated/50 border border-surface-border hover:border-brand-green/30 rounded-2xl p-4 transition-colors ${isCollapsed ? 'md:hidden' : ''}`}
+      >
+        <div className="flex items-center gap-1.5 mb-2">
+          <Wallet size={13} className="text-brand-green-light" />
+          <span className="text-xs font-bold text-text-secondary">Mi cartera</span>
+        </div>
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-[11px] text-text-muted">Disponible</span>
+          <span className="text-sm font-bold text-brand-green-light tabular-nums truncate">{available}</span>
+        </div>
+        <div className="flex items-baseline justify-between gap-2 mt-0.5">
+          <span className="text-[11px] text-text-muted">Valor de tu cuenta</span>
+          <span className="text-xs font-semibold text-text-primary tabular-nums truncate">{total}</span>
+        </div>
+      </Link>
+      {isCollapsed && (
+        <Link
+          to="/investor/wallet" onClick={onNavigate}
+          title={`Disponible: ${available} · Valor de tu cuenta: ${total}`}
+          className="hidden mx-auto mb-3 w-11 h-11 md:flex items-center justify-center bg-surface-elevated/50 border border-surface-border rounded-xl"
+        >
+          <Wallet size={18} className="text-brand-green-light" />
+        </Link>
+      )}
+    </>
+  );
+}
+
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
 type SidebarProps = {
@@ -210,13 +258,13 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
   const name = getUserName();
 
   const [pendingCount, setPendingCount] = useState(0);
-  const [openSections, setOpenSections] = useState({ user: true, admin: false });
+  const [openSections, setOpenSections] = useState({ user: true, investor: true, admin: false, superAdmin: false });
   const [flags, setFlags]   = useState<UserFlags>(getUserFlags);
   const [points, setPoints] = useState(getUserPoints);
   const [level,  setLevel]  = useState<LevelKey>(getUserLevel);
   const moduleStatuses = useModuleStatuses();
 
-  const toggleSection = (section: 'user' | 'admin') =>
+  const toggleSection = (section: keyof typeof openSections) =>
     setOpenSections((prev) => ({ ...prev, [section]: !prev[section] }));
 
   useEffect(() => {
@@ -326,6 +374,34 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
           <span className={`truncate ${hideWhenCollapsed}`}>Tienda de Módulos</span>
         </NavLink>
 
+        {/* Inversionista — se habilita al aprobarse la solicitud (INVESTOR) y para ADMIN / SUPER_ADMIN */}
+        {isInvestorAreaRole(role) && (
+          <div className={`pt-2 ${isCollapsed ? 'md:mt-2 md:border-t md:border-surface-border' : ''}`}>
+            <button
+              onClick={() => toggleSection('investor')}
+              className={`w-full flex items-center justify-between px-2 py-2 text-xs font-bold text-text-muted uppercase tracking-wider hover:text-text-secondary transition-colors ${hideWhenCollapsed}`}
+            >
+              <span className="flex items-center gap-2">
+                <BadgeDollarSign size={14} />
+                Inversionista
+              </span>
+              <ChevronDown
+                size={14}
+                className={`transition-transform duration-200 ${openSections.investor ? 'rotate-180' : ''}`}
+              />
+            </button>
+
+            <div className={sectionCls(openSections.investor)}>
+              {investorModules.map(({ name: mName, path, icon: Icon }) => (
+                <NavLink key={path} to={path} className={itemCls} onClick={onClose} title={isCollapsed ? mName : undefined}>
+                  <Icon size={20} className="shrink-0" />
+                  <span className={`truncate ${hideWhenCollapsed}`}>{mName}</span>
+                </NavLink>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Administración — solo ADMIN / SUPER_ADMIN */}
         {isAdminRole(role) && (
           <div className={`pt-2 ${isCollapsed ? 'md:mt-2 md:border-t md:border-surface-border' : ''}`}>
@@ -344,7 +420,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
             </button>
 
             <div className={sectionCls(openSections.admin)}>
-              {[...adminModules, ...(isSuperAdminRole(role) ? superAdminModules : [])].map(({ name: mName, path, icon: Icon }) => (
+              {adminModules.map(({ name: mName, path, icon: Icon }) => (
                 <NavLink key={path} to={path} className={itemCls} onClick={onClose} title={isCollapsed ? mName : undefined}>
                   <Icon size={20} className="shrink-0" />
                   <span className={`truncate ${hideWhenCollapsed}`}>{mName}</span>
@@ -360,7 +436,38 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
           </div>
         )}
 
+        {/* SuperAdmin — solo SUPER_ADMIN */}
+        {isSuperAdminRole(role) && (
+          <div className={`pt-2 ${isCollapsed ? 'md:mt-2 md:border-t md:border-surface-border' : ''}`}>
+            <button
+              onClick={() => toggleSection('superAdmin')}
+              className={`w-full flex items-center justify-between px-2 py-2 text-xs font-bold text-text-muted uppercase tracking-wider hover:text-text-secondary transition-colors ${hideWhenCollapsed}`}
+            >
+              <span className="flex items-center gap-2">
+                <KeyRound size={14} />
+                SuperAdmin
+              </span>
+              <ChevronDown
+                size={14}
+                className={`transition-transform duration-200 ${openSections.superAdmin ? 'rotate-180' : ''}`}
+              />
+            </button>
+
+            <div className={sectionCls(openSections.superAdmin)}>
+              {superAdminModules.map(({ name: mName, path, icon: Icon }) => (
+                <NavLink key={path} to={path} className={itemCls} onClick={onClose} title={isCollapsed ? mName : undefined}>
+                  <Icon size={20} className="shrink-0" />
+                  <span className={`truncate ${hideWhenCollapsed}`}>{mName}</span>
+                </NavLink>
+              ))}
+            </div>
+          </div>
+        )}
+
       </nav>
+
+      {/* ── Resumen de cartera (perfil de inversionista) ── */}
+      {isInvestorAreaRole(role) && <WalletMiniSummary isCollapsed={isCollapsed} onNavigate={onClose} />}
 
       {/* ── Progreso de nivel ── */}
       {!isAdminRole(role) && (

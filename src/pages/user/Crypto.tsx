@@ -7,7 +7,7 @@ import PortfolioTab from './crypto/PortfolioTab';
 import DayTradingTab from './crypto/DayTradingTab';
 import SwingTradingTab from './crypto/SwingTradingTab';
 import { API, apiErrorMessage, authHeaders } from './crypto/utils/api';
-import DangerConfirmModal from './crypto/components/DangerConfirmModal';
+import DangerConfirmModal from '../../components/DangerConfirmModal';
 import { readPref, writePref } from './crypto/utils/storage';
 
 type MarketState = 'LATERAL' | 'ALCISTA' | 'BAJISTA';

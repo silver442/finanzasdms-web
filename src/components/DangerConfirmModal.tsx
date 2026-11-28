@@ -1,17 +1,18 @@
 import type { ReactNode } from 'react';
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle, Loader2, X } from 'lucide-react';
 
 interface DangerConfirmModalProps {
   title: string;
   confirmLabel: string;
+  loadingLabel?: string;
   isSubmitting: boolean;
   onConfirm: () => void;
   onClose: () => void;
   children: ReactNode;
 }
 
-// Confirmación de acciones destructivas e irreversibles (borrar moneda, reiniciar portafolio)
-export default function DangerConfirmModal({ title, confirmLabel, isSubmitting, onConfirm, onClose, children }: DangerConfirmModalProps) {
+// Confirmación de acciones destructivas (borrar moneda, reiniciar portafolio, eliminar nivel, eliminar suscripción)
+export default function DangerConfirmModal({ title, confirmLabel, loadingLabel = 'Procesando...', isSubmitting, onConfirm, onClose, children }: DangerConfirmModalProps) {
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-4">
       <div role="alertdialog" aria-modal="true" aria-label={title} className="bg-surface-card/80 backdrop-blur-md rounded-2xl border border-white/5 shadow-card w-full max-w-md max-h-[90dvh] overflow-y-auto overscroll-contain p-5 sm:p-6">
@@ -37,9 +38,9 @@ export default function DangerConfirmModal({ title, confirmLabel, isSubmitting, 
             type="button"
             onClick={onConfirm}
             disabled={isSubmitting}
-            className="flex-1 bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500 hover:border-red-500 hover:text-white py-2.5 rounded-xl transition-all font-bold disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-1 bg-red-600 hover:bg-red-500 text-white py-2.5 rounded-xl transition-all font-bold shadow-lg shadow-red-600/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            {isSubmitting ? 'Procesando...' : confirmLabel}
+            {isSubmitting ? <><Loader2 size={16} className="animate-spin" /> {loadingLabel}</> : confirmLabel}
           </button>
         </div>
       </div>

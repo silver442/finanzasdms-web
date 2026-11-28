@@ -34,6 +34,10 @@ const ACTION_META: Record<string, { label: string; cls: string }> = {
   UNBLOCK_USER:           { label: 'Desbloqueo de usuario', cls: 'bg-brand-green/10 text-brand-green-light border-brand-green/30' },
   PROMOTE_ADMIN:          { label: 'Promoción a admin',    cls: 'bg-sky-500/10 text-sky-400 border-sky-500/30' },
   DEMOTE_ADMIN:           { label: 'Degradación de admin', cls: 'bg-slate-500/10 text-slate-300 border-slate-500/30' },
+  CREATE_LOAN_LEVEL:      { label: 'Alta de nivel',        cls: 'bg-brand-green/10 text-brand-green-light border-brand-green/30' },
+  UPDATE_LOAN_LEVEL:      { label: 'Edición de nivel',     cls: 'bg-sky-500/10 text-sky-400 border-sky-500/30' },
+  DELETE_LOAN_LEVEL:      { label: 'Baja de nivel',        cls: 'bg-red-500/10 text-red-400 border-red-500/30' },
+  UPDATE_COLLECTION_SETTINGS: { label: 'Edición de mora',  cls: 'bg-amber-500/10 text-amber-400 border-amber-500/30' },
 };
 
 function actionMeta(action: string) {
